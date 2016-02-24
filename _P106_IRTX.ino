@@ -62,7 +62,7 @@ boolean Plugin_106(byte function, struct EventStruct *event, String& string)
 		String Plugin_106_IrType;
 		unsigned long Plugin_106_IrCode;
 		String Plugin_106_RawCode;
-		int Plugin_106_IrBits;
+		unsigned int Plugin_106_IrBits;
 		char command[80];
 		command[0] = 0;
 		char TmpStr1[80];
@@ -89,6 +89,7 @@ boolean Plugin_106(byte function, struct EventStruct *event, String& string)
 			if (Plugin_106_IrType.equalsIgnoreCase("RC6")) Plugin_106_irSender->sendRC6(Plugin_106_IrCode, Plugin_106_IrBits);
 			if (Plugin_106_IrType.equalsIgnoreCase("SAMSUNG")) Plugin_106_irSender->sendSAMSUNG(Plugin_106_IrCode, Plugin_106_IrBits);
 			if (Plugin_106_IrType.equalsIgnoreCase("SONY")) Plugin_106_irSender->sendSony(Plugin_106_IrCode, Plugin_106_IrBits);
+			if (Plugin_106_IrType.equalsIgnoreCase("PANASONIC")) Plugin_106_irSender->sendPanasonic(Plugin_106_IrBits,Plugin_106_IrCode);
 
 			addLog(LOG_LEVEL_INFO, "IR Code Sent");
 			if (printToWeb)
