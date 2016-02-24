@@ -164,29 +164,29 @@ boolean Plugin_103(byte function, struct EventStruct *event, String& string)
         {
           case 1:
             {
-              sprintf(tmpString, "<TR><TD>GPIO Pin:<TD><input type='text' name='plugin_103_onactionpar1' value='%d'>", ExtraTaskSettings.TaskDevicePluginConfigLong[1]);
+              sprintf_P(tmpString, PSTR("<TR><TD>GPIO Pin:<TD><input type='text' name='plugin_103_onactionpar1' value='%d'>"), ExtraTaskSettings.TaskDevicePluginConfigLong[1]);
               string += tmpString;
-              sprintf(tmpString, "<TR><TD>State:<TD><input type='text' name='plugin_103_onactionpar2' value='%d'>", ExtraTaskSettings.TaskDevicePluginConfigLong[2]);
+              sprintf_P(tmpString, PSTR("<TR><TD>State:<TD><input type='text' name='plugin_103_onactionpar2' value='%d'>"), ExtraTaskSettings.TaskDevicePluginConfigLong[2]);
               string += tmpString;
               break;
             }
           case 2:
             {
-              sprintf(tmpString, "<TR><TD>Timer Nr:<TD><input type='text' name='plugin_103_onactionpar1' value='%d'>", ExtraTaskSettings.TaskDevicePluginConfigLong[1]);
+              sprintf_P(tmpString, PSTR("<TR><TD>Timer Nr:<TD><input type='text' name='plugin_103_onactionpar1' value='%d'>"), ExtraTaskSettings.TaskDevicePluginConfigLong[1]);
               string += tmpString;
-              sprintf(tmpString, "<TR><TD>Timer Value:<TD><input type='text' name='plugin_103_onactionpar2' value='%d'>", ExtraTaskSettings.TaskDevicePluginConfigLong[2]);
+              sprintf_P(tmpString, PSTR("<TR><TD>Timer Value:<TD><input type='text' name='plugin_103_onactionpar2' value='%d'>"), ExtraTaskSettings.TaskDevicePluginConfigLong[2]);
               string += tmpString;
               break;
             }
           case 3:
             {
-              sprintf(tmpString, "<TR><TD>Userevent Nr:<TD><input type='text' name='plugin_103_onactionpar1' value='%d'>", ExtraTaskSettings.TaskDevicePluginConfigLong[1]);
+              sprintf_P(tmpString, PSTR("<TR><TD>Userevent Nr:<TD><input type='text' name='plugin_103_onactionpar1' value='%d'>"), ExtraTaskSettings.TaskDevicePluginConfigLong[1]);
               string += tmpString;
               break;
             }
           case 99:
             {
-              sprintf(tmpString, "<TR><TD>Command:<TD><input type='text' maxlength='79' name='plugin_103_onactioncmd' value='%s'>", custom.commandOn);
+              sprintf_P(tmpString, PSTR("<TR><TD>Command:<TD><input type='text' maxlength='79' name='plugin_103_onactioncmd' value='%s'>"), custom.commandOn);
               string += tmpString;
               break;
             }
@@ -213,29 +213,29 @@ boolean Plugin_103(byte function, struct EventStruct *event, String& string)
           {
             case 1:
               {
-                sprintf(tmpString, "<TR><TD>GPIO Pin:<TD><input type='text' name='plugin_103_offactionpar1' value='%d'>", ExtraTaskSettings.TaskDevicePluginConfigLong[5]);
+                sprintf_P(tmpString, PSTR("<TR><TD>GPIO Pin:<TD><input type='text' name='plugin_103_offactionpar1' value='%d'>"), ExtraTaskSettings.TaskDevicePluginConfigLong[5]);
                 string += tmpString;
-                sprintf(tmpString, "<TR><TD>State:<TD><input type='text' name='plugin_103_offactionpar2' value='%d'>", ExtraTaskSettings.TaskDevicePluginConfigLong[6]);
+                sprintf_P(tmpString, PSTR("<TR><TD>State:<TD><input type='text' name='plugin_103_offactionpar2' value='%d'>"), ExtraTaskSettings.TaskDevicePluginConfigLong[6]);
                 string += tmpString;
                 break;
               }
             case 2:
               {
-                sprintf(tmpString, "<TR><TD>Timer Nr:<TD><input type='text' name='plugin_103_offactionpar1' value='%d'>", ExtraTaskSettings.TaskDevicePluginConfigLong[5]);
+                sprintf_P(tmpString, PSTR("<TR><TD>Timer Nr:<TD><input type='text' name='plugin_103_offactionpar1' value='%d'>"), ExtraTaskSettings.TaskDevicePluginConfigLong[5]);
                 string += tmpString;
-                sprintf(tmpString, "<TR><TD>Timer Value:<TD><input type='text' name='plugin_103_offactionpar2' value='%d'>", ExtraTaskSettings.TaskDevicePluginConfigLong[6]);
+                sprintf_P(tmpString, PSTR("<TR><TD>Timer Value:<TD><input type='text' name='plugin_103_offactionpar2' value='%d'>"), ExtraTaskSettings.TaskDevicePluginConfigLong[6]);
                 string += tmpString;
                 break;
               }
             case 3:
               {
-                sprintf(tmpString, "<TR><TD>Userevent Nr:<TD><input type='text' name='plugin_103_offactionpar1' value='%d'>", ExtraTaskSettings.TaskDevicePluginConfigLong[5]);
+                sprintf_P(tmpString, PSTR("<TR><TD>Userevent Nr:<TD><input type='text' name='plugin_103_offactionpar1' value='%d'>"), ExtraTaskSettings.TaskDevicePluginConfigLong[5]);
                 string += tmpString;
                 break;
               }
             case 99:
               {
-                sprintf(tmpString, "<TR><TD>Command:<TD><input type='text' maxlength='79' name='plugin_103_offactioncmd' value='%s'>", custom.commandOff);
+                sprintf_P(tmpString, PSTR("<TR><TD>Command:<TD><input type='text' maxlength='79' name='plugin_103_offactioncmd' value='%s'>"), custom.commandOff);
                 string += tmpString;
                 break;
               }
@@ -298,7 +298,7 @@ boolean Plugin_103(byte function, struct EventStruct *event, String& string)
         // check if this task is set to "boot event" as source
         if (Settings.TaskDevicePluginConfig[event->TaskIndex][0] == PLUGIN_103_LISTEN_BOOT)
         {
-          Serial.println("Boot Event");
+          Serial.println(F("Boot Event"));
           Plugin_103_Action(event->TaskIndex, ExtraTaskSettings.TaskDevicePluginConfigLong[0], ExtraTaskSettings.TaskDevicePluginConfigLong[1], ExtraTaskSettings.TaskDevicePluginConfigLong[2], 1);
         }
         success = true;
@@ -308,15 +308,15 @@ boolean Plugin_103(byte function, struct EventStruct *event, String& string)
     case PLUGIN_TIMER_EVENT:
       {
         LoadTaskSettings(event->TaskIndex);
-        Serial.print("Timer event ");
+        Serial.print(F("Timer event "));
         Serial.println(event->Par1);
-        Serial.print(" listen to ");
+        Serial.print(F(" listen to "));
         Serial.println(Settings.TaskDevicePluginConfig[event->TaskIndex][0]);
         // Par1 has timer number, stored in pluginconfigfloat[0]
         if (Settings.TaskDevicePluginConfig[event->TaskIndex][0] == PLUGIN_103_LISTEN_TIMER)
           if (Settings.TaskDevicePluginConfigFloat[event->TaskIndex][0] == event->Par1)
           {
-            Serial.println("Timer event Hit!");
+            Serial.println(F("Timer event Hit!"));
             Plugin_103_Action(event->TaskIndex, ExtraTaskSettings.TaskDevicePluginConfigLong[0], ExtraTaskSettings.TaskDevicePluginConfigLong[1], ExtraTaskSettings.TaskDevicePluginConfigLong[2], 1);
           }
         break;
@@ -325,15 +325,15 @@ boolean Plugin_103(byte function, struct EventStruct *event, String& string)
     case PLUGIN_USER_EVENT:
       {
         LoadTaskSettings(event->TaskIndex);
-        Serial.print("User event ");
+        Serial.print(F("User event "));
         Serial.print(event->Par1);
-        Serial.print(" listen to ");
+        Serial.print(F(" listen to "));
         Serial.println(Settings.TaskDevicePluginConfig[event->TaskIndex][0]);
         // Par1 has userevent number, stored in pluginconfigfloat[0]
         if (Settings.TaskDevicePluginConfig[event->TaskIndex][0] == PLUGIN_103_LISTEN_USEREVENT)
           if (Settings.TaskDevicePluginConfigFloat[event->TaskIndex][0] == event->Par1)
           {
-            Serial.println("Userevent Hit!");
+            Serial.println(F("Userevent Hit!"));
             Plugin_103_Action(event->TaskIndex, ExtraTaskSettings.TaskDevicePluginConfigLong[0], ExtraTaskSettings.TaskDevicePluginConfigLong[1], ExtraTaskSettings.TaskDevicePluginConfigLong[2], 1);
           }
         break;
@@ -390,7 +390,7 @@ boolean Plugin_103(byte function, struct EventStruct *event, String& string)
                   {
                     if (Plugin_id[z] == Settings.TaskDeviceNumber[y])
                     {
-                      Serial.println("timer event out");
+                      Serial.println(F("timer event out"));
                       Plugin_ptr[z](PLUGIN_TIMER_EVENT, &TempEvent, dummyString);
                     }
                   }
@@ -423,7 +423,7 @@ boolean Plugin_103(byte function, struct EventStruct *event, String& string)
           if (state != switchstate[event->TaskIndex])
           {
             switchstate[event->TaskIndex] = state;
-            Serial.println("trigger");
+            Serial.println(F("trigger"));
             LoadTaskSettings(event->TaskIndex);
             if (state == 0)
               Plugin_103_Action(event->TaskIndex, ExtraTaskSettings.TaskDevicePluginConfigLong[0], ExtraTaskSettings.TaskDevicePluginConfigLong[1], ExtraTaskSettings.TaskDevicePluginConfigLong[2], 1);
@@ -445,7 +445,7 @@ boolean Plugin_103(byte function, struct EventStruct *event, String& string)
 //********************************************************************************
 void Plugin_103_Action(byte TaskIndex, byte cmd, int Par1, int Par2, byte state)
 {
-  Serial.print("Cmd: ");
+  Serial.print(F("Cmd: "));
   Serial.print(cmd);
   Serial.print(" ");
   Serial.print(Par1);
@@ -478,11 +478,11 @@ void Plugin_103_Action(byte TaskIndex, byte cmd, int Par1, int Par2, byte state)
             {
               if (Plugin_id[z] == Settings.TaskDeviceNumber[y])
               {
-                Serial.print("user event out from ");
+                Serial.print(F("user event out from "));
                 Serial.print(TaskIndex);
-                Serial.print(" to ");
+                Serial.print(F(" to "));
                 Serial.print(y);
-                Serial.print(" par1 ");
+                Serial.print(F(" par1 "));
                 Serial.println(Par1);
                 Plugin_ptr[z](PLUGIN_USER_EVENT, &TempEvent, dummyString);
               }
@@ -515,7 +515,7 @@ void Plugin_103_Action(byte TaskIndex, byte cmd, int Par1, int Par2, byte state)
         if (GetArgv(command, TmpStr1, 3)) TempEvent.Par2 = str2int(TmpStr1);
         if (GetArgv(command, TmpStr1, 4)) TempEvent.Par3 = str2int(TmpStr1);
 
-        Serial.print("Custom command: ");
+        Serial.print(F("Custom command: "));
         Serial.println(request);
 
         if (!PluginCall(PLUGIN_WRITE, &TempEvent, request))
