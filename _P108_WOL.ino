@@ -51,9 +51,9 @@ boolean Plugin_108(byte function, struct EventStruct *event, String& string)
         options[0] = F("Active Low");
         options[1] = F("Active High");
         int optionValues[2];
-        optionValues[0] = 1;
+        optionValues[0] = 0;
         optionValues[1] = 1;
-        string += F("<TR><TD>DHT Type:<TD><select name='plugin_108_state'>");
+        string += F("<TR><TD>Output state:<TD><select name='plugin_108_state'>");
         for (byte x = 0; x < 2; x++)
         {
           string += F("<option value='");
@@ -87,7 +87,10 @@ boolean Plugin_108(byte function, struct EventStruct *event, String& string)
           WOL->begin(7);
         }
         if (Settings.TaskDevicePin1[event->TaskIndex] != -1)
-          pinMode(Settings.TaskDevicePin1[event->TaskIndex], OUTPUT);
+          {
+            pinMode(Settings.TaskDevicePin1[event->TaskIndex], OUTPUT);
+            digitalWrite(Settings.TaskDevicePin1[event->TaskIndex], !Settings.TaskDevicePluginConfig[event->TaskIndex][0]);
+          }
       }
       success = true;
       break;
