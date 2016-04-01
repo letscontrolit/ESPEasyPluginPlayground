@@ -160,44 +160,6 @@ boolean Plugin_210(byte function, struct EventStruct *event, String& string)
         break;
       }
 
-    case PLUGIN_COMMAND:
-      {
-        // This option is called when user has made a request to this task
-        
-//      Get the payload
-
-        String Payload=event->String2;
-        float floatPayload=string2float(Payload);
-
-//      Abort if not a valid number
-
-        if (floatPayload == -999)
-        {
-          String log=F("ERR  : Illegal value for Payload ");
-          log+=Payload;
-          log += " - must be a valid floating point number";
-          addLog(LOG_LEVEL_INFO,log);
-          break;
-        }
-        
-//      Get the valuenameindex for this command
-        
-        byte ValueNameIndex=getValueNameIndex(event->TaskIndex,string);
-        
-        if (ValueNameIndex == 255){
-          addLog(LOG_LEVEL_INFO,"ERR  : Internal Error");
-          break;
-        }
-        
-        UserVar[event->BaseVarIndex+ValueNameIndex]=floatPayload;  // Save the new value
-
-        logUpdates(210,event->TaskIndex,ValueNameIndex,floatPayload);
-
-        success=true;
-        break;
-    }
-  
-
     case PLUGIN_IMPORT:
       {
         // This is a private option only used by the MQTT 210 callback function
