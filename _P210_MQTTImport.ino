@@ -15,6 +15,11 @@
 
 #define PLUGIN_IMPORT 210		// This is a 'private' function used only by this import module
 
+// The line below should be commented out for local namirda use.
+// It is required for general external releases only  
+#define PLUGIN_COMMAND  999    
+
+
 // Define MQTT client for this plugin only
 
 PubSubClient MQTTclient_210("");		// Create a new pubsub instance
@@ -159,6 +164,44 @@ boolean Plugin_210(byte function, struct EventStruct *event, String& string)
         success = false;
         break;
       }
+
+    case PLUGIN_COMMAND:
+      {
+        // This option is called when user has made a request to this task
+        
+//      Get the payload
+
+        String Payload=event->String2;
+        float floatPayload=string2float(Payload);
+
+//      Abort if not a valid number
+
+        if (floatPayload == -999)
+        {
+          String log=F("ERR  : Illegal value for Payload ");
+          log+=Payload;
+          log += " - must be a valid floating point number";
+          addLog(LOG_LEVEL_INFO,log);
+          break;
+        }
+        
+//      Get the valuenameindex for this command
+        
+        byte ValueNameIndex=getValueNameIndex(event->TaskIndex,string);
+        
+        if (ValueNameIndex == 255){
+          addLog(LOG_LEVEL_INFO,"ERR  : Internal Error");
+          break;
+        }
+        
+        UserVar[event->BaseVarIndex+ValueNameIndex]=floatPayload;  // Save the new value
+
+        logUpdates(210,event->TaskIndex,ValueNameIndex,floatPayload);
+
+        success=true;
+        break;
+    }
+  
 
     case PLUGIN_IMPORT:
       {
