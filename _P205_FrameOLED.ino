@@ -3,10 +3,10 @@
 //## This is a modification to Plugin_023 with graphics library provided from squix78 github ############
 //#### https://github.com/squix78/esp8266-oled-ssd1306
 //
-// New method init_Neil added to above library in order to enable init of the oled library within the INIT
+// New method init overload added to above library in order to enable init of the oled library within the INIT
 // call to this plugin.
 //
-// The OLED can display up to 8 strings in four frames - ie 8 frames with 1 line, 4 with 2 lines or 2 with 4 lines.
+// The OLED can display up to 12 strings in four frames - ie 12 frames with 1 line, 6 with 2 lines or 3 with 4 lines.
 // The font size is adjsted according to the number of lines required per frame.
 //
 // The usual parseTemplate routine is used so that strings like %systime% or [DHT#Temperature] are parsed properly
