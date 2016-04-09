@@ -22,7 +22,7 @@
 
 // The line below should be commented out for local namirda use.
 // It is required for general external releases only  
-//#define PLUGIN_COMMAND  999   
+#define PLUGIN_COMMAND  999   
 
 #include "SSD1306.h"
 #include "images.h"
