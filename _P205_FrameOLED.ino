@@ -1,9 +1,9 @@
 //#######################################################################################################
-//#################################### Plugin 205: OLED SSD1306 Framed Display ##########################
+//#################################### Plugin 205: OLED SSD1306 display #################################
 //## This is a modification to Plugin_023 with graphics library provided from squix78 github ############
 //#### https://github.com/squix78/esp8266-oled-ssd1306
 //
-// New method init overload added to above library in order to enable init of the oled library within the INIT
+// New init overload added to above library in order to enable init of the oled library within the INIT
 // call to this plugin.
 //
 // The OLED can display up to 12 strings in four frames - ie 12 frames with 1 line, 6 with 2 lines or 3 with 4 lines.
@@ -22,7 +22,7 @@
 
 // The line below should be commented out for local namirda use.
 // It is required for general external releases only  
-#define PLUGIN_COMMAND  999   
+//#define PLUGIN_COMMAND  999   
 
 #include "SSD1306.h"
 #include "images.h"
@@ -117,16 +117,18 @@ boolean Plugin_205(byte function, struct EventStruct *event, String& string)
         string += F("</select>");
 
         byte choice3 = Settings.TaskDevicePluginConfig[event->TaskIndex][2];
-        String options3[3];
+        String options3[4];
         options3[0] = F("1");
         options3[1] = F("2");
-        options3[2] = F("4");
-        int optionValues3[3];
+		options3[2] = F("3");
+        options3[3] = F("4");
+        int optionValues3[4];
         optionValues3[0] = 1;
         optionValues3[1] = 2;
-        optionValues3[2] = 4;
+		optionValues3[2] = 3;
+		optionValues3[3] = 4;
         string += F("<TR><TD>Lines per Frame:<TD><select name='plugin_205_nlines'>");
-        for (byte x = 0; x < 3; x++)
+        for (byte x = 0; x < 4; x++)
         {
           string += F("<option value='");
           string += optionValues3[x];
@@ -166,7 +168,8 @@ boolean Plugin_205(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_WEBFORM_SAVE:
       {
-        String plugin1 = WebServer.arg("plugin_205_adr");
+
+		String plugin1 = WebServer.arg("plugin_205_adr");
         Settings.TaskDevicePluginConfig[event->TaskIndex][0] = plugin1.toInt();
         String plugin2 = WebServer.arg("plugin_205_rotate");
         Settings.TaskDevicePluginConfig[event->TaskIndex][1] = plugin2.toInt();
@@ -189,6 +192,8 @@ boolean Plugin_205(byte function, struct EventStruct *event, String& string)
         Settings.TaskDeviceID[event->TaskIndex] = 1; // temp fix, needs a dummy value
 
         SaveCustomTaskSettings(event->TaskIndex, (byte*)&deviceTemplate, sizeof(deviceTemplate));
+
+		//addLog(LOG_LEVEL_INFO, "OK at end of PLUGIN_WEBFORM_SAVE");
         success = true;
         break;
       }
@@ -319,6 +324,10 @@ boolean Plugin_205(byte function, struct EventStruct *event, String& string)
 //      Update display
 
         display_time();
+
+		int nbars=(WiFi.RSSI()+100)/8;
+		display_wifibars(105,0,15,10,5,nbars);
+
         display_espname();
         display_indicator(frameCounter,NFrames);
         display.display();
@@ -478,20 +487,20 @@ boolean Plugin_205(byte function, struct EventStruct *event, String& string)
 void display_time(){
   String dtime="%systime%";
   String newString = parseTemplate(dtime, 10);
-  display.setTextAlignment(TEXT_ALIGN_RIGHT);
+  display.setTextAlignment(TEXT_ALIGN_LEFT);
   display.setFont(ArialMT_Plain_10);
   display.setColor(BLACK);
-  display.fillRect(100, 0, 28, 10);
+  display.fillRect(0, 0, 28, 10);
   display.setColor(WHITE);
-  display.drawString(128, 0, newString.substring(0,5));
+  display.drawString(0, 0, newString.substring(0,5));
 }
 
 void display_espname(){
   String dtime="%sysname%";
   String newString = parseTemplate(dtime, 10);
-  display.setTextAlignment(TEXT_ALIGN_LEFT);
+  display.setTextAlignment(TEXT_ALIGN_CENTER);
   display.setFont(ArialMT_Plain_10);
-  display.drawString(0, 0, newString);
+  display.drawString(64, 0, newString);
 }
 
 void display_logo() {
@@ -553,7 +562,14 @@ void display_scroll(String outString[], String inString[], int nlines) {
     ypos[0]=15;
     ypos[1]=34;
    }
-   
+
+   if (nlines == 3) {
+	   display.setFont(Dialog_Plain_12);
+	   ypos[0] = 13;
+	   ypos[1] = 25;
+	   ypos[2] = 37;
+   }
+
    if (nlines == 4){
     display.setFont(ArialMT_Plain_10);
     ypos[0]=12;
@@ -569,7 +585,8 @@ void display_scroll(String outString[], String inString[], int nlines) {
 //  Clear the scroll area
 
       display.setColor(BLACK);
-      display.fillRect(0, 10, 128, 44);   // scrolling window is 44 pixels high - ie 64 less margin of 10 at top and bottom  
+	  // We allow 12 pixels at the top because otherwise the wifi indicator gets too squashed!!
+      display.fillRect(0, 12, 128, 42);   // scrolling window is 44 pixels high - ie 64 less margin of 10 at top and bottom  
       display.setColor(WHITE);
 
 // Now draw the strings
@@ -588,5 +605,29 @@ void display_scroll(String outString[], String inString[], int nlines) {
 
    }
 
+}
+//Draw Signal Strength Bars
+void display_wifibars(int x, int y, int size_x, int size_y,int nbars,int nbars_filled) {
+
+//	x,y are the x,y locations
+//	sizex,sizey are the sizes (should be a multiple of the number of bars)
+//	nbars is the number of bars and nbars_filled is the number of filled bars.
+
+//	We leave a 1 pixel gap between bars
+
+	for (byte ibar = 1; ibar < nbars + 1; ibar++) {
+
+		display.setColor(BLACK);
+		display.fillRect(x + (ibar - 1)*size_x / nbars, y, size_x/nbars, size_y);
+		display.setColor(WHITE);
+
+		if (ibar <= nbars_filled) {
+			display.fillRect(x + (ibar - 1)*size_x / nbars, y + (nbars - ibar)*size_y / nbars, (size_x / nbars)-1, size_y*ibar / nbars);
+		}
+		else
+		{
+			display.drawRect(x + (ibar - 1)*size_x / nbars, y + (nbars - ibar)*size_y / nbars, (size_x / nbars)-1, size_y*ibar / nbars);
+		}
+	}
 }
 
