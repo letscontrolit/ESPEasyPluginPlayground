@@ -11,6 +11,7 @@
 //
 // The usual parseTemplate routine is used so that strings like %systime% or [DHT#Temperature] are parsed properly
 //
+//#################################### Version 0.3 12-May-2016 ##########################################
 //#######################################################################################################
 
 #define PLUGIN_205

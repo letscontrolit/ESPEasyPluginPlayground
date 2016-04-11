@@ -1,5 +1,6 @@
 //#######################################################################################################
 //#################################### Plugin 210: MQTT Import ##########################################
+//#################################### Version 0.3 12-May-2016 ##########################################
 //#######################################################################################################
 
 // This simple task reads data from the MQTT Import  input stream and saves the value
@@ -111,8 +112,6 @@ boolean Plugin_210(byte function, struct EventStruct *event, String& string)
 //    When we edit the subscription data from the webserver, the plugin is called again with init.
 //    In order to resubscribe we have to disconnect and reconnect in order to get rid of any obsolete subscriptions
 
-		SaveTaskSettings(event->TaskIndex);		//Save because Webserver does not do it!
-
         MQTTclient_210.disconnect();
 
 		if (MQTTConnect_210(ClientName))
@@ -125,7 +124,6 @@ boolean Plugin_210(byte function, struct EventStruct *event, String& string)
 		{
 			success=false;
         }
-		LoadTaskSettings(event->TaskIndex);		//Load it again to keep webserver happy
       }
 
     case PLUGIN_TEN_PER_SECOND:

@@ -1,5 +1,6 @@
 //#######################################################################################################
 //#################################### Plugin 209: IFTTT Maker###########################################
+//#################################### Version 0.3 12-May-2016 ##########################################
 //#######################################################################################################
 
 #define PLUGIN_209
@@ -156,7 +157,6 @@ boolean Plugin_209(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_INIT:
       {
-		  SaveTaskSettings(event->TaskIndex);	// This is only here because Webserver does not save stuff before INIT!!!!!
 		
 		  LoadCustomTaskSettings(event->TaskIndex, (byte*)&Template, sizeof(Template));
 
@@ -257,8 +257,6 @@ boolean Plugin_209(byte function, struct EventStruct *event, String& string)
 
 			  InData[x].LimitIndicator = 0;
 		  }
-
-		LoadTaskSettings(event->TaskIndex);		//This line is only here because we need leave current task as we found it!
 
 		success = true;
         break;
