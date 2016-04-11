@@ -1,11 +1,11 @@
 //**********************************************************************************************************************
 //
-//	Gets the TaskIndex from the Task Name
+//	Gets the TaskIndex from the Task Name - returns 255 if not found
 //
 byte getTaskIndex(String TaskName)
 
 
-// This routine returns the Index of the task called TaskName - note that TaskName is not case sensitive
+// This routine returns the Task Index of the task called TaskName - note that TaskName is not case sensitive
 // If TaskName is not found, then it returns 255
 
 {
@@ -23,9 +23,38 @@ byte getTaskIndex(String TaskName)
   return 255;
 }
 
+// Extracts the Task Name and ValueName from the Ident
+
+boolean getTaskandValueName(String IdentIn,String &TaskName,String &ValueName)
+{
+	String Ident;
+
+	Ident = IdentIn;
+
+	// Get rid of any []
+
+	Ident.replace("[", " ");
+	Ident.replace("]", " ");
+	Ident.trim();
+
+	// Find the location of # - it must exist and must not be at the beginning or the end of the ident
+
+	int loc = Ident.indexOf("#");
+	if ((loc == -1) || (loc == 0) || (loc == Ident.length()))
+	{
+		return false;
+	}
+
+	// Seperate out the taskname and the valuename
+
+	TaskName = Ident.substring(0, loc);
+	ValueName = Ident.substring(loc + 1);
+
+	return true;
+}
 //  ************************************************************************************************************************
 //
-//	Gets the ValuenameIndex from the TaskIndex and the ValueName
+//	Gets the ValuenameIndex from the TaskIndex and the ValueName - returns 255 if not found
 //
 byte getValueNameIndex(int TaskIndex, String ValueName)
 {

@@ -20,9 +20,11 @@
 #define PLUGIN_VALUENAME2_205 "Display"
 #define Nlines 12				// The number of different lines which can be displayed - each line is 32 chars max
 
-// The line below should be commented out for local namirda use.
-// It is required for general external releases only  
-#define PLUGIN_COMMAND  999   
+// The line below defines the dummy function PLUGIN_COMMAND which is only for Namirda use
+
+#ifndef PLUGIN_COMMAND
+#define PLUGIN_COMMAND 999
+#endif     
 
 #include "SSD1306.h"
 #include "images.h"
@@ -179,21 +181,20 @@ boolean Plugin_205(byte function, struct EventStruct *event, String& string)
         Settings.TaskDevicePluginConfig[event->TaskIndex][3] = plugin4.toInt();
 
         char deviceTemplate[Nlines][32];
+
+		String argName;
+
         for (byte varNr = 0; varNr < Nlines; varNr++)
         {
-          char argc[25];
-          String arg = F("Plugin_205_template");
-          arg += varNr + 1;
-          arg.toCharArray(argc, 25);
-          String tmpString = WebServer.arg(argc);
-          strncpy(deviceTemplate[varNr], tmpString.c_str(), sizeof(deviceTemplate[varNr]));
+          argName = F("Plugin_205_template");
+          argName += varNr + 1;
+          strncpy(deviceTemplate[varNr], WebServer.arg(argName).c_str(), sizeof(deviceTemplate[varNr]));
         }
 
         Settings.TaskDeviceID[event->TaskIndex] = 1; // temp fix, needs a dummy value
 
         SaveCustomTaskSettings(event->TaskIndex, (byte*)&deviceTemplate, sizeof(deviceTemplate));
 
-		//addLog(LOG_LEVEL_INFO, "OK at end of PLUGIN_WEBFORM_SAVE");
         success = true;
         break;
       }

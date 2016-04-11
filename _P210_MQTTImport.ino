@@ -15,10 +15,11 @@
 
 #define PLUGIN_IMPORT 210		// This is a 'private' function used only by this import module
 
-// The line below should be commented out for local namirda use.
-// It is required for general external releases only  
-#define PLUGIN_COMMAND  999    
+// The line below defines the dummy function PLUGIN_COMMAND which is only for Namirda use
 
+#ifndef PLUGIN_COMMAND
+#define PLUGIN_COMMAND 999
+#endif    
 
 // Define MQTT client for this plugin only
 
@@ -27,14 +28,13 @@ PubSubClient MQTTclient_210("");		// Create a new pubsub instance
 boolean Plugin_210(byte function, struct EventStruct *event, String& string)
 {
   boolean success = false;
-  char deviceTemplate[4][64];		// variable for saving the subscription topics
+  char deviceTemplate[4][40];		// variable for saving the subscription topics
   
   //
   // Generate the MQTT import client name from the system name and a suffix
   //
   String tmpClientName = "%sysname%-Import";
   String ClientName = parseTemplate(tmpClientName, 20);
-
 
   switch (function)
   {
@@ -76,7 +76,7 @@ boolean Plugin_210(byte function, struct EventStruct *event, String& string)
         {
           string += F("<TR><TD>MQTT Topic ");
           string += varNr + 1;
-          string += F(":<TD><input type='text' size='64' maxlength='64' name='Plugin_210_template");
+          string += F(":<TD><input type='text' size='40' maxlength='40' name='Plugin_210_template");
           string += varNr + 1;
           string += F("' value='");
           string += deviceTemplate[varNr];
@@ -88,14 +88,13 @@ boolean Plugin_210(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_WEBFORM_SAVE:
       {
+		String argName;
+
         for (byte varNr = 0; varNr < 4; varNr++)
         {
-          char argc[25];
-          String arg = F("Plugin_210_template");
-          arg += varNr + 1;
-          arg.toCharArray(argc, 25);
-          String tmpString = WebServer.arg(argc);
-          strncpy(deviceTemplate[varNr], tmpString.c_str(), sizeof(deviceTemplate[varNr]));
+          argName = F("Plugin_210_template");
+          argName += varNr + 1;
+          strncpy(deviceTemplate[varNr], WebServer.arg(argName).c_str(), sizeof(deviceTemplate[varNr]));
         }
 
         Settings.TaskDeviceID[event->TaskIndex] = 1; // temp fix, needs a dummy value
@@ -112,19 +111,21 @@ boolean Plugin_210(byte function, struct EventStruct *event, String& string)
 //    When we edit the subscription data from the webserver, the plugin is called again with init.
 //    In order to resubscribe we have to disconnect and reconnect in order to get rid of any obsolete subscriptions
 
+		SaveTaskSettings(event->TaskIndex);		//Save because Webserver does not do it!
+
         MQTTclient_210.disconnect();
 
-        if ( ! MQTTConnect_210(ClientName)){
-          success=false;
-          break;
-        }
-//
+		if (MQTTConnect_210(ClientName))
+		{
 //		Subscribe to ALL the topics from ALL instance of this import module
-//
-        MQTTsubscribe();
-                 
-        success = true;
-        break;
+			MQTTsubscribe();
+			success = true;
+		}
+		else 
+		{
+			success=false;
+        }
+		LoadTaskSettings(event->TaskIndex);		//Load it again to keep webserver happy
       }
 
     case PLUGIN_TEN_PER_SECOND:
@@ -259,7 +260,7 @@ void MQTTsubscribe(){
 // Subscribe to the topics requested by ALL calls to this plugin.
 // We do this because if the connection to the broker is lost, we want to resubscribe for all instances.
 
-  char deviceTemplate[4][64];
+  char deviceTemplate[4][40];
 
 //	Loop over all tasks looking for a 210 instance
 

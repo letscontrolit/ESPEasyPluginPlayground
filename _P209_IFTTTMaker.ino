@@ -6,22 +6,40 @@
 #define PLUGIN_ID_209        209
 #define PLUGIN_NAME_209      "IFTTT Maker"
 
+// The line below defines the dummy function PLUGIN_COMMAND which is only for Namirda use
+
+#ifndef PLUGIN_COMMAND
+#define PLUGIN_COMMAND 999
+#endif   
 
 boolean Plugin_209(byte function, struct EventStruct *event, String& string)
 {
   boolean success = false;
 
-  static byte LimitIndicator[4];				// Keeps track of 0=In Range, 1=Below LL, 2=Above UL
+  //	Define the structure to load/save the parameters
 
-  //	Define the structure for the parameters
-
-  struct TemplateStrucure
+  struct TemplateStructure
   {
 	  char Ident[24];
 	  char LL[8];
 	  char UL[8];
 	  char Hysteresis[8];
-  } Template[6];
+  };
+ 
+ static TemplateStructure Template[6];		// Needs to be static because we use the plugin_init values in plugin_read
+
+  //	Define and Instantiate structure for parameters
+
+  struct DStruct
+  {
+	  int uservarindex;			// Index in uservar of the latest value
+	  float UL;					// Upper limit
+	  float LL;					// Lower limit	
+	  float Hysteresis;			// Hysteresis
+	  byte LimitIndicator;		// Keeps track of 0=In Range, 1=Below LL, 2=Above UL
+  };
+  
+  static DStruct InData[4];				//Needs to be static because we use the plugin_init values in plugin_read
 
   switch (function)
   {
@@ -138,12 +156,109 @@ boolean Plugin_209(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_INIT:
       {
-		  //	Initialize the limit indicators
+		  SaveTaskSettings(event->TaskIndex);	// This is only here because Webserver does not save stuff before INIT!!!!!
+		
+		  LoadCustomTaskSettings(event->TaskIndex, (byte*)&Template, sizeof(Template));
+
+		  String TaskName;
+		  String ValueName;
+		  String Ident;
+		  int ValueIndex;
+		  int TaskIndex;
+
+		  // Preset Index to -1 to skip blank idents during read
+
+		  for (byte x = 0; x < 4; x++) 
+		  {
+			  InData[x].uservarindex = -1;	//Skip this ident during read unless updated to positive
+		  }
+
+		  // Loop over the four parameter sets and store values
 
 		  for (byte x = 0; x < 4; x++)
 		  {
-			  LimitIndicator[x] = 0;
+
+			  Ident= Template[x + 2].Ident;
+			  Ident.trim();
+
+			  if (Ident.length() == 0)continue;			// Ignore blank idents
+
+			  // Check Ident syntax
+			  if (!getTaskandValueName(Ident, TaskName, ValueName)) 
+			  {
+				  String log = F("IFTTT: Illegal Identifier Syntax - ");
+				  log += Ident;
+				  log += " - this entry will be ignored";
+				  addLog(LOG_LEVEL_ERROR, log);
+				  continue;	
+			  }
+
+			  // Get and check the TaskIndex
+			  TaskIndex = getTaskIndex(TaskName);		
+			  if (TaskIndex == 255) {
+				  String log = F("IFTTT: Task ");
+				  log += TaskName;
+				  log += " not found - this entry will be ignored";
+				  addLog(LOG_LEVEL_ERROR, log);
+				  continue;
+			  }
+
+			  //Get and Check the ValueIndex
+			  ValueIndex = getValueNameIndex(TaskIndex, ValueName);		
+			  if (ValueIndex == 255) {
+				  String log = F("IFTTT: Valuename ");
+				  log += ValueName;
+				  log += " not found for task ";
+				  log += TaskName;
+				  log += " - this entry will be ignored";
+				  addLog(LOG_LEVEL_ERROR, log);
+				  continue;
+			  }
+
+			  // Check on UL,LL and Hysteresis
+			  InData[x].LL = string2float(Template[x + 2].LL);
+			  if (InData[x].LL == -999) {
+				  String log = F("IFTTT: Illegal Value for Lower Limit ");
+				  log += Template[x].LL;
+				  addLog(LOG_LEVEL_ERROR, log);
+				  continue;
+			  }
+
+			  //Check upper limit
+			  InData[x].UL = string2float(Template[x + 2].UL);
+			  if (InData[x].UL == -999) {
+				  String log = F("IFTTT: Illegal Value for Upper Limit ");
+				  log += Template[x + 2].UL;
+				  addLog(LOG_LEVEL_ERROR, log);
+				  continue;
+			  }
+
+			  //Check lower limit
+			  if (InData[x].LL >= InData[x].UL) {
+				  String log = F("IFTTT: Lower Limit must be less than Upper Limit");
+				  addLog(LOG_LEVEL_ERROR, log);
+				  continue;
+			  }
+
+			  //Check Hysteresis
+			  InData[x].Hysteresis = string2float(Template[x + 2].Hysteresis);
+			  if (InData[x].Hysteresis < 0) {
+				  String log = F("IFTTT: Illegal Value for Hysteresis ");
+				  log += Template[x + 2].Hysteresis;
+				  addLog(LOG_LEVEL_ERROR, log);
+				  continue;
+			  }
+
+			  // At this point the input parameters looks OK - we can now set uservarindex
+
+			  InData[x].uservarindex = TaskIndex*VARS_PER_TASK + ValueIndex;
+
+		  //	Finally initialize the limit indicators
+
+			  InData[x].LimitIndicator = 0;
 		  }
+
+		LoadTaskSettings(event->TaskIndex);		//This line is only here because we need leave current task as we found it!
 
 		success = true;
         break;
@@ -151,116 +266,85 @@ boolean Plugin_209(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_READ:
       {
-//		Here we loop over all four idents and get the latest values
+		//		Here we loop over all four idents and get the latest values
 
-		LoadCustomTaskSettings(event->TaskIndex, (byte*)&Template, sizeof(Template));
-
-		String Ident;
-		String log;
-		float UL;
-		float LL;
-		float Hysteresis;
-
+		float LV;
+		
 		for (byte x = 0; x < 4; x++)
 		{
-			Ident = Template[x + 2].Ident;
-			Ident.trim();
-			if (Ident.length() == 0)break;
+			if (InData[x].uservarindex == -1)continue; 					// Only bother with valid idents
 
-			float LV = getLatestValue(Ident);
-			if (LV == -999.00) break;
+			LV = UserVar[InData[x].uservarindex];						// This is the latest value for the ident
 
-			LL = string2float(Template[x+2].LL);
-			if (LL == -999) {
-				String log = F("IFTTT: Illegal Value for Lower Limit ");
-				log += Template[x].LL;
-				addLog(LOG_LEVEL_ERROR, log);
-				break;
-			}
+//	Now check the data levels against limits
 
-			UL = string2float(Template[x+2].UL);
-			if (UL == -999) {
-				String log = F("IFTTT: Illegal Value for Upper Limit ");
-				log += Template[x+2].UL;
-				addLog(LOG_LEVEL_ERROR, log);
-				break;
-			}
+			if (InData[x].LimitIndicator == 0) {
 
-			if (LL >= UL) {
-				String log = F("IFTTT: Lower Limit must be less than Upper Limit");
-				addLog(LOG_LEVEL_ERROR, log);
-				break;
-			}
+				// Check Upper Limit
 
-			Hysteresis = string2float(Template[x + 2].Hysteresis);
-			if (Hysteresis < 0) {
-				String log = F("IFTTT: Illegal Value for Hysteresis ");
-				log += Template[x + 2].Hysteresis;
-				addLog(LOG_LEVEL_ERROR, log);
-				break;
-			}
+				if(LV > InData[x].UL) {
 
-			// IFTTT uses 'Event' to identify a particular trigger - this must match a parameter on IFTTT.com
+					// We are going to send Trigger - prepare stuff
 
-			String IFTTT_APIKey = Template[0].Ident;
-			String IFTTT_Event = Template[1].Ident;
+					String IFTTT_APIKey = Template[0].Ident;
+					String IFTTT_Event = Template[1].Ident;
 
-			// IFTTT allows only 3 data values to be sent along with the trigger
-			// We define these as follows:
+					String Ident = Template[x + 2].Ident;
+					Ident.trim();
 
-			String IFTTT_Value1 = Ident;
-			String IFTTT_Value2 = String(LV);		// This is the current value
-			String IFTTT_Value3 = "[" + String(LL) + "/" + String(UL) + "]";	// The min/max combo
+					// Prepare the 3 values to be sent to IFTTT
 
-//	All input data is now checked - check the data levels
+					String IFTTT_Value1 = Ident;
+					String IFTTT_Value2 = String(LV);		// This is the current value
+					String IFTTT_Value3 = "[" + String(InData[x].LL) + "/" + String(InData[x].UL) + "]";	// The min/max combo
 
-			if (LimitIndicator[x] == 0) {
-				if(LV > UL) {
-					LimitIndicator[x] = 2;
-					log = "IFTTT: ";
+					InData[x].LimitIndicator = 2;
+
+					String log = F("IFTTT: ");
 					log += Ident;
-					log += " has a value of ";
-					log += LV;
-					log += " which is above the upper limit - IFTTT Trigger will be sent";
+					log += " is above upper limit - Trigger will be sent";
 					addLog(LOG_LEVEL_INFO, log);
 					IFTTT_Trigger(IFTTT_APIKey, IFTTT_Event, IFTTT_Value1,IFTTT_Value2,IFTTT_Value3);
-					break;
 				}
-				else if (LV < LL) {
-					LimitIndicator[x] = 1;
-					log = "IFTTT: ";
+
+				// Check Lower Limit
+
+				else if (LV < InData[x].LL) {
+
+					// We are going to send Trigger - prepare stuff
+
+					String IFTTT_APIKey = Template[0].Ident;
+					String IFTTT_Event = Template[1].Ident;
+
+					String Ident = Template[x + 2].Ident;
+					Ident.trim();
+
+					// Prepare the 3 values to be sent to IFTTT
+
+					String IFTTT_Value1 = Ident;
+					String IFTTT_Value2 = String(LV);		// This is the current value
+					String IFTTT_Value3 = "[" + String(InData[x].LL) + "/" + String(InData[x].UL) + "]";	// The min/max combo
+
+					InData[x].LimitIndicator = 1;
+					String log = F("IFTTT: ");
 					log += Ident;
-					log += " has a value of ";
-					log += LV;
-					log += " which is below the lower limit - IFTTT Trigger will be sent";
+					log += " is below lower limit - Trigger will be sent";
 					addLog(LOG_LEVEL_INFO, log);
 					IFTTT_Trigger(IFTTT_APIKey, IFTTT_Event, IFTTT_Value1, IFTTT_Value2, IFTTT_Value3);
-					break;
 				}
 			}
-			else if (LimitIndicator[x] == 2) {
-				if (LV < UL - Hysteresis) {
-					LimitIndicator[x] = 0;
-					log = "IFTTT: ";
-					log += Ident;
-					log += " has a value of ";
-					log += LV;
-					log += " - hysteresis reset";
-					addLog(LOG_LEVEL_INFO, log);
-					break;
+
+			// Hysteresis resets
+
+			else if (InData[x].LimitIndicator == 2) {
+				if (LV < InData[x].UL - InData[x].Hysteresis) {
+					InData[x].LimitIndicator = 0;
 				}
 			}
-			else if (LimitIndicator[x] == 1) {
-					if (LV > LL + Hysteresis) {
-						LimitIndicator[x] = 0;
-						log = "IFTTT: ";
-						log += Ident;
-						log += " has a value of ";
-						log += LV;
-						log += " - hysteresis reset";
-						addLog(LOG_LEVEL_INFO, log);
-						break;
-					}
+			else if (InData[x].LimitIndicator == 1) {
+				if (LV > InData[x].LL + InData[x].Hysteresis) {
+					InData[x].LimitIndicator = 0;
+				}
 			}
 		}
 
