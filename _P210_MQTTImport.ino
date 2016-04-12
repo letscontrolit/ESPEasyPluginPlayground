@@ -29,7 +29,7 @@ PubSubClient MQTTclient_210("");		// Create a new pubsub instance
 boolean Plugin_210(byte function, struct EventStruct *event, String& string)
 {
   boolean success = false;
-  char deviceTemplate[4][40];		// variable for saving the subscription topics
+  char deviceTemplate[4][41];		// variable for saving the subscription topics
   
   //
   // Generate the MQTT import client name from the system name and a suffix
@@ -72,7 +72,9 @@ boolean Plugin_210(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_WEBFORM_LOAD:
       {
+
         LoadCustomTaskSettings(event->TaskIndex, (byte*)&deviceTemplate, sizeof(deviceTemplate));
+
         for (byte varNr = 0; varNr < 4; varNr++)
         {
           string += F("<TR><TD>MQTT Topic ");
@@ -96,12 +98,12 @@ boolean Plugin_210(byte function, struct EventStruct *event, String& string)
           argName = F("Plugin_210_template");
           argName += varNr + 1;
           strncpy(deviceTemplate[varNr], WebServer.arg(argName).c_str(), sizeof(deviceTemplate[varNr]));
-        }
+		}
 
         Settings.TaskDeviceID[event->TaskIndex] = 1; // temp fix, needs a dummy value
 
         SaveCustomTaskSettings(event->TaskIndex, (byte*)&deviceTemplate, sizeof(deviceTemplate));
-     
+
         success = true;
         break;
       }
@@ -235,10 +237,28 @@ boolean Plugin_210(byte function, struct EventStruct *event, String& string)
         for (byte x = 0; x < 4; x++)
         {
             String subscriptionTopic = deviceTemplate[x];
+			subscriptionTopic.trim();
+			if (subscriptionTopic.length() == 0) continue;							// skip blank subscriptions
 
-            if (MQTTCheck(Topic,subscriptionTopic)){	// Does the topic match the subscription??
-              UserVar[event->BaseVarIndex+x]=floatPayload;  // Save the new value
-              logUpdates(210,event->TaskIndex,x,UserVar[event->BaseVarIndex+x]);                   
+			// Now check if the incoming topic matches one of our subscriptions
+
+            if (MQTTCheckSubscription(Topic,subscriptionTopic))
+			{	
+              UserVar[event->BaseVarIndex+x]=floatPayload;							// Save the new value
+              logUpdates(210,event->TaskIndex,x,UserVar[event->BaseVarIndex+x]);    // Log the event
+
+			  // Generate event for rules processing - proposed by TridentTD
+			  
+			  if (Settings.UseRules)
+			  {
+				  String event = F("");
+				  event += ExtraTaskSettings.TaskDeviceName;
+				  event += "#";
+				  event += ExtraTaskSettings.TaskDeviceValueNames[x];
+				  event += "=";
+				  event += floatPayload;
+				  rulesProcessing(event);
+			  }
             }
         }
 
@@ -258,7 +278,7 @@ void MQTTsubscribe(){
 // Subscribe to the topics requested by ALL calls to this plugin.
 // We do this because if the connection to the broker is lost, we want to resubscribe for all instances.
 
-  char deviceTemplate[4][40];
+  char deviceTemplate[4][41];
 
 //	Loop over all tasks looking for a 210 instance
 
@@ -370,7 +390,7 @@ boolean MQTTConnect_210(String clientid)
 //
 // Check to see if Topic matches the MQTT subscription
 //
-boolean MQTTCheck(String Topic, String Subscription) {
+boolean MQTTCheckSubscription(String Topic, String Subscription) {
 
 	String tmpTopic = Topic;
 	String tmpSub = Subscription;
