@@ -4,9 +4,9 @@
 /*
   Plugin written by: Daniel Tedenljung info__AT__tedenljungconsulting.com
   
-  This plugin reads the co2 value of SenseAir Co2 Sensors.
+  This plugin reads the co2 value of SenseAir Co2 Sensors. (S8 works, K30 is ongoing)
   Datasheet can be found here for S8: http://www.senseair.com/products/oem-modules/senseair-s8/
-  Datasheet can be found here for K30: http://www.senseair.com/products/oem-modules/senseair-s8/
+  Datasheet can be found here for K30: http://www.senseair.com/products/oem-modules/k30/
 
   You can buy sensor from m.nu in Sweden:
   S8 https://www.m.nu/co2matare-fran-senseair-p-1440.html
