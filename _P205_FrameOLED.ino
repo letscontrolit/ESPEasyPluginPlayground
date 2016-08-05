@@ -11,21 +11,16 @@
 //
 // The usual parseTemplate routine is used so that strings like %systime% or [DHT#Temperature] are parsed properly
 //
-//#################################### Version 0.3 12-May-2016 ##########################################
+//#################################### Version 0.4 05-Aug-2016 ##########################################
+//            This version Requires ESPEasy R114 and above, Core 2.3 and PubSub 2.6
 //#######################################################################################################
 
 #define PLUGIN_205
 #define PLUGIN_ID_205         205
 #define PLUGIN_NAME_205       "Display - OLED SSD1306 Framed"
 #define PLUGIN_VALUENAME1_205 "OnOff"
-#define PLUGIN_VALUENAME2_205 "Display"
+
 #define Nlines 12				// The number of different lines which can be displayed - each line is 32 chars max
-
-// The line below defines the dummy function PLUGIN_COMMAND which is only for Namirda use
-
-#ifndef PLUGIN_COMMAND
-#define PLUGIN_COMMAND 999
-#endif     
 
 #include "SSD1306.h"
 #include "images.h"
@@ -37,12 +32,15 @@ SSD1306 display(0,0,0); // The parameters here are dummy only. The real i2c addr
 boolean Plugin_205(byte function, struct EventStruct *event, String& string)
 {
   boolean success = false;
+
   static byte displayTimer = 0;
-  static byte frameCounter=0;   // need to keep track of framecounter from call to call
-  static bool firstcall=true;   // This is used to clear the init graphic on the first call to read
-  
-  int linesPerFrame;     // the number of lines in each frame
-  int NFrames;			// the number of frames
+  static byte frameCounter=0;				// need to keep track of framecounter from call to call
+  static boolean firstcall=true;			// This is used to clear the init graphic on the first call to read
+ 
+  static char deviceTemplate[Nlines][32];	// static because set in webform load/save and used in read
+
+  int linesPerFrame;						// the number of lines in each frame
+  int NFrames;								// the number of frames
   
   switch (function)
   {
@@ -56,8 +54,8 @@ boolean Plugin_205(byte function, struct EventStruct *event, String& string)
         Device[deviceCount].PullUpOption = false;
         Device[deviceCount].InverseLogicOption = false;
         Device[deviceCount].FormulaOption = false;
-        Device[deviceCount].ValueCount = 2;
-        Device[deviceCount].SendDataOption = false;
+        Device[deviceCount].ValueCount = 1;
+        Device[deviceCount].SendDataOption = true;
         Device[deviceCount].TimerOption = true;
         break;
       }
@@ -71,42 +69,70 @@ boolean Plugin_205(byte function, struct EventStruct *event, String& string)
     case PLUGIN_GET_DEVICEVALUENAMES:
       {
         strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_VALUENAME1_205));  // OnOff
-        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[1], PSTR(PLUGIN_VALUENAME2_205));  // Display
         break;
       }
 
     case PLUGIN_WEBFORM_LOAD:
       {
-        byte choice = Settings.TaskDevicePluginConfig[event->TaskIndex][0];
-        String options[2];
-        options[0] = F("3C");
-        options[1] = F("3D");
-        int optionValues[2];
-        optionValues[0] = 0x3C;
-        optionValues[1] = 0x3D;
+        byte choice0 = Settings.TaskDevicePluginConfig[event->TaskIndex][0];
+        String options0[2];
+        options0[0] = F("3C");
+        options0[1] = F("3D");
+        int optionValues0[2];
+        optionValues0[0] = 0x3C;
+        optionValues0[1] = 0x3D;
         string += F("<TR><TD>I2C Address:<TD><select name='plugin_205_adr'>");
         for (byte x = 0; x < 2; x++)
         {
           string += F("<option value='");
-          string += optionValues[x];
+          string += optionValues0[x];
           string += "'";
-          if (choice == optionValues[x])
+          if (choice0 == optionValues0[x])
             string += F(" selected");
           string += ">";
-          string += options[x];
+          string += options0[x];
           string += F("</option>");
         }
         string += F("</select>");
 
-        byte choice2 = Settings.TaskDevicePluginConfig[event->TaskIndex][1];
-        String options2[2];
-        options2[0] = F("Normal");
-        options2[1] = F("Rotated");
-        int optionValues2[2];
-        optionValues2[0] = 1;
-        optionValues2[1] = 2;
+		//
+
+        byte choice1 = Settings.TaskDevicePluginConfig[event->TaskIndex][1];
+        String options1[2];
+        options1[0] = F("Normal");
+        options1[1] = F("Rotated");
+        int optionValues1[2];
+        optionValues1[0] = 1;
+        optionValues1[1] = 2;
         string += F("<TR><TD>Rotation:<TD><select name='plugin_205_rotate'>");
         for (byte x = 0; x < 2; x++)
+        {
+          string += F("<option value='");
+          string += optionValues1[x];
+          string += "'";
+          if (choice1 == optionValues1[x])
+            string += F(" selected");
+          string += ">";
+          string += options1[x];
+          string += F("</option>");
+        }
+        string += F("</select>");
+
+		//
+
+        byte choice2 = Settings.TaskDevicePluginConfig[event->TaskIndex][2];
+        String options2[4];
+        options2[0] = F("1");
+        options2[1] = F("2");
+		options2[2] = F("3");
+        options2[3] = F("4");
+        int optionValues2[4];
+        optionValues2[0] = 1;
+        optionValues2[1] = 2;
+		optionValues2[2] = 3;
+		optionValues2[3] = 4;
+        string += F("<TR><TD>Lines per Frame:<TD><select name='plugin_205_nlines'>");
+        for (byte x = 0; x < 4; x++)
         {
           string += F("<option value='");
           string += optionValues2[x];
@@ -119,33 +145,37 @@ boolean Plugin_205(byte function, struct EventStruct *event, String& string)
         }
         string += F("</select>");
 
-        byte choice3 = Settings.TaskDevicePluginConfig[event->TaskIndex][2];
-        String options3[4];
-        options3[0] = F("1");
-        options3[1] = F("2");
-		options3[2] = F("3");
-        options3[3] = F("4");
-        int optionValues3[4];
-        optionValues3[0] = 1;
-        optionValues3[1] = 2;
-		optionValues3[2] = 3;
-		optionValues3[3] = 4;
-        string += F("<TR><TD>Lines per Frame:<TD><select name='plugin_205_nlines'>");
-        for (byte x = 0; x < 4; x++)
-        {
-          string += F("<option value='");
-          string += optionValues3[x];
-          string += "'";
-          if (choice3 == optionValues3[x])
-            string += F(" selected");
-          string += ">";
-          string += options3[x];
-          string += F("</option>");
-        }
-        string += F("</select>");
 
-        char deviceTemplate[Nlines][32];
+		byte choice3 = Settings.TaskDevicePluginConfig[event->TaskIndex][3];
+		String options3[5];
+		options3[0] = F("Very Slow");
+		options3[1] = F("Slow");
+		options3[2] = F("Fast");
+		options3[3] = F("Very Fast");
+		options3[4] = F("Instant");
+		int optionValues3[5];
+		optionValues3[0] = 1;
+		optionValues3[1] = 2;
+		optionValues3[2] = 4;
+		optionValues3[3] = 8;
+		optionValues3[4] = 32;
+
+		string += F("<TR><TD>Scroll:<TD><select name='plugin_205_scroll'>");
+		for (byte x = 0; x < 5; x++)
+		{
+			string += F("<option value='");
+			string += optionValues3[x];
+			string += F("'");
+			if (choice3 == optionValues3[x])
+				string += F(" selected");
+			string += F(">");
+			string += options3[x];
+			string += F("</option>");
+		}
+		string += F("</select>");
+
         LoadCustomTaskSettings(event->TaskIndex, (byte*)&deviceTemplate, sizeof(deviceTemplate));
+
         for (byte varNr = 0; varNr < Nlines; varNr++)
         {
           string += F("<TR><TD>Line ");
@@ -162,7 +192,7 @@ boolean Plugin_205(byte function, struct EventStruct *event, String& string)
 
         char tmpString[128];
 
-        sprintf_P(tmpString, PSTR("<TR><TD>Display Timeout:<TD><input type='text' name='plugin_205_timer' value='%u'>"), Settings.TaskDevicePluginConfig[event->TaskIndex][3]);
+        sprintf_P(tmpString, PSTR("<TR><TD>Display Timeout:<TD><input type='text' name='plugin_205_timer' value='%u'>"), Settings.TaskDevicePluginConfig[event->TaskIndex][4]);
         string += tmpString;
 
         success = true;
@@ -172,16 +202,20 @@ boolean Plugin_205(byte function, struct EventStruct *event, String& string)
     case PLUGIN_WEBFORM_SAVE:
       {
 
-		String plugin1 = WebServer.arg("plugin_205_adr");
-        Settings.TaskDevicePluginConfig[event->TaskIndex][0] = plugin1.toInt();
-        String plugin2 = WebServer.arg("plugin_205_rotate");
-        Settings.TaskDevicePluginConfig[event->TaskIndex][1] = plugin2.toInt();
-        String plugin3 = WebServer.arg("plugin_205_nlines");
-        Settings.TaskDevicePluginConfig[event->TaskIndex][2] = plugin3.toInt();
-		String plugin4 = WebServer.arg("plugin_205_timer");
-        Settings.TaskDevicePluginConfig[event->TaskIndex][3] = plugin4.toInt();
+		String plugin0 = WebServer.arg("plugin_205_adr");
+        Settings.TaskDevicePluginConfig[event->TaskIndex][0] = plugin0.toInt();
 
-        char deviceTemplate[Nlines][32];
+        String plugin1 = WebServer.arg("plugin_205_rotate");
+        Settings.TaskDevicePluginConfig[event->TaskIndex][1] = plugin1.toInt();
+
+        String plugin2 = WebServer.arg("plugin_205_nlines");
+        Settings.TaskDevicePluginConfig[event->TaskIndex][2] = plugin2.toInt();
+
+		String plugin3 = WebServer.arg("plugin_205_scroll");
+		Settings.TaskDevicePluginConfig[event->TaskIndex][3] = plugin3.toInt();
+
+		String plugin4 = WebServer.arg("plugin_205_timer");
+        Settings.TaskDevicePluginConfig[event->TaskIndex][4] = plugin4.toInt();
 
 		String argName;
 
@@ -192,7 +226,7 @@ boolean Plugin_205(byte function, struct EventStruct *event, String& string)
           strncpy(deviceTemplate[varNr], WebServer.arg(argName).c_str(), sizeof(deviceTemplate[varNr]));
         }
 
-        Settings.TaskDeviceID[event->TaskIndex] = 1; // temp fix, needs a dummy value
+        Settings.TaskDeviceID[event->TaskIndex] = 1; // needs a dummy value
 
         SaveCustomTaskSettings(event->TaskIndex, (byte*)&deviceTemplate, sizeof(deviceTemplate));
 
@@ -203,6 +237,10 @@ boolean Plugin_205(byte function, struct EventStruct *event, String& string)
     case PLUGIN_INIT:
       { 
 
+// Load the custom settings from flash
+
+		LoadCustomTaskSettings(event->TaskIndex, (byte*)&deviceTemplate, sizeof(deviceTemplate));
+
         int OLED_address = Settings.TaskDevicePluginConfig[event->TaskIndex][0];
 
 //      Init the display and turn it on
@@ -210,31 +248,45 @@ boolean Plugin_205(byte function, struct EventStruct *event, String& string)
         display.init(OLED_address);		// call to local override of init function
         display.displayOn();
 
-//      Display the device name and the logo
+//      Set the initial value of OnOff to On
 
-        display_espname();
-        display_logo();
-        display.display();
+		UserVar[event->BaseVarIndex] = 1;    
 
 //      flip screen if required
 
-        if (Settings.TaskDevicePluginConfig[event->TaskIndex][1] == 2)display.flipScreenVertically();
+		if (Settings.TaskDevicePluginConfig[event->TaskIndex][1] == 2)display.flipScreenVertically();
 
-//      Handle display timer
+//      Display the device name, logo, time and wifi
 
-        displayTimer = Settings.TaskDevicePluginConfig[event->TaskIndex][3];
-        if (Settings.TaskDevicePin3[event->TaskIndex] != -1){
+        display_espname();
+        display_logo();
+		display_time();
+
+		int nbars = (WiFi.RSSI() + 100) / 8;
+		display_wifibars(105, 0, 15, 10, 5, nbars);
+
+        display.display();
+
+//      Set up the display timer
+
+        displayTimer = Settings.TaskDevicePluginConfig[event->TaskIndex][4];
+
+        if (Settings.TaskDevicePin3[event->TaskIndex] != -1)
+		{
           pinMode(Settings.TaskDevicePin3[event->TaskIndex], INPUT_PULLUP);
         }
         
-//      Set the initial value of OnOff to On
 
-        UserVar[event->BaseVarIndex]=1;      //  Save the fact that the initial state of the display is ON
-        UserVar[event->BaseVarIndex+1]=99;   // Dummy Initial Value for Display
-        
+
+//		Initialize frame counter
+
+		frameCounter = 0;
+
         success = true;
         break;
       }
+
+	  // Check frequently to see if we have a pin signal to switch on display
 
     case PLUGIN_TEN_PER_SECOND:
       {
@@ -243,29 +295,39 @@ boolean Plugin_205(byte function, struct EventStruct *event, String& string)
           if (!digitalRead(Settings.TaskDevicePin3[event->TaskIndex]))
           {
             display.displayOn();
-            displayTimer = Settings.TaskDevicePluginConfig[event->TaskIndex][3];
+			UserVar[event->BaseVarIndex] = 1;      //  Save the fact that the display is now ON
+            displayTimer = Settings.TaskDevicePluginConfig[event->TaskIndex][4];
           }
         }
         break;
       }
 
+	  // Switch off display after displayTimer seconds
+
     case PLUGIN_ONCE_A_SECOND:
       {
+
         if ( displayTimer > 0)
         {
           displayTimer--;
-          if (displayTimer == 0)
-            display.displayOff();
+		  if (displayTimer == 0) 
+		  {
+			  display.displayOff();
+			  UserVar[event->BaseVarIndex] = 0;      //  Save the fact that the display is now OFF
+		  }
         }
+
         success=true;
         break;
       }
 
     case PLUGIN_READ:
       {
-        
-        if (firstcall) {
-          display.clear(); // get rid of the init screen if this is the first call
+		// Clear the init screen if this is the first call
+
+        if (firstcall) 
+		{
+          display.clear(); 
           firstcall=false;
         }
 
@@ -274,9 +336,6 @@ boolean Plugin_205(byte function, struct EventStruct *event, String& string)
         linesPerFrame=Settings.TaskDevicePluginConfig[event->TaskIndex][2];  
         NFrames=Nlines/linesPerFrame;
                 
-        char deviceTemplate[Nlines][32];
-        LoadCustomTaskSettings(event->TaskIndex, (byte*)&deviceTemplate, sizeof(deviceTemplate));
-
 //      Now create the string for the outgoing and incoming frames
 
         String tmpString[4];
@@ -285,7 +344,8 @@ boolean Plugin_205(byte function, struct EventStruct *event, String& string)
 
 //      Construct the outgoing string
 
-        for (byte i = 0; i <linesPerFrame; i++) { 
+        for (byte i = 0; i <linesPerFrame; i++) 
+		{ 
           tmpString[i] = deviceTemplate[(linesPerFrame*frameCounter)+i];
           oldString[i] = parseTemplate(tmpString[i], 20);
           oldString[i].trim();
@@ -309,7 +369,8 @@ boolean Plugin_205(byte function, struct EventStruct *event, String& string)
 
 //        Contruct incoming strings
 
-          for (byte i = 0; i <linesPerFrame; i++) {  
+          for (byte i = 0; i <linesPerFrame; i++) 
+		  {  
             tmpString[i] = deviceTemplate[(linesPerFrame*frameCounter)+i];          
             newString[i] = parseTemplate(tmpString[i], 20);
             newString[i].trim();
@@ -318,7 +379,8 @@ boolean Plugin_205(byte function, struct EventStruct *event, String& string)
 //      skip this frame if all lines in frame are blank - we exit the while loop if tlen is not zero
 
           tlen=0;
-          for (byte i = 0; i <linesPerFrame; i++) {
+          for (byte i = 0; i <linesPerFrame; i++)
+		  {
             tlen+=newString[i].length();
           }
         }
@@ -333,153 +395,14 @@ boolean Plugin_205(byte function, struct EventStruct *event, String& string)
         display_espname();
         display_indicator(frameCounter,NFrames);
         display.display();
-        
-        display_scroll(oldString,newString,linesPerFrame);
 
-        success = false;    // If we do not set false then a value is output each read
+		int scrollspeed = Settings.TaskDevicePluginConfig[event->TaskIndex][3];
+		display_scroll(oldString, newString, linesPerFrame, scrollspeed);
+
+        success = true;   
         break;
       }
 
-    case PLUGIN_WRITE:
-      {
-        String tmpString  = string;
-        int argIndex = tmpString.indexOf(',');
-        if (argIndex)
-          tmpString = tmpString.substring(0, argIndex);
-        if (tmpString.equalsIgnoreCase(F("OLED")))
-        {
-          success = true;
-          argIndex = string.lastIndexOf(',');
-          tmpString = string.substring(argIndex + 1);
-          display.drawString(event->Par1 - 1, event->Par2 - 1, tmpString);
-
-        }
-        if (tmpString.equalsIgnoreCase(F("OLEDCMD")))
-        {
-          success = true;
-          argIndex = string.lastIndexOf(',');
-          tmpString = string.substring(argIndex + 1);
-          if (tmpString.equalsIgnoreCase(F("Off")))
-            display.displayOff();
-          else if (tmpString.equalsIgnoreCase(F("On")))
-            display.displayOn();
-          else if (tmpString.equalsIgnoreCase(F("Clear")))
-            display.clear();
-        }
-        break;
-      }
-
-//	This option PLUGIN_COMMAND only in use for local namirda version. It is disabled for general release
-
-    case PLUGIN_COMMAND:
-      {
-        // This option is called when user has made a request to this task
-        // We need to extract the second subtopic which is passed here as string
-     
-        String tmpString  = string;
-
-        if (event->TaskIndex != ExtraTaskSettings.TaskIndex) LoadTaskSettings(event->TaskIndex);    //Load the task settings if required - used to get device names
-
-//      Get the payload
-
-        String Payload=event->String2;
-        int intPayload=string2Integer(Payload);
-
-//      Get the ValueNameIndex
-
-        int ValueNameIndex=getValueNameIndex(event->TaskIndex,string);
-        if (ValueNameIndex == 255){
-          addLog(LOG_LEVEL_INFO,"Internal Error module 204");
-          break;
-        }
-//      Deal with command to switch display on or off. 
-
-        if ( ValueNameIndex == 0 )     // This is a command to switch display on and off
-        {
-          if ((intPayload != 0) && (intPayload != 1))
-          {
-            String log = F("ERR  : Illegal Value for [");
-            log+=ExtraTaskSettings.TaskDeviceName;
-            log+="#";
-            log += ExtraTaskSettings.TaskDeviceValueNames[ValueNameIndex];
-            log += "] - ";
-            log += Payload;
-            addLog(LOG_LEVEL_ERROR,log);
-            break;
-          }
-          
-          UserVar[event->BaseVarIndex+ValueNameIndex]=intPayload;  // Save the new value for off/on
-          
-//        And switch the display accordingly  
-       
-          if (intPayload == 0)display.displayOff();
-
-          if (intPayload != 0)display.displayOn();                       
-        } 
-
-//      Now handle a string to the display
-//      The required format is N:DisplayString  where N is an integer between 1 and 8
-
-        else if ( ValueNameIndex == 1 )     // This is a string to Display
-        {
-          UserVar[event->BaseVarIndex+ValueNameIndex]=intPayload;  // Store some nonsense in UserVar - not useful because it can only handle floating point numbers.
-
- //       Now extract the Line Number and the Colon
- 
-          int Line=string2Integer(Payload.substring(0,1));
-          if (! CheckParam("Line Number",Line,1,8)) {
-            success=false;
-            return success;
-          }
-
-          String colon=Payload.substring(1,2);
-          if (colon != ":")
-          {
-            addLog(LOG_LEVEL_INFO,"ERR  : Syntax for Display Line is N:String");
-            break;
-          }
-
-          String shortPayload=Payload.substring(2);                       // Remove the first two characters (N:)
-
-          String tPayload=shortPayload;
-          String DisplayString = parseTemplate(tPayload, 64);     // Parse Data - must use a temp tPayload because parseTemplate messes with the string!!!
-
-//      Now we get the display lines from the custom settings
-
-        char deviceTemplate[8][64];        
-        LoadCustomTaskSettings(event->TaskIndex, (byte*)&deviceTemplate, sizeof(deviceTemplate));
-
-//      And display out the four different lines for logging
-
-        for (byte varNr = 0; varNr < 8; varNr++)
-        {
-          String log=F("Display Line ");
-          log+= varNr;
-          log+= "  ";
-          log+=deviceTemplate[varNr];
-          addLog(LOG_LEVEL_DEBUG,log);
-        }
-               
-        strncpy(deviceTemplate[Line-1], shortPayload.c_str(), sizeof(deviceTemplate[Line-1]));      // Here we are saving the unparsed value
-        Settings.TaskDeviceID[event->TaskIndex] = 1; // temp fix, needs a dummy value
-        SaveCustomTaskSettings(event->TaskIndex, (byte*)&deviceTemplate, sizeof(deviceTemplate));             
-        }
-
-//      Cannot use function 'logupdates' here because value is a string!!
-
-        if (event->TaskIndex != ExtraTaskSettings.TaskIndex) LoadTaskSettings(event->TaskIndex);    //Load the task settings if required - used to get device names
-       
-        String log = F("205  : [");
-        log += ExtraTaskSettings.TaskDeviceName;
-        log += "#";
-        log += ExtraTaskSettings.TaskDeviceValueNames[ValueNameIndex];
-        log += "] - set to ";
-        log += event->String2;
-        addLog(LOG_LEVEL_INFO,log);
-
-        success=true;
-    }
-    
   }
   return success;
 }
@@ -500,6 +423,7 @@ void display_time(){
 void display_espname(){
   String dtime="%sysname%";
   String newString = parseTemplate(dtime, 10);
+  newString.trim();
   display.setTextAlignment(TEXT_ALIGN_CENTER);
   display.setFont(ArialMT_Plain_10);
   display.drawString(64, 0, newString);
@@ -546,68 +470,74 @@ void display_indicator(int iframe,int frameCount) {
   }
 }
 
-void display_scroll(String outString[], String inString[], int nlines) {
+void display_scroll(String outString[], String inString[], int nlines, int scrollspeed)
+{
 
-// outString contains the outgoing strings in this frame 
-// inString contains the incomng strings in this frame
-// nlines is the number of lines in each frame
+	// outString contains the outgoing strings in this frame 
+	// inString contains the incomng strings in this frame
+	// nlines is the number of lines in each frame
 
-   int ypos[4]; // ypos contains the heights of the various lines - this depends on the font and the number of lines
+	int ypos[4]; // ypos contains the heights of the various lines - this depends on the font and the number of lines
 
-   if (nlines == 1){
-    display.setFont(ArialMT_Plain_24);
-    ypos[0]=20;
-   }
-   
-   if (nlines == 2){
-    display.setFont(ArialMT_Plain_16);
-    ypos[0]=15;
-    ypos[1]=34;
-   }
+	if (nlines == 1)
+	{
+		display.setFont(ArialMT_Plain_24);
+		ypos[0] = 20;
+	}
 
-   if (nlines == 3) {
-	   display.setFont(Dialog_Plain_12);
-	   ypos[0] = 13;
-	   ypos[1] = 25;
-	   ypos[2] = 37;
-   }
+	if (nlines == 2)
+	{
+		display.setFont(ArialMT_Plain_16);
+		ypos[0] = 15;
+		ypos[1] = 34;
+	}
 
-   if (nlines == 4){
-    display.setFont(ArialMT_Plain_10);
-    ypos[0]=12;
-    ypos[1]=22;
-    ypos[2]=32;
-    ypos[3]=42;
-   }
+	if (nlines == 3)
+	{
+		display.setFont(Dialog_Plain_12);
+		ypos[0] = 13;
+		ypos[1] = 25;
+		ypos[2] = 37;
+	}
 
-   display.setTextAlignment(TEXT_ALIGN_CENTER);
+	if (nlines == 4)
+	{
+		display.setFont(ArialMT_Plain_10);
+		ypos[0] = 12;
+		ypos[1] = 22;
+		ypos[2] = 32;
+		ypos[3] = 42;
+	}
 
-   for (byte i = 0; i <32; i++) {
+	display.setTextAlignment(TEXT_ALIGN_CENTER);
 
-//  Clear the scroll area
+	for (byte i = 0; i <33; i = i + scrollspeed)
+	{
 
-      display.setColor(BLACK);
-	  // We allow 12 pixels at the top because otherwise the wifi indicator gets too squashed!!
-      display.fillRect(0, 12, 128, 42);   // scrolling window is 44 pixels high - ie 64 less margin of 10 at top and bottom  
-      display.setColor(WHITE);
+		//  Clear the scroll area
 
-// Now draw the strings
+		display.setColor(BLACK);
+		// We allow 12 pixels at the top because otherwise the wifi indicator gets too squashed!!
+		display.fillRect(0, 12, 128, 42);   // scrolling window is 44 pixels high - ie 64 less margin of 10 at top and bottom  
+		display.setColor(WHITE);
 
-      for (byte j = 0; j<nlines; j++) {
-        
-        display.drawString(64+(4*i),ypos[j],outString[j]);
+		// Now draw the strings
 
-        display.drawString(-64+(4*i),ypos[j],inString[j]);
-      }
-      
-      display.display();
-      
-      delay(2);
-      
+		for (byte j = 0; j<nlines; j++)
+		{
 
-   }
+			display.drawString(64 + (4 * i), ypos[j], outString[j]);
 
+			display.drawString(-64 + (4 * i), ypos[j], inString[j]);
+		}
+
+		display.display();
+
+		//delay(2);
+		backgroundtasks();
+	}
 }
+
 //Draw Signal Strength Bars
 void display_wifibars(int x, int y, int size_x, int size_y,int nbars,int nbars_filled) {
 
