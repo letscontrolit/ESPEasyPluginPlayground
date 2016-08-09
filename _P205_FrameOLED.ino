@@ -403,6 +403,76 @@ boolean Plugin_205(byte function, struct EventStruct *event, String& string)
         break;
       }
 
+	case PLUGIN_WRITE:
+	{
+		// Parse the command
+
+		char clause[3][80];
+		for (byte x = 0; x < 3; x++)clause[x][0] = 0;
+
+		int Line=0;
+
+		GetArgv(string.c_str(), clause[0], 1);
+		if (GetArgv(string.c_str(), clause[1], 2)) Line = str2int(clause[1]);
+		GetArgv(string.c_str(), clause[2], 3);
+
+		// Look for commands addressed to this plugin
+		// Syntax for this command should be "taskname,Line,String" or "taskname,on" or "taskname,off"
+		// Where Line is the line number which must be between 1 and 12
+
+		String Command = clause[0];
+		String Command1 = clause[1];
+		String log;
+
+		String TaskName = ExtraTaskSettings.TaskDeviceName;
+
+		if (Command.equalsIgnoreCase(TaskName))
+		{
+			success = true;		// Flag that this command has been addressed so that other plugins ignore it
+
+			// If we have a valid line number then update the display
+
+			if ((Line >= 1) && (Line <= 12))
+			{
+				// Load the settings from flash, update and re-save
+
+				LoadCustomTaskSettings(event->TaskIndex, (byte*)&deviceTemplate, sizeof(deviceTemplate));
+				strncpy(deviceTemplate[Line - 1], clause[2], sizeof(deviceTemplate[Line - 1]));
+				SaveCustomTaskSettings(event->TaskIndex, (byte*)&deviceTemplate, sizeof(deviceTemplate));
+
+				// Log some info
+
+				log = F("OLED : Display Line ");
+				log += Line;
+				log += F(" updated to ");
+				log += clause[2];
+				addLog(LOG_LEVEL_INFO, log);
+			}
+				
+			else if (Command1.equalsIgnoreCase(F("Off")))
+			{
+				display.displayOff();
+				log = F("OLED : Display turned OFF");
+				addLog(LOG_LEVEL_INFO, log);
+			}
+				
+			else if (Command1.equalsIgnoreCase(F("On")))
+			{
+				display.displayOn();
+				log = F("OLED : Display turned ON");
+				addLog(LOG_LEVEL_INFO, log);
+			}
+
+			else
+			{
+				log = F("OLED : Syntax Error in OLED command - ");
+				log += string;
+				addLog(LOG_LEVEL_ERROR, log);
+			}
+	
+		}
+		break;
+	}
   }
   return success;
 }
