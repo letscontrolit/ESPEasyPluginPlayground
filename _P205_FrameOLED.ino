@@ -452,6 +452,7 @@ boolean Plugin_205(byte function, struct EventStruct *event, String& string)
 			else if (Command1.equalsIgnoreCase(F("Off")))
 			{
 				display.displayOff();
+				UserVar[event->BaseVarIndex] = 0;      //  Save the fact that the display is now OFF
 				log = F("OLED : Display turned OFF");
 				addLog(LOG_LEVEL_INFO, log);
 			}
@@ -459,6 +460,7 @@ boolean Plugin_205(byte function, struct EventStruct *event, String& string)
 			else if (Command1.equalsIgnoreCase(F("On")))
 			{
 				display.displayOn();
+				UserVar[event->BaseVarIndex] = 1;      //  Save the fact that the display is now ON
 				log = F("OLED : Display turned ON");
 				addLog(LOG_LEVEL_INFO, log);
 			}
