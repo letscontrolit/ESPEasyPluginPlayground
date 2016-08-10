@@ -405,30 +405,30 @@ boolean Plugin_205(byte function, struct EventStruct *event, String& string)
 
 	case PLUGIN_WRITE:
 	{
-		// Parse the command
+		// Split the command into it's component parts using comma as delimiter
 
-		char clause[3][80];
-		for (byte x = 0; x < 3; x++)clause[x][0] = 0;
+		String Parts[3];
+		String log="";
 
-		int Line=0;
+		byte nparts = splitcmd(string, Parts,  ',');
 
-		GetArgv(string.c_str(), clause[0], 1);
-		if (GetArgv(string.c_str(), clause[1], 2)) Line = str2int(clause[1]);
-		GetArgv(string.c_str(), clause[2], 3);
+		// If there was no payload then get out of here
+
+		if (nparts == 0)break;
 
 		// Look for commands addressed to this plugin
 		// Syntax for this command should be "taskname,Line,String" or "taskname,on" or "taskname,off"
 		// Where Line is the line number which must be between 1 and 12
 
-		String Command = clause[0];
-		String Command1 = clause[1];
-		String log;
-
 		String TaskName = ExtraTaskSettings.TaskDeviceName;
 
-		if (Command.equalsIgnoreCase(TaskName))
+		if (Parts[0].equalsIgnoreCase(TaskName))
 		{
 			success = true;		// Flag that this command has been addressed so that other plugins ignore it
+
+			// Look for a valid line number
+
+			int Line = Parts[1].toInt();
 
 			// If we have a valid line number then update the display
 
@@ -437,7 +437,7 @@ boolean Plugin_205(byte function, struct EventStruct *event, String& string)
 				// Load the settings from flash, update and re-save
 
 				LoadCustomTaskSettings(event->TaskIndex, (byte*)&deviceTemplate, sizeof(deviceTemplate));
-				strncpy(deviceTemplate[Line - 1], clause[2], sizeof(deviceTemplate[Line - 1]));
+				strncpy(deviceTemplate[Line - 1], Parts[2].c_str(), sizeof(deviceTemplate[Line - 1]));
 				SaveCustomTaskSettings(event->TaskIndex, (byte*)&deviceTemplate, sizeof(deviceTemplate));
 
 				// Log some info
@@ -445,11 +445,11 @@ boolean Plugin_205(byte function, struct EventStruct *event, String& string)
 				log = F("OLED : Display Line ");
 				log += Line;
 				log += F(" updated to ");
-				log += clause[2];
+				log += Parts[2];
 				addLog(LOG_LEVEL_INFO, log);
 			}
 				
-			else if (Command1.equalsIgnoreCase(F("Off")))
+			else if (Parts[1].equalsIgnoreCase(F("Off")))
 			{
 				display.displayOff();
 				UserVar[event->BaseVarIndex] = 0;      //  Save the fact that the display is now OFF
@@ -457,7 +457,7 @@ boolean Plugin_205(byte function, struct EventStruct *event, String& string)
 				addLog(LOG_LEVEL_INFO, log);
 			}
 				
-			else if (Command1.equalsIgnoreCase(F("On")))
+			else if (Parts[1].equalsIgnoreCase(F("On")))
 			{
 				display.displayOn();
 				UserVar[event->BaseVarIndex] = 1;      //  Save the fact that the display is now ON
@@ -471,7 +471,6 @@ boolean Plugin_205(byte function, struct EventStruct *event, String& string)
 				log += string;
 				addLog(LOG_LEVEL_ERROR, log);
 			}
-	
 		}
 		break;
 	}
@@ -634,4 +633,27 @@ void display_wifibars(int x, int y, int size_x, int size_y,int nbars,int nbars_f
 		}
 	}
 }
+// split a command into it's component parts - the delimiting character is delimiter
+// The parts are output in 'parts' and the number of parts as the return value
 
+byte splitcmd(String Command,String PartCommand[],char delimiter)
+{
+	if (Command.length() == 0)return 0;
+
+	String tmpCommand = Command;
+	int Index;
+	int count = 0;
+
+	Index = tmpCommand.indexOf(delimiter);
+	while (Index>=0)
+	{
+		PartCommand[count] = tmpCommand.substring(0, Index);
+		tmpCommand = tmpCommand.substring(Index + 1);
+		Index = tmpCommand.indexOf(delimiter);
+		count++;
+	}
+
+	PartCommand[count] = tmpCommand;
+	return count+1;
+	
+}
