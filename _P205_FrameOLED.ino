@@ -412,9 +412,10 @@ boolean Plugin_205(byte function, struct EventStruct *event, String& string)
 
 		byte nparts = splitcmd(string, Parts,  ',');
 
-		// If there was no payload then get out of here
+		// If there was no sensible payload then get out of here
+		// Note that mqtt data published by this module can come back here to cause trouble if sub listens to pub messages
 
-		if (nparts == 0)break;
+		if (nparts <2)break;
 
 		// Look for commands addressed to this plugin
 		// Syntax for this command should be "taskname,Line,String" or "taskname,on" or "taskname,off"
