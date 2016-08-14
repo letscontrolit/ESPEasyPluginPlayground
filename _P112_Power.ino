@@ -102,6 +102,7 @@ boolean Plugin_112(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_READ:
       {
+      	Plugin_112_idleusage(event->TaskIndex);
         UserVar[event->BaseVarIndex] = Plugin_112_pulseUsage[event->TaskIndex];
         UserVar[event->BaseVarIndex+1] = Plugin_112_pulseTotalCounter[event->TaskIndex];
         Plugin_112_pulseCounter[event->TaskIndex] = 0;
@@ -110,6 +111,26 @@ boolean Plugin_112(byte function, struct EventStruct *event, String& string)
       }
   }
   return success;
+}
+
+
+/*********************************************************************************************\
+ * Update usage when no pulse has been received for some time, so it will decrease on every
+ * PLUGIN_READ event instead off keeping the last calculated usage value.
+\*********************************************************************************************/
+void Plugin_112_idleusage(byte Index)
+{
+  unsigned long PulseTime=millis() - Plugin_112_pulseTimePrevious[Index];
+  if(PulseTime > (Settings.TaskDeviceTimer[Index] * 1000) &&        //More than $device_delay passed since last pulse
+     PulseTime > Plugin_112_pulseTime[Index] ) {                    //More than last pulse interval
+
+    // Let's prevent divison by zero
+    if(Settings.TaskDevicePluginConfig[Index][1]==0) {
+      Settings.TaskDevicePluginConfig[Index][1]=1000; // if not configged correctly prevent crashes and set it to 1000 as default value.
+    }
+    // WH = =3600000/[pulses per kwh]/[time since last pulse (ms)]
+    Plugin_112_pulseUsage[Index] = (3600000000./Settings.TaskDevicePluginConfig[Index][1])/PulseTime;
+  }
 }
 
 
