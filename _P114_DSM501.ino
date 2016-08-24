@@ -4,7 +4,7 @@
 //#######################################################################################################
 
 #define PLUGIN_114
-#define PLUGIN_ID_114 30
+#define PLUGIN_ID_114 114
 #define PLUGIN_NAME_114 "Dust sensor - DSM501a"
 #define PLUGIN_VALUENAME1_114 "PM1.0"
 #define PLUGIN_VALUENAME2_114 "PM2.5"
