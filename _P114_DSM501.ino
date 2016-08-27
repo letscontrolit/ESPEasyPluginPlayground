@@ -6,8 +6,8 @@
 #define PLUGIN_114
 #define PLUGIN_ID_114 114
 #define PLUGIN_NAME_114 "Dust sensor - DSM501a"
-#define PLUGIN_VALUENAME1_114 "PM1.0"
-#define PLUGIN_VALUENAME2_114 "PM2.5"
+#define PLUGIN_VALUENAME1_114 "PM1.0" // from the datasheet the detection is from PM1 and up. You could have from PM1 to PM2.5, on subtracting PM2.5 value on PM1 value. This value come from the pin #4
+#define PLUGIN_VALUENAME2_114 "PM2.5" // from the datasheet the detection is from PM2.5 and up. This value come from the pin #2. With different resistor topn the pin #1, you could adjust the size threshold detection 
 
 unsigned long Plugin_114_pulseCounter[TASKS_MAX];
 unsigned long Plugin_114_pulseTotalCounter[TASKS_MAX];
