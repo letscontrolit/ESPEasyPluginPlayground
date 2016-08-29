@@ -44,6 +44,7 @@
  
 
 */
+//#define STATUS_LED 14
 
 #define PLUGIN_110
 #define PLUGIN_ID_110         110
@@ -56,20 +57,16 @@
 unsigned long P1lastSent = millis();
 boolean Plugin_110_init = false;
 
-// Serial stuff
-//uint8_t serial_buf[BUFFER_SIZE];
-//char line_buf[128];
-
 
 //size_t bytes_read = 0;
-int state = 0;
-#define DIASBLED 0
-#define WAITING 1
-#define READING 2
-#define CHECKSUM 3
-#define DONE 4
+//int state = 0;
+//#define DISABLED 0
+//#define WAITING 1
+//#define READING 2
+//#define CHECKSUM 3
+//#define DONE 4
 String checkS = ""; 
-int checkI = 0;
+//int checkI = 0;
 //int line=0;
 
 // recipients
@@ -103,23 +100,23 @@ String command;
 // Local datastore
 char ch;
 int incomingByte = 0;
-int pos181;
-int pos182;
-int pos170;
-int pos270;
-int pos281;
-int pos282;
-int pos2421; // gas 0-1:24.2.1
-int tempPos;
-int tempPos2;
-String inputString = "";
-String T170;
-String T270;
-String T181;
-String T182;
-String T281;
-String T282;
-String G2421;
+//int pos181;
+//int pos182;
+//int pos170;
+//int pos270;
+//int pos281;
+//int pos282;
+//int pos2421; // gas 0-1:24.2.1
+//int tempPos;
+//int tempPos2;
+//String inputString = "";
+//String T170;
+//String T270;
+//String T181;
+//String T182;
+//String T281;
+//String T282;
+//String G2421;
 //int counter = 0;
 
 // end local datastore
@@ -155,9 +152,9 @@ int year()
 
 
 
-void parse(){
-             if (inputString.charAt(0) == '/' && inputString.indexOf("!") != -1 && !parsed) {
-                       addLog(LOG_LEVEL_DEBUG,"Parsing data");           
+void parse_P1(String inputString){
+           //  if (inputString.indexOf("/") != -1 && inputString.indexOf("!") != -1) {//  && !parsed) {
+                       addLog(LOG_LEVEL_DEBUG_MORE,"Parsing data");           
 
                         pos181 = inputString.indexOf("1-0:1.8.1", 0);
                         tempPos = inputString.indexOf("*kWh)", pos181);
@@ -195,9 +192,9 @@ void parse(){
 
                        
                         parsed = true;
-                        addLog(LOG_LEVEL_DEBUG,"Parsing data: done");           
+                        addLog(LOG_LEVEL_DEBUG_MORE,"Parsing data: done");           
 
-             }
+          //   }
 }
 
 void handle_OLED(){
@@ -262,7 +259,7 @@ void handle_OLED(){
 void handle_SD(){
 tempState = state;
                       state = DISABLED;
-                                                  addLog(LOG_LEVEL_DEBUG,"Handling SD");           
+                                                  addLog(LOG_LEVEL_DEBUG_MORE,"Handling SD");           
 
                            File dataFile = SD.open("DATA.TXT", FILE_WRITE);
                            if (dataFile){
@@ -290,10 +287,10 @@ tempState = state;
                                 dataFile.print(inputString); //(const uint8_t*)serial_buf, bytes_read);
                                 dataFile.close();
                                 stored = true;
-                                } else addLog(LOG_LEVEL_DEBUG,"Data file does not exist");
+                                } else addLog(LOG_LEVEL_ERROR,"Data file does not exist");
 
                                 
-                          addLog(LOG_LEVEL_DEBUG,"Handling SD: done");           
+                          addLog(LOG_LEVEL_DEBUG_MORE,"Handling SD: done");           
                            state = tempState;
 } //SD card
 
@@ -302,10 +299,10 @@ void handle_Domoticz(){
           //P1GatewayClient = P1GatewayServer->available();
          // if (P1GatewayClient) {
 
-         addLog(LOG_LEVEL_DEBUG,"Handling Domoticz");
+         addLog(LOG_LEVEL_DEBUG_MORE,"Handling Domoticz");
          state = DISABLED;
                  P1GatewayClient.print(inputString); //write((const uint8_t*)serial_buf, bytes_read);
-                 addLog(LOG_LEVEL_DEBUG,"Handling Domoticz: done");
+                 addLog(LOG_LEVEL_DEBUG_MORE,"Handling Domoticz: done");
                  domoticzd = true;
          // }
          state = tempState;
@@ -324,14 +321,16 @@ void read_data(){
                       case WAITING:
                         if (ch =='/')  {
                              // serial_buf[bytes_read] = ch;
-                              inputString += ch;
+                             if (inputString.length() < 1000) inputString += ch;
                               state = READING;
+                              digitalWrite(STATUS_LED,1);
+
                              // bytes_read++;
                           } // else ignore data
                         break;
                       case READING:
                          // serial_buf[bytes_read] = ch;
-                          inputString += ch;
+                             if (inputString.length() < 1000) inputString += ch;
                         //  bytes_read++;
                
                           if (ch == '!'){
@@ -340,7 +339,8 @@ void read_data(){
                               //Serial.println("read from P1 -->");                                 
                               //Serial.print(inputString);
                               //Serial.println("<-- done from P1");   
-                                                        
+                              digitalWrite(STATUS_LED,0);
+
                               parsed = false;  // reset all actors
                               stored = false;
                               domoticzd = false;
@@ -357,6 +357,8 @@ void read_data(){
                        case DONE:
                          // state = WAITING;
                           break;
+                                 
+
                       }
   } //while
 }
@@ -489,6 +491,12 @@ boolean Plugin_110(byte function, struct EventStruct *event, String& string){
 
     case PLUGIN_INIT:
       {
+        pinMode(STATUS_LED, OUTPUT);
+                digitalWrite(STATUS_LED,0);
+
+        
+
+        
         LoadTaskSettings(event->TaskIndex);
         if ((ExtraTaskSettings.TaskDevicePluginConfigLong[0] != 0) && (ExtraTaskSettings.TaskDevicePluginConfigLong[1] != 0))
         {
@@ -508,7 +516,8 @@ boolean Plugin_110(byte function, struct EventStruct *event, String& string){
               addLog(LOG_LEVEL_DEBUG,"Starting server");
               P1GatewayServer = new WiFiServer(ExtraTaskSettings.TaskDevicePluginConfigLong[0]);
               P1GatewayServer->begin();
-          }
+          } else hasDomoticz = false;
+          
           if (ExtraTaskSettings.TaskDevicePluginConfigLong[5]) {  // SD card
               if (SD.begin(chipSelect)){
                  addLog(LOG_LEVEL_DEBUG,"SD Card initialized.");
@@ -524,15 +533,17 @@ boolean Plugin_110(byte function, struct EventStruct *event, String& string){
         }
         state = WAITING; //let's go 
         addLog(LOG_LEVEL_DEBUG,"Armed and ready to go.");
-
+        digitalWrite(STATUS_LED,1);
+        delay(500);
+        digitalWrite(STATUS_LED,0);
         success = true;
         break;
       }
 
     case PLUGIN_TEN_PER_SECOND:{
-        if (Plugin_110_init) {
-          size_t bytes_read;
-          if (!P1GatewayClient && state == DONE)
+        if (Plugin_110_init && hasDomoticz) {
+   //       size_t bytes_read;
+          if ( !P1GatewayClient && state == DONE)
           {
            P1GatewayClient = P1GatewayServer->available();
           }
@@ -552,6 +563,8 @@ boolean Plugin_110(byte function, struct EventStruct *event, String& string){
               addLog(LOG_LEVEL_DEBUG,(char*)net_buf);
             }
           }
+
+          
           success = true;
         }
         break;
@@ -561,41 +574,48 @@ case PLUGIN_ONCE_A_SECOND: {
         if (Plugin_110_init) {
             canary ++;
             if (canary == 360) { //we're not reset the last 5 minutes, assume we died
-             addLog(LOG_LEVEL_DEBUG,"Canary died..... Resetting");
+               addLog(LOG_LEVEL_ERROR,"Canary died..... Resetting");
               delay(10000);
               ESP.reset();
             }  
-        
-          if (state == DONE && !parsed){
-            parse();
-            canary = 0;
-          }
-          yield();
-          
-          if (state == DONE && hasDomoticz && !domoticzd){
-            handle_Domoticz();
-            canary = 0l;
-          }
-          yield();
-          
+
           if (hasOLED){       //  oLED display
               handle_OLED();
+               yield();
           }
-          yield();
           
-          if (state == DONE && hasSD && !stored){
-            handle_SD();
-          }
+       if (state == DONE){
+                if (!parsed){
+                //  parse_P1();
+                  canary = 0;
+                  // yield();
+                }
 
-            if ((hasDomoticz && domoticzd && parsed) || (!hasDomoticz && parsed)){ 
-             addLog(LOG_LEVEL_DEBUG,"New cycle");
-              state = WAITING; 
-              parsed= false;
-              domoticzd = false;
-              stored = false;
-              displayed=false;
-              inputString = "";
-            }
+                if (hasDomoticz && !domoticzd){
+                  handle_Domoticz();
+                  canary = 0;
+                 // yield();
+                }
+
+                    
+                if (hasSD && !stored){
+                  handle_SD();
+                  //yield();
+                }
+              
+              if ((domoticzd && parsed) || (!hasDomoticz && parsed)){
+                  canary = 0;
+                  addLog(LOG_LEVEL_DEBUG,"New cycle");
+                  parsed= false;
+                  domoticzd = false;
+                  stored = false;
+                  displayed=false;
+                  state = WAITING; 
+                  inputString = "";
+                  Serial.flush();
+              } 
+          }
+   
           success = true;
         }
         break;
@@ -606,6 +626,7 @@ case PLUGIN_ONCE_A_SECOND: {
           if (Serial.available() > 0) {
             read_data();
           }
+           
           success = true;
         } //init
         break;
@@ -652,79 +673,39 @@ void handle_SDwipe(){
 
 void handle_P1monitor(){
   int i=0;
-  String str;
 
 	if (!isLoggedIn()) return;
-  
-  str += F("<head><title>");
-  str += Settings.Name;
-  str += F("</title>");
-  str += F("<style>");
-    str += F("* {font-family:sans-serif; font-size:10pt;}");
-    str += F("h1 {font-size:12pt; color:black;}");
-    str += F("h6 {font-size:10pt; color:black; text-align:center;}");
-    str += F(".button-menu {background-color:#ffffff; color:blue; margin: 10px; text-decoration:none}");
-    str += F(".button-link {padding:5px 15px; background-color:#0077dd; color:#fff; border:solid 1px #fff; text-decoration:none}");
-    str += F(".button-menu:hover {background:#ddddff;}");
-    str += F(".button-link:hover {background:#369;}");
-    str += F("th {padding:10px; background-color:black; color:#ffffff;}");
-    str += F("td {padding:7px;}");
-    str += F("table {color:black;}");
-    str += F(".div_l {float: left;}");
-    str += F(".div_r {float: right; margin: 2px; padding: 1px 10px; border-radius: 7px; background-color:#080; color:white;}");
-    str += F(".div_br {clear: both;}");
-    str += F("</style>");
-    str += F("<meta name='viewport' content='width=device-width; initial-scale=1.0; maximum-scale=1.0;'>");
-  
-  str += F("</head>");
 
-  str += F("<h1>Welcome to ESP Easy: ");
-  str += Settings.Name;
-    str += F("</h1>");
 
-  
+ String str = "";
+  addHeader(true, str);
   str += F("<script language='JavaScript'>function RefreshMe(){window.location = window.location}setTimeout('RefreshMe()', 3000);</script>");
- // reply += F("<table><TH>Smart Meter<TR><TD>");
+  str += F("<table><TH>P1 monitor<TH> ");
 
-    str += F("<BR><a class=\"button-menu\" href=\".\">Main</a>");
-    str += F("<a class=\"button-menu\" href=\"config\">Config</a>");
-    str += F("<a class=\"button-menu\" href=\"hardware\">Hardware</a>");
-    str += F("<a class=\"button-menu\" href=\"devices\">Devices</a>");
-    if (Settings.UseRules)
-      str += F("<a class=\"button-menu\" href=\"rules\">Rules</a>");
-    str += F("<a class=\"button-menu\" href=\"tools\">Tools</a><BR>");
-    str += F("<a class=\"button-menu\" href=\"P1\">P1</a>"); 
-      if (ExtraTaskSettings.TaskDevicePluginConfigLong[5]) {
-              str += F("<a class=\"button-menu\" href=\"downloadSD\">SDdump</a>"); 
-              str += F("<a class=\"button-menu\" href=\"emptySD\">SDwipe</a>");
-           }
-    str += F("<BR><BR>");
-
-  str += "Totaal verbruik tarief 1: ";
+  str += "<TR><TD>Totaal verbruik tarief 1: <TD>";
   	str += T181;
-         str += F("<BR>");
-  str += "Totaal verbruik tarief 2: ";
+//         str += F("<BR>");
+  str += "<TR><TD>Totaal verbruik tarief 2: <TD>";
   	str += T182;
-         str += F("<BR>");
-  str += "Totaal geleverd tarief 1: ";
+//         str += F("<BR>");
+  str += "<TR><TD>Totaal geleverd tarief 1: <TD>";
   	str += T281;
-         str += F("<BR>");
-   str += "Totaal geleverd tarief 2: ";
+ //        str += F("<BR>");
+   str += "<TR><TD>Totaal geleverd tarief 2: <TD>";
   	str += T281;
-         str += F("<BR>");
-  str += "Actueel verbruik         : ";
+//         str += F("<BR>");
+  str += "<TR><TD>Actueel verbruik         : <TD>";
   	str += T170;
-         str += F("<BR>");
-   str += "Huidige teruglevering   : ";
+  //       str += F("<BR>");
+   str += "<TR><TD>Huidige teruglevering   : <TD>";
   	str += T270;
-         str += F("<BR>");
-    str += "Totaal gasverbuik   : ";
+    str += "<TR><TD>Totaal gasverbuik   : <TD>";
    str += G2421;
-         str += F("<BR><BR>");
+ //        str += F("<BR><BR>");
    //  str += "Input   : ";
    //       str += inputString;
-         str += F("<BR><BR>");
- 
+
+ str += F("</table>");
   addFooter(str);
   WebServer.send(200, "text/html", str);
  // free(TempString);
