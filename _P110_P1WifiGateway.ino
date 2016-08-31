@@ -1,5 +1,12 @@
 //#######################################################################################################
-//#################################### Plugin 110: P1WifiGateway ##############################################
+//#################################### Plugin 110: P1WifiGateway ########################################
+// 
+//  based on P020 Ser2Net, extended by Ronald Leenes romix/-at-/macuser.nl	
+//
+//	designed for combo 
+//		Wemos D1 mini (see http://wemos.cc) and 
+// 		P1 wifi gateway shield (see https://circuits.io/circuits/2460082)
+//		see http://romix.macuser.nl for kits
 //#######################################################################################################
 
 #define PLUGIN_110
