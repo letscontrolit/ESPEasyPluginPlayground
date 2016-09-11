@@ -1,12 +1,5 @@
 //#######################################################################################################
-//#################################### Plugin 110: P1WifiGateway ########################################
-// 
-//  based on P020 Ser2Net, extended by Ronald Leenes romix/-at-/macuser.nl	
-//
-//	designed for combo 
-//		Wemos D1 mini (see http://wemos.cc) and 
-// 		P1 wifi gateway shield (see https://circuits.io/circuits/2460082)
-//		see http://romix.macuser.nl for kits
+//#################################### Plugin 110: P1WifiGateway ##############################################
 //#######################################################################################################
 
 #define PLUGIN_110
@@ -21,7 +14,7 @@ boolean serialdebug = false;
 
 // define buffers, large, indeed. The entire datagram checksum will be checked at once
 #define BUFFER_SIZE 850
-#define NETBUF_SIZE 128
+#define NETBUF_SIZE 600
 char serial_buf[BUFFER_SIZE];
 unsigned int bytes_read = 0; 
 
@@ -33,10 +26,9 @@ unsigned int bytes_read = 0;
 #define DONE 4
 int state = DISABLED;
 
-
+boolean CRCcheck = false;
 unsigned int currCRC = 0;
 int checkI = 0;
-
 
 
 WiFiServer *P1GatewayServer;
@@ -110,6 +102,8 @@ bool checkDatagram(int len){
   int startChar = FindCharInArrayRev(serial_buf, '/', len);
   int endChar = FindCharInArrayRev(serial_buf, '!', len);
   bool validCRCFound = false;
+
+if (!CRCcheck) return true;
 
  if(serialdebug){
   Serial.print("input length: ");
@@ -265,6 +259,15 @@ boolean Plugin_110(byte function, struct EventStruct *event, String& string)
         }
 
         blinkLED();
+
+                 if (ExtraTaskSettings.TaskDevicePluginConfigLong[1] == 115200) {
+                     addLog(LOG_LEVEL_DEBUG, "DSMR version 4 meter, CRC on");
+                     CRCcheck = true;
+                 } else {
+                     addLog(LOG_LEVEL_DEBUG, "DSMR version 2.x meter, CRC OFF");
+                    CRCcheck = false;
+                 }
+                 
                  
         state = WAITING;
         success = true;
@@ -358,7 +361,11 @@ boolean Plugin_110(byte function, struct EventStruct *event, String& string)
                         break;
                       case READING:
                            if (ch == '!'){
-                              state = CHECKSUM;                    
+                            if (CRCcheck){
+                              state = CHECKSUM;
+                            } else {
+                              state = DONE; 
+                            }                   
                            }
                             if (validP1char(ch)){
                               serial_buf[bytes_read] = ch;
@@ -381,9 +388,9 @@ boolean Plugin_110(byte function, struct EventStruct *event, String& string)
                           }
                           break;
                        case DONE:
-                           serial_buf[bytes_read]= '\n';
-                           bytes_read++;
-                           serial_buf[bytes_read] = 0;
+                          // serial_buf[bytes_read]= '\n';
+                          // bytes_read++;
+                          // serial_buf[bytes_read] = 0;
                           break;
                       }
                 }
@@ -402,6 +409,12 @@ boolean Plugin_110(byte function, struct EventStruct *event, String& string)
 
             if (state == DONE){
                if (checkDatagram(bytes_read)){
+                        bytes_read++;
+                        serial_buf[bytes_read] = '\r';
+                        bytes_read++;
+                        serial_buf[bytes_read] = '\n';
+                         bytes_read++;
+                        serial_buf[bytes_read] = 0;                       
                         P1GatewayClient.write((const uint8_t*)serial_buf, bytes_read);
                         P1GatewayClient.flush();
                         addLog(LOG_LEVEL_DEBUG,"P1 msg: pushed data to Domoticz");
@@ -409,6 +422,7 @@ boolean Plugin_110(byte function, struct EventStruct *event, String& string)
                 } else {
                         addLog(LOG_LEVEL_DEBUG,"P1 error: Invalid CRC, dropped data");
                        }
+           
                        bytes_read= 0;
                        state = WAITING;              
              }   // state == DONE              
