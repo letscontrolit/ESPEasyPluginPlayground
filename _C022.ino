@@ -90,7 +90,7 @@ boolean pimaticUpdateVariable(struct EventStruct *event, byte varIndex, float va
 {
 
   String authHeader = "";
-  #if ESP_CORE >= 210
+  
   if ((SecuritySettings.ControllerUser[0] != 0) && (SecuritySettings.ControllerPassword[0] != 0))
   {
     base64 encoder;
@@ -99,7 +99,7 @@ boolean pimaticUpdateVariable(struct EventStruct *event, byte varIndex, float va
     auth += SecuritySettings.ControllerPassword;
     authHeader = "Authorization: Basic " + encoder.encode(auth) + " \r\n";
   }
-  #endif
+  
         
   char log[80];
   boolean success = false;
