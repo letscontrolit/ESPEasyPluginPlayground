@@ -2,6 +2,17 @@
 //########################### Controller Plugin 022: Pimatic RestApi ####################################
 //#######################################################################################################
 
+/*******************************************************************************
+ * Release notes:
+ * V 1.0 
+ - First version by deejaybeam, 7 July 2016
+ * V 1.01
+ - Update and rename _C009.ino to _C022.ino by Wutu due to new standard protocols, 21 September 2016
+ * V1.02
+ - Remove ">210" core statement to comply (and function) with new standard 230 core as of R114, 24 September 2016
+ * 
+ /******************************************************************************/
+ 
 #define CPLUGIN_022
 #define CPLUGIN_ID_022         22
 #define CPLUGIN_NAME_022       "Pimatic RestApi"
