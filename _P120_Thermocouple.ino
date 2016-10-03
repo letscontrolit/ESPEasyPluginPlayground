@@ -5,10 +5,10 @@
 // Plugin Description
 // This Plugin reads the data from Thermocouples. You have to use an Adapter Board with a
 // MAX6675 or MAX31855 in order to read the values. Take a look at ebay to find such boards :-)
-// You can only use ESP8266 boards which expose the SPI Interface. This Plugin uses only the Hardware 
-// SPI Interface - no software SPI at the moment. 
-// But neverless you need at least 3 Pins to use SPI. So using an very simple ESP-01 is no option - Sorry. 
-// The Wiring ist straight forward ... 
+// You can only use ESP8266 boards which expose the SPI Interface. This Plugin uses only the Hardware
+// SPI Interface - no software SPI at the moment.
+// But neverless you need at least 3 Pins to use SPI. So using an very simple ESP-01 is no option - Sorry.
+// The Wiring ist straight forward ...
 //
 // If you like to send suggestions feel free to send me an email : dominik@logview.info
 // Have fun ... Dominik
@@ -25,6 +25,12 @@
 // Thermocouple Infos
 // http://www.bristolwatch.com/ele2/therc.htm
 
+// Chips
+// MAX6675  - Cold-Junction-Compensated K-Thermocouple-to-Digital Converter (   0°C to +1024°C)
+//            https://cdn-shop.adafruit.com/datasheets/MAX6675.pdf (only
+// MAX31855 - Cold-Junction Compensated Thermocouple-to-Digital Converter   (-270°C to +1800°C)
+//            https://cdn-shop.adafruit.com/datasheets/MAX31855.pdf
+
 #include <SPI.h>
 
 #define PLUGIN_120
@@ -33,7 +39,7 @@
 #define PLUGIN_VALUENAME1_120 "Temperature C"
 #define PLUGIN_VALUENAME2_120 "Temperature K"
 
-uint8_t Plugin_120_SPI_CS_Pin = 15;  // Default
+uint8_t Plugin_120_SPI_CS_Pin = 15;  // D8
 bool Plugin_120_SensorAttached = true;
 double Plugin_120_Celsius = 0.0;
 
@@ -75,9 +81,10 @@ boolean Plugin_120(byte function, struct EventStruct *event, String& string)
     case PLUGIN_INIT:
       {
         // Get CS Pin
+        // If no Pin is in Config we use 15 as default -> Hardware Chip Select on ESP8266
         if (Settings.TaskDevicePin1[event->TaskIndex] != 0)
         {
-          // If no Pin is in Config we use 15 as default -> Hardware Chip Select on ESP8266
+          // Konvert the GPIO Pin to a Dogotal Puin Number first ...
           Plugin_120_SPI_CS_Pin = Settings.TaskDevicePin1[event->TaskIndex];
         }
 
@@ -95,7 +102,7 @@ boolean Plugin_120(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_WEBFORM_LOAD:
       {
-        string += F("<TR><TD>Info GPIO:<TD><b>1st GPIO</b> = CS");
+        string += F("<TR><TD>Info GPIO:<TD><b>1st GPIO</b> = CS (Usable GPIOs : 0, 2, 4, 5, 15)");
 
         byte choice = Settings.TaskDevicePluginConfig[event->TaskIndex][0];
         String options[2];
@@ -139,6 +146,7 @@ boolean Plugin_120(byte function, struct EventStruct *event, String& string)
         byte MaxType = Settings.TaskDevicePluginConfig[event->TaskIndex][0];
 
         // Get CS Pin
+        // Konvert the GPIO Pin to a Dogotal Puin Number first ...
         Plugin_120_SPI_CS_Pin = Settings.TaskDevicePin1[event->TaskIndex];
 
         switch (MaxType) {
@@ -184,6 +192,9 @@ double readMax6675()
   uint16_t rawvalue = 0;
   // take the SS pin low to select the chip:
   digitalWrite(Plugin_120_SPI_CS_Pin, LOW);
+  // String log = F("P120 : CS Pin : ");
+  // log += Plugin_120_SPI_CS_Pin;
+  // addLog(LOG_LEVEL_INFO, log);
   // "transfer" 0x0 and read the Data from the Chip
   rawvalue = SPI.transfer16(0x0);
   // take the SS pin high to de-select the chip:
@@ -245,9 +256,23 @@ double readMax31855()
   if (Plugin_120_SensorAttached)
   {
     // Data is D[31:18]
-    // Shift RAW value 18 Bits to the right to get the data 
+    // Shift RAW value 18 Bits to the right to get the data
     rawvalue >>= 18;
 
+    // Check for negative Values
+    //  +25.00    0000 0001 1001 00 
+    //    0.00    0000 0000 0000 00
+    //   -0.25    1111 1111 1111 11
+    //   -1.00    1111 1111 1111 00
+    // -250.00    1111 0000 0110 00
+    if (rawvalue & 0x2000) // Bit 31=1 -> neg Values
+    {
+      // Negate all Bits
+      rawvalue = ~rawvalue; 
+      // Add 1 and make negative 
+      rawvalue = (rawvalue + 1) * -1;
+    }
+    
     // Calculate Celsius
     return rawvalue * 0.25;
   }
