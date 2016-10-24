@@ -8,24 +8,24 @@
 // HOW TO SETUP
 // First of all you have to tweak ESPEasy a little bit to get a smoother LED simulation: 
 // Open ESPEasy.ino
-//   * find the part with the line "#define PLUGIN_TEN_PER_SECOND               5"
-//   * ADD the following line at the end of the block:
+//   * find the part with the line "#define PLUGIN_TEN_PER_SECOND               5" 
+//   * ADD the following line at the end of the block: (~line number 200)
 //     #define PLUGIN_FOURTY_PER_SECOND           99
 //   * find void loop()
-//   * ADD a new timer handler like the existing ones ... 
+//   * ADD a new timer handler like the existing ones ... (~line number 670)
 //     if (millis() > timer25ms)
 //       run40TimesPerSecond();
-//   * After the loop() methode ADD a new methode
+//   * After the loop() methode ADD a new methode  (~line number 690)
 //      void run40TimesPerSecond()
 //      {
 //        timer25ms = millis() + 25;
 //        PluginCall(PLUGIN_FOURTY_PER_SECOND, 0, dummyString);
 //      }
 // Open _Plugin.ino
-//   * find case PLUGIN_TEN_PER_SECOND:
+//   * find case PLUGIN_TEN_PER_SECOND:       (~line number 1097)
 //   * ADD case PLUGIN_FOURTY_PER_SECOND: in the next line
 // Open WebServer.ino
-//   * find the line str += F("//--></script>");
+//   * find the line str += F("//--></script>");    (~line number 57)
 //   * ADD the following in the next line
 //     str += F("<script src=\"jscolor.min.js\"></script>\n");
 //   * find the line WebServer.sendHeader("Content-Disposition", "attachment;"); (~line number 2104)
@@ -33,7 +33,7 @@
 //       if (path.endsWith(".js"))                                                 
 //         WebServer.sendHeader("Cache-Control: max-age=3600", "must-revalidate"); 
 // Open ESPEasy.ino
-// Enable SPIFFS (because we need to upload an additional JS file) (~line 126)
+// Enable SPIFFS (because we need to upload an additional JS file) (~line number 126)
 //   * #define FEATURE_SPIFFS                  true 
 
 // INCLUDE jscolor (http://jscolor.com/)
