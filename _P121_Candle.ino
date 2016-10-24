@@ -21,6 +21,29 @@
 //        timer25ms = millis() + 25;
 //        PluginCall(PLUGIN_FOURTY_PER_SECOND, 0, dummyString);
 //      }
+// Open _Plugin.ino
+//   * find case PLUGIN_TEN_PER_SECOND:
+//   * ADD case PLUGIN_FOURTY_PER_SECOND: in the next line
+// Open WebServer.ino
+//   * find the line str += F("//--></script>");
+//   * ADD the following in the next line
+//     str += F("<script src=\"jscolor.min.js\"></script>\n");
+//   * find the line WebServer.sendHeader("Content-Disposition", "attachment;"); (~line number 2104)
+//   * ADD the following lines: 
+//       if (path.endsWith(".js"))                                                 
+//         WebServer.sendHeader("Cache-Control: max-age=3600", "must-revalidate"); 
+// Open ESPEasy.ino
+// Enable SPIFFS (because we need to upload an additional JS file) (~line 126)
+//   * #define FEATURE_SPIFFS                  true 
+
+// INCLUDE jscolor (http://jscolor.com/)
+//   * Download the lib from here: http://jscolor.com/release/latest.zip
+//   * Extract jscolor.min.js
+//   * Now open the Web UI of your ESPEasy with this URL: 
+//     http://<IP-ESPEasy>/upload
+//   * Select Browse ... and choose the extracted jscolor.min.js File (ensure the ...min... verion !!)
+//   * Press Upload und you are done. 
+
 // Add the Adafruit Neopixel Library to your library path. You will find it here: 
 // https://github.com/adafruit/Adafruit_NeoPixel
 // That´s all :-) Now ESPEasy has a new 25ms "Timer loop" and Neopixel Support.  
