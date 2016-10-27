@@ -21,6 +21,9 @@
 //        timer25ms = millis() + 25;
 //        PluginCall(PLUGIN_FOURTY_PER_SECOND, 0, dummyString);
 //      }
+//   * find "unsigned long timer100ms;" and after that line add the following: 
+//     unsigned long timer25ms;
+//   
 // Open _Plugin.ino
 //   * find case PLUGIN_TEN_PER_SECOND:       (~line number 1097)
 //   * ADD case PLUGIN_FOURTY_PER_SECOND: in the next line
