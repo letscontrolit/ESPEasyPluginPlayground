@@ -43,7 +43,7 @@ WiFiClient P1GatewayClient;
 
 void blinkLED(){        
         digitalWrite(STATUS_LED,1);
-        delay(500);
+        delay(50);
         digitalWrite(STATUS_LED,0);
         }
 /*
@@ -51,7 +51,7 @@ void blinkLED(){
  *     checks whether the incoming character is a valid one for a P1 datagram. Returns false if not, which signals corrupt datagram
  */
 bool validP1char(char ch){          
-  if ((ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'z') || (ch >='A' && ch <= 'Z') || (ch =='.') || (ch == '!') || (ch == 92) || (ch == 13) || (ch == '\n') || (ch == '(') || (ch ==')') || (ch == '-') || (ch=='*')|| (ch ==':') ) 
+  if ((ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'z') || (ch >='A' && ch <= 'Z') || (ch =='.')|| (ch == ' ')|| (ch == '!') || (ch == 92) || (ch == 13) || (ch == 10) || (ch == '\n') || (ch == '(') || (ch ==')') || (ch == '-') || (ch=='*')|| (ch ==':') ) 
   {
   return true;
   } else {
@@ -420,11 +420,12 @@ boolean Plugin_110(byte function, struct EventStruct *event, String& string)
                         bytes_read++;
                         serial_buf[bytes_read] = '\n';
                          bytes_read++;
-                        serial_buf[bytes_read] = 0;                       
+                        serial_buf[bytes_read] = 0;    
+                     // addLog(LOG_LEVEL_DEBUG,(const uint8_t*)serial_buf, bytes_read);
                         P1GatewayClient.write((const uint8_t*)serial_buf, bytes_read);
                         P1GatewayClient.flush();
                         addLog(LOG_LEVEL_DEBUG,"P1 msg: pushed data to Domoticz");
-                        blinkLED();
+                       // blinkLED();
                 } else {
                         addLog(LOG_LEVEL_DEBUG,"P1 error: Invalid CRC, dropped data");
                        }
