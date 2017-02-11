@@ -502,8 +502,10 @@ boolean Plugin_186(byte function, struct EventStruct *event, String& string)
               break;
             }
           }   // switch
-        }     // if
-        success = true;  
+          success = true;
+        } else {
+          success = false;
+        }
         break;
       }       // case READ
     }         // switch
