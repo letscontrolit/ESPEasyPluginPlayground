@@ -1,5 +1,5 @@
 //#######################################################################################################
-//#################################### Plugin 118: MPU6050 ##############################################
+//#################################### Plugin 118: MPU6050 [Develpment] #################################
 //#######################################################################################################
 
 // Based on the works of Nolan Gilley @ https://home-assistant.io/blog/2016/08/03/laundry-automation-update/
@@ -53,6 +53,8 @@
 //              Settings.TaskDevicePluginConfigLong[x][0] - Minimal detection threshold counter
 //              Settings.TaskDevicePluginConfigLong[x][1] - Detection threshold window counter
 
+#ifdef PLUGIN_BUILD_DEV
+
 #define MPU6050_RA_GYRO_CONFIG              0x1B
 #define MPU6050_RA_ACCEL_CONFIG             0x1C
 #define MPU6050_RA_ACCEL_XOUT_H             0x3B
@@ -70,7 +72,7 @@
 
 #define PLUGIN_118
 #define PLUGIN_ID_118                       118
-#define PLUGIN_NAME_118                     "MPU 6050"
+#define PLUGIN_NAME_118                     "MPU 6050 [Development]" 
 #define PLUGIN_VALUENAME1_118               ""
 
 int16_t _P118_axis[3][5][2];                // [xyz], [min/max/range,a,g], [0x68/0x69]
@@ -425,3 +427,4 @@ void _P118_writeBits(uint8_t devAddr, uint8_t regAddr, uint8_t bitStart, uint8_t
       Wire.endTransmission();
     }
 }
+#endif
