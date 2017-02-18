@@ -422,8 +422,8 @@ boolean Plugin_186(byte function, struct EventStruct *event, String& string)
             }
             case (1):
             {
-              float average = float((Plugin_186_databuffer[11]) * 10 + Plugin_186_databuffer[10]);    // Wind speed average in 10 * m/s
-              float gust = float((Plugin_186_databuffer[13]) * 10 + Plugin_186_databuffer[12]);       // Wind speed gust in 10 * m/s
+              float average = float((Plugin_186_databuffer[11]) * 256 + Plugin_186_databuffer[10]);    // Wind speed average in 10 * m/s
+              float gust = float((Plugin_186_databuffer[13]) * 256 + Plugin_186_databuffer[12]);       // Wind speed gust in 10 * m/s
               float bearing = float(Plugin_186_databuffer[9] & 0x0f) * 22.5;                          // Wind bearing (0-359)
               UserVar[event->BaseVarIndex] = bearing;                                                 // degrees
               UserVar[event->BaseVarIndex + 1] = average;
