@@ -1213,7 +1213,7 @@ boolean Plugin_124(uint8_t function, struct EventStruct *event, String& string)
         Device[deviceCount].Ports = 0;
         Device[deviceCount].PullUpOption = false;
         Device[deviceCount].InverseLogicOption = false;
-        Device[deviceCount].FormulaOption = true;
+        Device[deviceCount].FormulaOption = false;
         Device[deviceCount].SendDataOption = true;
         Device[deviceCount].ValueCount = 3;
         break;
