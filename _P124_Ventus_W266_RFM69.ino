@@ -199,10 +199,6 @@ uint16_t strikesPast5minutes = 0;
 #define RFM69_REG_6F_TEST_DAGC                        0x6F
 #define RFM69_REG_71_TEST_AFC                         0x71
 
-// ******************************************************
-
-// RF69/SX1231 bit control definition
-
 // RegOpMode
 #define RF_OPMODE_SEQUENCER_OFF                       0x80
 #define RF_OPMODE_SEQUENCER_ON                        0x00  // Default
@@ -253,7 +249,6 @@ uint16_t strikesPast5minutes = 0;
 #define RF_LOWBAT_TRIM_2116                           0x06
 #define RF_LOWBAT_TRIM_2185                           0x07
 
-
 // RegListen1
 #define RF_LISTEN1_RESOL_64                           0x50
 #define RF_LISTEN1_RESOL_4100                         0xA0  // Default
@@ -265,7 +260,6 @@ uint16_t strikesPast5minutes = 0;
 #define RF_LISTEN1_END_00                             0x00
 #define RF_LISTEN1_END_01                             0x02  // Default
 #define RF_LISTEN1_END_10                             0x04
-
 
 // RegListen2
 #define RF_LISTEN2_COEFIDLE_VALUE                     0xF5 // Default
@@ -280,7 +274,6 @@ uint16_t strikesPast5minutes = 0;
 #define RF_PALEVEL_PA1_OFF                            0x00  // Default
 #define RF_PALEVEL_PA2_ON                             0x20
 #define RF_PALEVEL_PA2_OFF                            0x00  // Default
-
 
 // RegPaRamp
 #define RF_PARAMP_3400                                0x00
@@ -299,7 +292,6 @@ uint16_t strikesPast5minutes = 0;
 #define RF_PARAMP_15                                  0x0D
 #define RF_PARAMP_12                                  0x0E
 #define RF_PARAMP_10                                  0x0F
-
 
 // RegOcp
 #define RF_OCP_OFF                                    0x0F
@@ -321,7 +313,6 @@ uint16_t strikesPast5minutes = 0;
 #define RF_OCP_TRIM_110                               0x0D
 #define RF_OCP_TRIM_115                               0x0E
 #define RF_OCP_TRIM_120                               0x0F
-
 
 // RegAgcRef
 #define RF_AGCREF_AUTO_ON                             0x40  // Default
@@ -392,7 +383,6 @@ uint16_t strikesPast5minutes = 0;
 #define RF_AGCREF_LEVEL_MINUS142                      0x3E
 #define RF_AGCREF_LEVEL_MINUS143                      0x3F
 
-
 // RegAgcThresh1
 #define RF_AGCTHRESH1_SNRMARGIN_000                   0x00
 #define RF_AGCTHRESH1_SNRMARGIN_001                   0x20
@@ -436,7 +426,6 @@ uint16_t strikesPast5minutes = 0;
 #define RF_AGCTHRESH1_STEP1_30                        0x1E
 #define RF_AGCTHRESH1_STEP1_31                        0x1F
 
-
 // RegAgcThresh2
 #define RF_AGCTHRESH2_STEP2_0                         0x00
 #define RF_AGCTHRESH2_STEP2_1                         0x10
@@ -471,7 +460,6 @@ uint16_t strikesPast5minutes = 0;
 #define RF_AGCTHRESH2_STEP3_13                        0x0D
 #define RF_AGCTHRESH2_STEP3_14                        0x0E
 #define RF_AGCTHRESH2_STEP3_15                        0x0F
-
 
 // RegAgcThresh3
 #define RF_AGCTHRESH3_STEP4_0                         0x00
@@ -508,7 +496,6 @@ uint16_t strikesPast5minutes = 0;
 #define RF_AGCTHRESH3_STEP5_14                        0x0E
 #define RF_AGCTHRESH3_STEP5_15                        0x0F
 
-
 // RegLna
 #define RF_LNA_ZIN_50                                 0x00
 #define RF_LNA_ZIN_200                                0x80  // Default
@@ -525,7 +512,6 @@ uint16_t strikesPast5minutes = 0;
 #define RF_LNA_GAINSELECT_MAXMINUS24                  0x04
 #define RF_LNA_GAINSELECT_MAXMINUS36                  0x05
 #define RF_LNA_GAINSELECT_MAXMINUS48                  0x06
-
 
 // RegRxBw
 #define RF_RXBW_DCCFREQ_000                           0x00
@@ -550,7 +536,6 @@ uint16_t strikesPast5minutes = 0;
 #define RF_RXBW_EXP_6                                 0x06
 #define RF_RXBW_EXP_7                                 0x07
 
-
 // RegAfcBw
 #define RF_AFCBW_DCCFREQAFC_000                       0x00
 #define RF_AFCBW_DCCFREQAFC_001                       0x20
@@ -573,7 +558,6 @@ uint16_t strikesPast5minutes = 0;
 #define RF_AFCBW_EXPAFC_5                             0x05
 #define RF_AFCBW_EXPAFC_6                             0x06
 #define RF_AFCBW_EXPAFC_7                             0x07
-
 
 // RegOokPeak
 #define RF_OOKPEAK_THRESHTYPE_FIXED                   0x00
@@ -598,17 +582,14 @@ uint16_t strikesPast5minutes = 0;
 #define RF_OOKPEAK_PEAKTHRESHDEC_110                  0x06
 #define RF_OOKPEAK_PEAKTHRESHDEC_111                  0x07
 
-
 // RegOokAvg
 #define RF_OOKAVG_AVERAGETHRESHFILT_00                0x00
 #define RF_OOKAVG_AVERAGETHRESHFILT_01                0x40
 #define RF_OOKAVG_AVERAGETHRESHFILT_10                0x80  // Default
 #define RF_OOKAVG_AVERAGETHRESHFILT_11                0xC0
 
-
 // RegOokFix
 #define RF_OOKFIX_FIXEDTHRESH_VALUE                   0x06  // Default
-
 
 // RegAfcFei
 #define RF_AFCFEI_FEI_DONE                            0x40
@@ -628,7 +609,6 @@ uint16_t strikesPast5minutes = 0;
 #define RF_RSSI_FASTRX_OFF                            0x00  // Default
 #define RF_RSSI_DONE                                  0x02
 #define RF_RSSI_START                                 0x01
-
 
 // RegDioMapping1
 #define RF_DIOMAPPING1_DIO0_00                        0x00  // Default
@@ -672,7 +652,6 @@ uint16_t strikesPast5minutes = 0;
 #define RF_DIOMAPPING2_CLKOUT_RC                      0x06
 #define RF_DIOMAPPING2_CLKOUT_OFF                     0x07  // Default
 
-
 // RegIrqFlags1
 #define RF_IRQFLAGS1_MODEREADY                        0x80
 #define RF_IRQFLAGS1_RXREADY                          0x40
@@ -706,7 +685,6 @@ uint16_t strikesPast5minutes = 0;
 #define RF_PREAMBLESIZE_MSB_VALUE                     0x00  // Default
 #define RF_PREAMBLESIZE_LSB_VALUE                     0x03  // Default
 
-
 // RegSyncConfig
 #define RF_SYNC_ON                                    0x80  // Default
 #define RF_SYNC_OFF                                   0x00
@@ -732,7 +710,6 @@ uint16_t strikesPast5minutes = 0;
 #define RF_SYNC_TOL_6                                 0x06
 #define RF_SYNC_TOL_7                                 0x07
 
-
 // RegSyncValue1-8
 #define RF_SYNC_BYTE1_VALUE                           0x00  // Default
 #define RF_SYNC_BYTE2_VALUE                           0x00  // Default
@@ -742,7 +719,6 @@ uint16_t strikesPast5minutes = 0;
 #define RF_SYNC_BYTE6_VALUE                           0x00  // Default
 #define RF_SYNC_BYTE7_VALUE                           0x00  // Default
 #define RF_SYNC_BYTE8_VALUE                           0x00  // Default
-
 
 // RegPacketConfig1
 #define RF_PACKET1_FORMAT_FIXED                       0x00  // Default
@@ -762,13 +738,11 @@ uint16_t strikesPast5minutes = 0;
 #define RF_PACKET1_ADRSFILTERING_NODE                 0x02
 #define RF_PACKET1_ADRSFILTERING_NODEBROADCAST        0x04
 
-
 // RegPayloadLength
 #define RF_PAYLOADLENGTH_VALUE                        0x40  // Default
 
 // RegBroadcastAdrs
 #define RF_BROADCASTADDRESS_VALUE                     0x00
-
 
 // RegAutoModes
 #define RF_AUTOMODES_ENTER_OFF                        0x00  // Default
@@ -794,13 +768,11 @@ uint16_t strikesPast5minutes = 0;
 #define RF_AUTOMODES_INTERMEDIATE_RECEIVER            0x02
 #define RF_AUTOMODES_INTERMEDIATE_TRANSMITTER         0x03
 
-
 // RegFifoThresh
 #define RF_FIFOTHRESH_TXSTART_FIFOTHRESH              0x00
 #define RF_FIFOTHRESH_TXSTART_FIFONOTEMPTY            0x80  // Default
 
 #define RF_FIFOTHRESH_VALUE                           0x0F  // Default
-
 
 // RegPacketConfig2
 #define RF_PACKET2_RXRESTARTDELAY_1BIT                0x00  // Default
@@ -824,7 +796,6 @@ uint16_t strikesPast5minutes = 0;
 #define RF_PACKET2_AES_ON                             0x01
 #define RF_PACKET2_AES_OFF                            0x00  // Default
 
-
 // RegAesKey1-16
 #define RF_AESKEY1_VALUE                              0x00  // Default
 #define RF_AESKEY2_VALUE                              0x00  // Default
@@ -842,7 +813,6 @@ uint16_t strikesPast5minutes = 0;
 #define RF_AESKEY14_VALUE                             0x00  // Default
 #define RF_AESKEY15_VALUE                             0x00  // Default
 #define RF_AESKEY16_VALUE                             0x00  // Default
-
 
 // RegTemp1
 #define RF_TEMP1_MEAS_START                           0x08
@@ -1213,7 +1183,7 @@ boolean Plugin_124(uint8_t function, struct EventStruct *event, String& string)
         Device[deviceCount].Ports = 0;
         Device[deviceCount].PullUpOption = false;
         Device[deviceCount].InverseLogicOption = false;
-        Device[deviceCount].FormulaOption = false;
+        Device[deviceCount].FormulaOption = true;
         Device[deviceCount].SendDataOption = true;
         Device[deviceCount].ValueCount = 3;
         break;
@@ -1375,6 +1345,8 @@ boolean Plugin_124(uint8_t function, struct EventStruct *event, String& string)
         // check only if MAIN instance is calling
         if (Settings.TaskDevicePluginConfig[event->TaskIndex][0] == INSTANCE_TH)
         {
+          newDataPending = false;
+          
           // received data pending?
           if (digitalRead(Plugin_124_DIO0_Pin) == HIGH)
           {
@@ -1469,58 +1441,12 @@ boolean Plugin_124(uint8_t function, struct EventStruct *event, String& string)
             }
           }
         }
-
-
-        // update data of the calling task only
+       
+        // trigger immediate data forwarding
         if (newDataPending)
-        {
-          UserVar[event->BaseVarIndex] = 0;
-          UserVar[event->BaseVarIndex + 1] = 0;
-          UserVar[event->BaseVarIndex + 2] = 0;
-
-          switch (Settings.TaskDevicePluginConfig[event->TaskIndex][0])
-          {
-            case INSTANCE_TH:
-              {
-                UserVar[event->BaseVarIndex] = temperature;
-                UserVar[event->BaseVarIndex + 1] = humidity;
-                break;
-              }
-            case INSTANCE_WIND:
-              {
-                UserVar[event->BaseVarIndex] = windDIR;
-                UserVar[event->BaseVarIndex + 1] = windAVG;
-                UserVar[event->BaseVarIndex + 2] = windGUST;
-                break;
-              }
-            case INSTANCE_RAIN:
-              {
-                UserVar[event->BaseVarIndex] = rainTotal;
-                UserVar[event->BaseVarIndex + 1] = rainLevelPastHour;
-                break;
-              }
-            case INSTANCE_UV:
-              {
-                UserVar[event->BaseVarIndex] = uv;
-                break;
-              }
-            case INSTANCE_LIGHTNING:
-              {
-                UserVar[event->BaseVarIndex] = strikesTotal;
-                UserVar[event->BaseVarIndex + 1] = strikesPast5minutes;
-                UserVar[event->BaseVarIndex + 2] = strikesDistance;
-                break;
-              }
-            case INSTANCE_BATTERY:
-              {
-                UserVar[event->BaseVarIndex] = batteryLow;
-                newDataPending = false;                         // must be placed at the last instance type; start is always at first/MAIN instance
-                break;
-              }
-          }
-
-          sendData(event);
-        }
+          timerSensor[event->TaskIndex] = millis() - 1;
+        else
+          timerSensor[event->TaskIndex] = millis() + 60000;     // prevent periodic transmission
 
         success = true;
         break;
@@ -1576,7 +1502,7 @@ boolean Plugin_124(uint8_t function, struct EventStruct *event, String& string)
             }
         }
 
-        //success = true;     // do not send data, just update the webinterface data
+        success = true;
         break;
       }
   }
