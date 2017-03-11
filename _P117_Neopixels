@@ -1,0 +1,303 @@
+//#######################################################################################################
+//#################################### Plugin 117: NeoPixel #######################################
+//#######################################################################################################
+#include <Adafruit_NeoPixel.h>
+
+#define NUM_LEDS      114
+
+byte Plugin_117_red = 0;
+byte Plugin_117_green = 0;
+byte Plugin_117_blue = 0;
+byte Plugin_117_NUM_LEDS = 16;
+
+Adafruit_NeoPixel *Plugin_117_pixels;
+
+#define PLUGIN_117
+#define PLUGIN_ID_117         110
+#define PLUGIN_NAME_117       "NeoPixel - WS2812"
+#define PLUGIN_VALUENAME1_117 "WS2812"
+boolean Plugin_117(byte function, struct EventStruct *event, String& string)
+{
+  boolean success = false;
+
+  switch (function)
+  {
+
+    case PLUGIN_DEVICE_ADD:
+      {
+        Device[++deviceCount].Number = PLUGIN_ID_117;
+        Device[deviceCount].Type = DEVICE_TYPE_SINGLE;
+        Device[deviceCount].VType = SENSOR_TYPE_SWITCH;
+        Device[deviceCount].Ports = 0;
+        Device[deviceCount].PullUpOption = false;
+        Device[deviceCount].InverseLogicOption = false;
+        Device[deviceCount].FormulaOption = false;
+        Device[deviceCount].ValueCount = 0;
+        Device[deviceCount].SendDataOption = false;
+        break;
+      }
+
+    case PLUGIN_GET_DEVICENAME:
+      {
+        string = F(PLUGIN_NAME_117);
+        break;
+      }
+
+    case PLUGIN_GET_DEVICEVALUENAMES:
+      {
+        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_VALUENAME1_117));
+        break;
+      }
+
+    case PLUGIN_WEBFORM_LOAD:
+      {
+        char tmpString[128];
+        sprintf_P(tmpString, PSTR("<TR><TD>Nr of LEDs:<TD><input type='text' name='Plugin_117_NUM_LEDS' size='3' value='%u'>"), Settings.TaskDevicePluginConfig[event->TaskIndex][0]);
+        string += tmpString;
+        sprintf_P(tmpString, PSTR("<TR><TD>Red:<TD><input type='text' name='Plugin_117_red' size='3' value='%u'>"), Settings.TaskDevicePluginConfig[event->TaskIndex][1]);
+        string += tmpString;
+        sprintf_P(tmpString, PSTR("<TR><TD>Green:<TD><input type='text' name='Plugin_117_green' size='3' value='%u'>"), Settings.TaskDevicePluginConfig[event->TaskIndex][2]);
+        string += tmpString;
+        sprintf_P(tmpString, PSTR("<TR><TD>Blue:<TD><input type='text' name='Plugin_117_blue' size='3' value='%u'>"), Settings.TaskDevicePluginConfig[event->TaskIndex][3]);
+        string += tmpString;
+        success = true;
+        break;
+      }
+
+    case PLUGIN_WEBFORM_SAVE:
+      {
+
+        String plugin1 = WebServer.arg("Plugin_117_NUM_LEDS");
+        Settings.TaskDevicePluginConfig[event->TaskIndex][0] = plugin1.toInt();
+        String plugin2 = WebServer.arg("Plugin_117_red");
+        Settings.TaskDevicePluginConfig[event->TaskIndex][1] = plugin2.toInt();
+        String plugin3 = WebServer.arg("Plugin_117_green");
+        Settings.TaskDevicePluginConfig[event->TaskIndex][2] = plugin3.toInt();
+        String plugin4 = WebServer.arg("Plugin_117_blue");
+        Settings.TaskDevicePluginConfig[event->TaskIndex][3] = plugin4.toInt();
+        Plugin_117_NUM_LEDS = Settings.TaskDevicePluginConfig[event->TaskIndex][0];
+        Plugin_117_red = Settings.TaskDevicePluginConfig[event->TaskIndex][1];
+        Plugin_117_green = Settings.TaskDevicePluginConfig[event->TaskIndex][2];
+        Plugin_117_blue = Settings.TaskDevicePluginConfig[event->TaskIndex][3];
+        //Plugin_1107update();
+        Plugin_117_pixels = new Adafruit_NeoPixel(Plugin_117_NUM_LEDS, Settings.TaskDevicePin1[event->TaskIndex], NEO_GRB + NEO_KHZ800);
+        Plugin_117_pixels->begin(); // This initializes the NeoPixel library.
+
+        success = true;
+        break;
+      }
+
+    case PLUGIN_INIT:
+      {
+        Plugin_117_NUM_LEDS = Settings.TaskDevicePluginConfig[event->TaskIndex][0];
+        Plugin_117_red = Settings.TaskDevicePluginConfig[event->TaskIndex][1];
+        Plugin_117_green = Settings.TaskDevicePluginConfig[event->TaskIndex][2];
+        Plugin_117_blue = Settings.TaskDevicePluginConfig[event->TaskIndex][3];
+        if (!Plugin_117_pixels)
+        {
+          Plugin_117_pixels = new Adafruit_NeoPixel(Plugin_117_NUM_LEDS, Settings.TaskDevicePin1[event->TaskIndex], NEO_GRB + NEO_KHZ800);
+          Plugin_117_pixels->begin(); // This initializes the NeoPixel library.
+        }
+
+        success = true;
+        break;
+      }
+
+    case PLUGIN_CLOCK_IN:
+      {
+        // Plugin_117_update();
+        success = true;
+        break;
+      }
+
+
+    case PLUGIN_WRITE:
+      {
+        String tmpString  = string;
+        int argIndex = tmpString.indexOf(',');
+        if (argIndex)
+          tmpString = tmpString.substring(0, argIndex);
+//Neopixel string will control the led
+//NeoPixel-GPIO-Number of leds-Case-Red-Green-Blue-time
+//To make string working in the Protocol Receive the follwing line needs to be added in _Coo5 for openhab MQQT line 68
+//         TempEvent.String1 = event->String2;
+
+        if (tmpString.equalsIgnoreCase("NeoPixel"))
+        {
+          success = true;
+          if (event->Par1 >= 0 && event->Par1 <= 16)
+          {
+            // Split topic into array
+            String tmpTopic = event->String1;
+            String topicSplit[10];
+            int SlashIndex = tmpTopic.indexOf('-');
+            byte count = 0;
+            while (SlashIndex > 0 && count < 10 - 1)
+            {
+              topicSplit[count] = tmpTopic.substring(0, SlashIndex);
+              tmpTopic = tmpTopic.substring(SlashIndex + 1);
+              SlashIndex = tmpTopic.indexOf('-');
+              count++;
+            }
+            topicSplit[count] = tmpTopic;
+
+            if (!Plugin_117_pixels)
+            {
+              Plugin_117_pixels = new Adafruit_NeoPixel(topicSplit[0].toInt(), event->Par1 , NEO_GRB + NEO_KHZ800);
+              Plugin_117_pixels->begin(); // This initializes the NeoPixel library.
+
+            } else {
+              //Plugin_117_pixels->setPin(event->Par1);
+              //Plugin_117_pixels->updateLength(topicSplit[0].toInt());
+            }
+
+            switch (topicSplit[1].toInt()) {
+              case 0: allOn(Plugin_117_pixels->Color(topicSplit[2].toInt() * 2.55, topicSplit[3].toInt() * 2.55, topicSplit[4].toInt() * 2.55));
+                break;
+              case 1: colorWipe(Plugin_117_pixels->Color(topicSplit[2].toInt() * 2.55, topicSplit[3].toInt() * 2.55, topicSplit[4].toInt() * 2.55), topicSplit[5].toInt());
+                break;
+              case 2: theaterChase(Plugin_117_pixels->Color(topicSplit[2].toInt() * 2.55, topicSplit[3].toInt() * 2.55, topicSplit[4].toInt() * 2.55), topicSplit[5].toInt());
+                allOn(Plugin_110_pixels->Color(0, 0, 0));
+                break;
+              case 3: rainbow(20);
+                allOn(Plugin_117_pixels->Color(0, 0, 0));
+                break;
+              case 4: rainbowCycle(20);
+                allOn(Plugin_117_pixels->Color(0, 0, 0));
+                break;
+              case 5: theaterChaseRainbow(50);
+                allOn(Plugin_117_pixels->Color(0, 0, 0));
+                break;
+              case 6: Chase(Plugin_117_pixels->Color(topicSplit[2].toInt() * 2.55, topicSplit[3].toInt() * 2.55, topicSplit[4].toInt() * 2.55), topicSplit[5].toInt());
+                allOn(Plugin_117_pixels->Color(0, 0, 0));
+                break;
+              case 7: Value(topicSplit[2].toInt(), topicSplit[5].toInt());
+                break;
+            }
+          }
+        }
+      }
+  }
+}
+
+
+// Fill the dots with a color
+void allOn(uint32_t c) {
+  for (uint16_t i = 0; i < Plugin_117_pixels->numPixels(); i++) {
+    Plugin_110_pixels->setPixelColor(i, c);
+  }
+  Plugin_117_pixels->show();
+}
+
+
+// Fill the dots one after the other with a color
+void colorWipe(uint32_t c, uint8_t wait) {
+  for (uint16_t i = 0; i < Plugin_117_pixels->numPixels(); i++) {
+    Plugin_117_pixels->setPixelColor(i, c);
+    Plugin_117_pixels->show();
+    delay(wait);
+  }
+}
+
+void rainbow(uint8_t wait) {
+  uint16_t i, j;
+
+  for (j = 0; j < 256; j++) {
+    for (i = 0; i < Plugin_117_pixels->numPixels(); i++) {
+      Plugin_117_pixels->setPixelColor(i, Wheel((i + j) & 255));
+    }
+    Plugin_117_pixels->show();
+    delay(wait);
+  }
+}
+
+// Slightly different, this makes the rainbow equally distributed throughout
+void rainbowCycle(uint8_t wait) {
+  uint16_t i, j;
+
+  for (j = 0; j < 256 * 5; j++) { // 5 cycles of all colors on wheel
+    for (i = 0; i < Plugin_117_pixels->numPixels(); i++) {
+      Plugin_117_pixels->setPixelColor(i, Wheel(((i * 256 / Plugin_117_pixels->numPixels()) + j) & 255));
+    }
+    Plugin_117_pixels->show();
+    delay(wait);
+  }
+}
+
+//Theatre-style crawling lights.
+void theaterChase(uint32_t c, uint8_t wait) {
+  for (int j = 0; j < 20; j++) { //do 20 cycles of chasing
+    for (int q = 0; q < 3; q++) {
+      for (int i = 0; i < Plugin_117_pixels->numPixels(); i = i + 3) {
+        Plugin_117_pixels->setPixelColor(i + q, c);  //turn every third pixel on
+      }
+      Plugin_117_pixels->show();
+
+      delay(wait);
+
+      for (int i = 0; i < Plugin_117_pixels->numPixels(); i = i + 3) {
+        Plugin_117_pixels->setPixelColor(i + q, 0);      //turn every third pixel off
+      }
+    }
+  }
+}
+
+//crawling lights.
+void Chase(uint32_t c, uint8_t wait) {
+  for (int j = 0; j < 10; j++) { //do 20 cycles of chasing
+    for (uint16_t i = 0; i < Plugin_117_pixels->numPixels(); i++) {
+      Plugin_117_pixels->setPixelColor(i, c);
+      Plugin_117_pixels->show();
+      delay(wait);
+      Plugin_117_pixels->setPixelColor(i, 0);
+
+    }
+  }
+}
+//wipe lights value.
+void Value(uint8_t c, uint8_t wait) {
+  uint16_t i, j;
+  for (i = 0; i < Plugin_117_pixels->numPixels(); i++) {
+    j = (c + (i * 25 / Plugin_117_pixels->numPixels())) / 25;
+    Plugin_117_pixels->setPixelColor(i, Wheel((170 - (j * 42)) & 255 ) );
+    Plugin_117_pixels->show();
+    delay(wait);
+  }
+}
+
+
+
+//Theatre-style crawling lights with rainbow effect
+void theaterChaseRainbow(uint8_t wait) {
+  for (int j = 0; j < 256; j++) {   // cycle all 256 colors in the wheel
+    for (int q = 0; q < 3; q++) {
+      for (int i = 0; i < Plugin_117_pixels->numPixels(); i = i + 3) {
+        Plugin_117_pixels->setPixelColor(i + q, Wheel( (i + j) % 255)); //turn every third pixel on
+      }
+      Plugin_117_pixels->show();
+
+      delay(wait);
+
+      for (int i = 0; i < Plugin_117_pixels->numPixels(); i = i + 3) {
+        Plugin_117_pixels->setPixelColor(i + q, 0);      //turn every third pixel off
+      }
+    }
+  }
+}
+
+// Input a value 0 to 255 to get a color value.
+// The colours are a transition r - g - b - back to r.
+uint32_t Wheel(byte WheelPos) {
+  WheelPos = 255 - WheelPos;
+  if (WheelPos < 85) {
+    return Plugin_117_pixels->Color(255 - WheelPos * 3, 0, WheelPos * 3);
+  }
+  if (WheelPos < 170) {
+    WheelPos -= 85;
+    return Plugin_117_pixels->Color(0, WheelPos * 3, 255 - WheelPos * 3);
+  }
+  WheelPos -= 170;
+  return Plugin_117_pixels->Color(WheelPos * 3, 255 - WheelPos * 3, 0);
+}
+
+
