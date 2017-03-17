@@ -204,7 +204,7 @@ boolean Plugin_130(byte function, struct EventStruct *event, String& string)
               UserVar[event->BaseVarIndex] = m_energy; //gives energy in MJ
               UserVar[event->BaseVarIndex+1] = m_volume;  //gives volume in liters
                     
-              log = F("Kamstrup  : Heat value: ");
+              String log = F("Kamstrup  : Heat value: ");
               log += m_energy;
               log += F(" MJ");
               addLog(LOG_LEVEL_INFO, log);
