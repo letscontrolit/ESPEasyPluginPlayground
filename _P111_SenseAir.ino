@@ -3,7 +3,7 @@
 //#######################################################################################################
 /*
   Plugin originally written by: Daniel Tedenljung info__AT__tedenljungconsulting.com
-  Rewritten by: Mikael Trieb
+  Rewritten by: Mikael Trieb mikael__AT__triebconsulting.se
 
   This plugin reads availble values of SenseAir Co2 Sensors.
   Datasheet can be found here:
@@ -122,7 +122,7 @@ boolean Plugin_111(byte function, struct EventStruct *event, String& string)
         {
 
           String log = F("SenseAir: ");
-          switch(Settings.>TaskDevicePluginConfig[event->TaskIndex][0])
+          switch(Settings.TaskDevicePluginConfig[event->TaskIndex][0])
           {
               case 0:
               {
