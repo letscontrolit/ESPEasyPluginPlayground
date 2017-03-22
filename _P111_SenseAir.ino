@@ -2,11 +2,14 @@
 //############################# Plugin 111: SenseAir CO2 Sensors ########################################
 //#######################################################################################################
 /*
-  Plugin written by: Daniel Tedenljung info__AT__tedenljungconsulting.com
+  Plugin originally written by: Daniel Tedenljung info__AT__tedenljungconsulting.com
+  Rewritten by: Mikael Trieb
 
-  This plugin reads the co2 value of SenseAir Co2 Sensors. (S8 works, K30 is ongoing)
-  Datasheet can be found here for S8: http://www.senseair.com/products/oem-modules/senseair-s8/
-  Datasheet can be found here for K30: http://www.senseair.com/products/oem-modules/k30/
+  This plugin reads availble values of SenseAir Co2 Sensors.
+  Datasheet can be found here:
+  S8: http://www.senseair.com/products/oem-modules/senseair-s8/
+  K30: http://www.senseair.com/products/oem-modules/k30/
+  K70/tSENSE: http://www.senseair.com/products/wall-mount/tsense/
 
   You can buy sensor from m.nu in Sweden:
   S8 https://www.m.nu/co2matare-fran-senseair-p-1440.html
@@ -95,7 +98,7 @@ boolean Plugin_111(byte function, struct EventStruct *event, String& string)
             log += co2;
             addLog(LOG_LEVEL_INFO, log);
 
-            // The following values onlyu exist for K70
+            // The following values only exist for K70
             float temperature = Plugin_111_readTemperature();
             UserVar[event->BaseVarIndex + 1] = (float)temperature;
             log = F("SenseAir - Temperature: ");
@@ -192,7 +195,7 @@ int Plugin_111_readCo2(void)
 float Plugin_111_readTemperature(void)
 {
   int temperatureX100 = 0;
-  int temperature = 0.0;
+  float temperature = 0.0;
   byte frame[8] = {0};
   Plugin_111_buildFrame(0xFE, 0x04, 0x04, 1, frame);
   temperatureX100 = Plugin_111_sendCommand(frame);
