@@ -14,29 +14,23 @@
   You can buy sensor from m.nu in Sweden:
   S8 https://www.m.nu/co2matare-fran-senseair-p-1440.html
   K30 https://www.m.nu/k30-co2matare-p-302.html
+
+  Circuit wiring
+    GPIO Setting 1 -> RX
+    GPIO Setting 2 -> TX
+    Use 1kOhm in serie on datapins!
 */
 
 
 #define PLUGIN_111
 #define PLUGIN_ID_111         111
-#define PLUGIN_NAME_111       "SenseAir CO2 (Temperature & Humidity) Sensor"
-#define PLUGIN_VALUENAME1_111 "Carbon Dioxide"
-#define PLUGIN_VALUENAME2_111 "Temperature"
-#define PLUGIN_VALUENAME3_111 "Humidity"
+#define PLUGIN_NAME_111       "SenseAir"
+#define PLUGIN_VALUENAME1_111 ""
 
 boolean Plugin_111_init = false;
 
 #include <SoftwareSerial.h>
 SoftwareSerial *Plugin_111_SoftSerial;
-
-// 0xFE=Any address 0x04=Read input registers 0x0003=Starting address 0x0001=Number of registers to read 0xD5C5=CRC in reverse order
-byte cmdReadPPM[] = {0xFE, 0x04, 0x00, 0x03, 0x00, 0x01, 0xD5, 0xC5};
-
-byte ReciveBuffer[7];
-
-byte Data[5];
-byte co2[2];
-long ppm;
 
 boolean Plugin_111(byte function, struct EventStruct *event, String& string)
 {
@@ -49,12 +43,12 @@ boolean Plugin_111(byte function, struct EventStruct *event, String& string)
       {
         Device[++deviceCount].Number = PLUGIN_ID_111;
         Device[deviceCount].Type = DEVICE_TYPE_DUAL;
-        Device[deviceCount].VType = SENSOR_TYPE_TRIPLE;
+        Device[deviceCount].VType = SENSOR_TYPE_SINGLE;
         Device[deviceCount].Ports = 0;
         Device[deviceCount].PullUpOption = false;
         Device[deviceCount].InverseLogicOption = false;
         Device[deviceCount].FormulaOption = true;
-        Device[deviceCount].ValueCount = 3;
+        Device[deviceCount].ValueCount = 1;
         Device[deviceCount].SendDataOption = true;
         Device[deviceCount].TimerOption = true;
         Device[deviceCount].GlobalSyncOption = true;
@@ -70,15 +64,53 @@ boolean Plugin_111(byte function, struct EventStruct *event, String& string)
     case PLUGIN_GET_DEVICEVALUENAMES:
       {
         strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_VALUENAME1_111));
-        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[1], PSTR(PLUGIN_VALUENAME2_111));
-        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[2], PSTR(PLUGIN_VALUENAME3_111));
         break;
+      }
+
+    case PLUGIN_WEBFORM_LOAD:
+      {
+          byte choice = Settings.TaskDevicePluginConfig[event->TaskIndex][0];
+          String options[4];
+          options[0] = F("Status");
+          options[1] = F("Carbon Dioxide");
+          options[2] = F("Temperature");
+          options[3] = F("Humidity");
+          int optionValues[4];
+          optionValues[0] = 0;
+          optionValues[1] = 1;
+          optionValues[2] = 2;
+          optionValues[3] = 3;
+          string += F("<TR><TD>Sensor:<TD><select name='plugin_111'>");
+          for (byte x = 0; x < 4; x++)
+          {
+            string += F("<option value='");
+            string += optionValues[x];
+            string += "'";
+            if (choice == optionValues[x])
+              string += F(" selected");
+            string += ">";
+            string += options[x];
+            string += F("</option>");
+          }
+          string += F("</select>");
+
+          success = true;
+          break;
+      }
+
+    case PLUGIN_WEBFORM_SAVE:
+      {
+          String plugin1 = WebServer.arg(F("plugin_111"));
+          Settings.TaskDevicePluginConfig[event->TaskIndex][0] = plugin1.toInt();
+          success = true;
+          break;
       }
 
     case PLUGIN_INIT:
       {
         Plugin_111_init = true;
-        Plugin_111_SoftSerial = new SoftwareSerial(Settings.TaskDevicePin1[event->TaskIndex], Settings.TaskDevicePin2[event->TaskIndex]); // TODO: Explain this in plugin description RX=GPIO Setting 1, TX=GPIO Setting 2, Use 1kOhm in serie on datapins!
+        Plugin_111_SoftSerial = new SoftwareSerial(Settings.TaskDevicePin1[event->TaskIndex],
+                                                   Settings.TaskDevicePin2[event->TaskIndex]);
         success = true;
         break;
       }
@@ -89,37 +121,39 @@ boolean Plugin_111(byte function, struct EventStruct *event, String& string)
         if (Plugin_111_init)
         {
 
-          int sensor_status = Plugin_111_readStatus();
-          if(sensor_status == 0){
-            int co2 = Plugin_111_readCo2();
-            UserVar[event->BaseVarIndex] = co2;
-
-            String log = F("SenseAir - Co2: ");
-            log += co2;
-            addLog(LOG_LEVEL_INFO, log);
-
-            // The following values only exist for K70
-            float temperature = Plugin_111_readTemperature();
-            UserVar[event->BaseVarIndex + 1] = (float)temperature;
-            log = F("SenseAir - Temperature: ");
-            log += temperature;
-            addLog(LOG_LEVEL_INFO, log);
-
-            float relativeHumidity = Plugin_111_readRelativeHumidity();
-            UserVar[event->BaseVarIndex + 2] = (float)relativeHumidity;
-
-            log = F("SenseAir - Humidity: ");
-            log += relativeHumidity;
-            addLog(LOG_LEVEL_INFO, log);
+          String log = F("SenseAir: ");
+          switch(Settings.>TaskDevicePluginConfig[event->TaskIndex][0])
+          {
+              case 0:
+              {
+                  int sensor_status = Plugin_111_readStatus();
+                  UserVar[event->BaseVarIndex] = sensor_status;
+                  log += sensor_status;
+                  break;
+              }
+              case 1:
+              {
+                  int co2 = Plugin_111_readCo2();
+                  UserVar[event->BaseVarIndex] = co2;
+                  log += co2;
+                  break;
+              }
+              case 2:
+              {
+                  float temperature = Plugin_111_readTemperature();
+                  UserVar[event->BaseVarIndex] = (float)temperature;
+                  log += (float)temperature;
+                  break;
+              }
+              case 3:
+              {
+                  float relativeHumidity = Plugin_111_readRelativeHumidity();
+                  UserVar[event->BaseVarIndex] = (float)relativeHumidity;
+                  log += (float)relativeHumidity;
+                  break;
+              }
           }
-          else{
-            String log = F("SenseAir - Status error:");
-            log += sensor_status;
-            addLog(LOG_LEVEL_INFO, log);
-            UserVar[event->BaseVarIndex] = NAN;
-            UserVar[event->BaseVarIndex + 1] = NAN;
-            UserVar[event->BaseVarIndex + 2] = NAN;
-          }
+          addLog(LOG_LEVEL_INFO, log);
 
           success = true;
           break;
@@ -149,7 +183,6 @@ void Plugin_111_buildFrame(byte slaveAddress,
   frame[7] = checkSum[1];
 }
 
-
 int Plugin_111_sendCommand(byte command[])
 {
   byte recv_buf[7] = {0xff};
@@ -163,7 +196,6 @@ int Plugin_111_sendCommand(byte command[])
   int ByteCounter = 0;
   while(Plugin_111_SoftSerial->available()) {
     recv_buf[ByteCounter] = Plugin_111_SoftSerial->read();
-    //Serial.print(recv_buf[ByteCounter], HEX);Serial.print(",");
     ByteCounter++;
   }
 
@@ -213,7 +245,6 @@ float Plugin_111_readRelativeHumidity(void)
   rh = rhX100/100;
   return rh;
 }
-
 
 // Compute the MODBUS RTU CRC
 unsigned int Plugin_111_ModRTU_CRC(byte buf[], int len, byte checkSum[2])
