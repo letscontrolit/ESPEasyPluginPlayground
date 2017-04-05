@@ -1,4 +1,4 @@
-#ifdef PLUGIN_BUILD_DEV
+#ifdef PLUGIN_BUILD_NORMAL
 
 // #######################################################################################################
 // ##################################### Plugin 124: Ventus W266 RFM69 ###################################
@@ -1276,7 +1276,7 @@ boolean Plugin_124(uint8_t function, struct EventStruct *event, String& string)
           case INSTANCE_BATTERY:
             {
               string += F("<TR><TD>");
-              string += F("Value 1: Battery (0 decimal)<BR>");
+              string += F("Value 1: Battery low (0 decimal)<BR>");
               string += F("Value 2: not used<BR>");
               string += F("Value 3: not used");
               string += F("</TD>");
@@ -1390,7 +1390,7 @@ boolean Plugin_124(uint8_t function, struct EventStruct *event, String& string)
               humidity = (buffer[1] & 0x0F) + (buffer[1] >> 4) * 10;                      // %rel LF. (BCD coded)
               temperature = (float)((int16_t)((buffer[4] << 8) + buffer[3])) / 10.0;      // °C (todo: check offset)
               batteryLow = buffer[5] & 0x01;                                              // 0=ok, 1=low
-              windDIR = float(buffer[8] & 0x0F) * 22.5;                                   // 0..365°
+              windDIR = float(buffer[8] & 0x0F) * 22.5;                                   // 0..360°
               windAVG = float((buffer[10] << 8) + buffer[9]) / 10.0;                      // m/s
               windGUST = float((buffer[12] << 8) + buffer[11]) / 10.0;                    // m/s
               rainTotal = float((buffer[14] << 8) + buffer[13]) / 4.0;                    // mm
@@ -1401,8 +1401,19 @@ boolean Plugin_124(uint8_t function, struct EventStruct *event, String& string)
                 strikesDistance = buffer[17];                                             // km
               strikesTotal = (buffer[20] << 8) + buffer[19];                              // count
 
-              dataValid = true;
-              newDataPending = true;
+              // Data plausibility check
+              if ((humidity <= 100) &&
+                  (temperature >= -20) && (temperature <= 60) &&
+                  (windDIR <= 360) &&
+                  (windAVG <= 30) &&
+                  (windGUST <= 30) &&
+                  (uv <= 15) &&
+                  (strikesDistance <= 30)
+                 )
+              {
+                dataValid = true;
+                newDataPending = true;
+              }
             }
           }
 
