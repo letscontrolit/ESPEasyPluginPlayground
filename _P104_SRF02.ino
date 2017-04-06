@@ -49,6 +49,8 @@ boolean Plugin_104(byte function, struct EventStruct *event, String& string)
         Device[deviceCount].PullUpOption = false;
         Device[deviceCount].InverseLogicOption = false;
         Device[deviceCount].FormulaOption = true;
+        Device[deviceCount].TimerOption = true;
+        Device[deviceCount].TimerOptional = true;
         Device[deviceCount].ValueCount = 1;
         Device[deviceCount].SendDataOption = true;
         break;
