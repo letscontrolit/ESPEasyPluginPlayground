@@ -11,10 +11,6 @@
   K30: http://www.senseair.com/products/oem-modules/k30/
   K70/tSENSE: http://www.senseair.com/products/wall-mount/tsense/
 
-  You can buy sensor from m.nu in Sweden:
-  S8 https://www.m.nu/co2matare-fran-senseair-p-1440.html
-  K30 https://www.m.nu/k30-co2matare-p-302.html
-
   Circuit wiring
     GPIO Setting 1 -> RX
     GPIO Setting 2 -> TX
