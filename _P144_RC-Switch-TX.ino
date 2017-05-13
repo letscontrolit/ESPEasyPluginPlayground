@@ -96,6 +96,18 @@ boolean Plugin_144(byte function, struct EventStruct *event, String& string)
           addLog(LOG_LEVEL_INFO, log);
         }
 
+
+        if (Settings.TaskDevicePin1[event->TaskIndex] >= 0)
+          pinMode(Settings.TaskDevicePin1[event->TaskIndex], OUTPUT);
+        if (Settings.TaskDevicePin2[event->TaskIndex] >= 0)
+          pinMode(Settings.TaskDevicePin2[event->TaskIndex], OUTPUT);
+        if (Settings.TaskDevicePin3[event->TaskIndex] >= 0)
+          pinMode(Settings.TaskDevicePin3[event->TaskIndex], OUTPUT);
+
+        for (byte i=0; i<3; i++)
+          if (Settings.TaskDevicePin[i][event->TaskIndex] >= 0)
+            pinMode(Settings.TaskDevicePin[i][event->TaskIndex], OUTPUT);
+
         success = true;
         break;
       }
@@ -141,17 +153,17 @@ boolean Plugin_144(byte function, struct EventStruct *event, String& string)
               }
               if (paramKey == F("ON"))
               {
-                if (paramVal.length()==10)
-                  Plugin_144_RC.switchOn(&(paramVal.substring(0, 4)[0]), &(paramVal.substring(5)[0]));
-                else if (paramVal.length()==2)
+                if (paramVal.length()==10)   //simple 10 DIP switch
+                  Plugin_144_RC.switchOn(&(paramVal.substring(0, 5)[0]), &(paramVal.substring(5)[0]));
+                else if (paramVal.length()==2)   //2x rotary switch 1..4
                   Plugin_144_RC.switchOn(paramVal[0]-'0', paramVal[1]-'0');
-                else if (paramVal.length()==3)
+                else if (paramVal.length()==3)   //Intertechno outlets
                   Plugin_144_RC.switchOn(paramVal[0], paramVal[1]-'0', paramVal[2]-'0');
               }
               if (paramKey == F("OFF"))
               {
                 if (paramVal.length()==10)   //simple 10 DIP switch
-                  Plugin_144_RC.switchOff(&(paramVal.substring(0, 4)[0]), &(paramVal.substring(5)[0]));
+                  Plugin_144_RC.switchOff(&(paramVal.substring(0, 5)[0]), &(paramVal.substring(5)[0]));
                 else if (paramVal.length()==2)   //2x rotary switch 1..4
                   Plugin_144_RC.switchOff(paramVal[0]-'0', paramVal[1]-'0');
                 else if (paramVal.length()==3)   //Intertechno outlets
