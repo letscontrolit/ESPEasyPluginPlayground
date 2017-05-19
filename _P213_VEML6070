@@ -1,0 +1,152 @@
+//#######################################################################################################
+//#################### Plugin 213 VEML6070 Ultraviolet Sensor                     #######################
+//#################### based on Adafruit Library                                  #######################
+//#######################################################################################################
+
+#define PLUGIN_213
+#define PLUGIN_ID_213        213
+#define PLUGIN_NAME_213       "UV - VEML6070"
+#define PLUGIN_VALUENAME1_213 "UV"
+
+// See also VEML6070 data sheet:http://www.vishay.com/docs/84277/veml6070.pdf
+//
+////////////////////////////
+// VEML6070 Registers/addresses //
+////////////////////////////
+
+#define  VEML6070_ADDR_ARA        0x19 >> 1 // shift by one to get correct register addresses
+#define  VEML6070_ADDR_CMD        0x70 >> 1
+#define  VEML6070_ADDR_DATA_LSB   0x71 >> 1
+#define  VEML6070_ADDR_DATA_MSB   0x73 >> 1
+
+// really unusual way of getting data, your read from two different addrs!
+#define VEML6070_ADDR_H 0x39
+#define VEML6070_ADDR_L 0x38
+
+// VEML6070 command register bits
+#define VEML6070_CMD_DISABLE             0x01
+#define VEML6070_CMD_WDM                 0x02
+
+// three different integration times
+typedef enum veml6070_integrationtime {
+  VEML6070_HALF_T,
+  VEML6070_1_T,
+  VEML6070_2_T,
+  VEML6070_4_T,
+} veml6070_integrationtime_t;
+
+bool Plugin_213_begin(veml6070_integrationtime_t itime);
+uint16_t Plugin_213_readUV();
+uint16_t Plugin_213_convert_to_risk_level(uint16_t uvs_step);
+
+boolean Plugin_213(byte function, struct EventStruct *event, String& string)
+{
+  boolean success = false;
+
+  switch (function)
+  {
+    case PLUGIN_DEVICE_ADD:
+      {
+        Device[++deviceCount].Number = PLUGIN_ID_213;
+        Device[deviceCount].Type = DEVICE_TYPE_I2C;
+        Device[deviceCount].VType = SENSOR_TYPE_SINGLE;
+        Device[deviceCount].Ports = 0;
+        Device[deviceCount].PullUpOption = false;
+        Device[deviceCount].InverseLogicOption = false;
+        Device[deviceCount].FormulaOption = true;
+        Device[deviceCount].ValueCount = 1;
+        Device[deviceCount].SendDataOption = true;
+        Device[deviceCount].TimerOption = true;
+        Device[deviceCount].GlobalSyncOption = true;
+        break;
+      }
+
+    case PLUGIN_GET_DEVICENAME:
+      {
+        string = F(PLUGIN_NAME_213);
+        break;
+      }
+
+    case PLUGIN_GET_DEVICEVALUENAMES:
+      {
+        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_VALUENAME1_213));
+        break;
+      }
+
+    case PLUGIN_READ:
+      {
+		    if (!Plugin_213_begin(VEML6070_1_T)) {
+        String log = F("VEML6070: No available!");
+        addLog(LOG_LEVEL_INFO, log);
+        UserVar[event->BaseVarIndex] = NAN;
+		    success = false;
+		  } else {
+        String s = "";
+        uint16_t uv;
+
+        uv = Plugin_213_readUV();
+        if (isnan(uv) || uv == (-1) || uv == 65535) {
+          String log = F("VEML6070: no data read!");
+          addLog(LOG_LEVEL_INFO, log);
+          UserVar[event->BaseVarIndex] = NAN;
+		      success = false;
+        } else {
+          UserVar[event->BaseVarIndex] = uv;
+          String log = F("VEML6070: UV: ");
+          log += UserVar[event->BaseVarIndex];
+          addLog(LOG_LEVEL_INFO, log);
+		      success = true;
+        }
+		  }
+
+      break;
+    }
+
+  }
+  return success;
+}
+
+//**************************************************************************/
+// Check VEML6070 presence
+//**************************************************************************/
+bool Plugin_213_begin(veml6070_integrationtime_t itime) {
+  byte error;
+  
+  Wire.begin();
+  Wire.beginTransmission(VEML6070_ADDR_L);
+  Wire.write((itime << 2) | VEML6070_CMD_WDM);
+  error = Wire.endTransmission();
+  delay(500);
+
+  return (error == 0);
+}
+
+/*
+Die Sonnenleistung berechne ich mit einer Simplen Formel 
+WATT = ((uv.readUV() * 2.5) / 187) * 10;
+Allerdings benutze ich einen VEML6070 UV Sensor via I2C. 
+Kann aber nicht bestÃ¤tigen ob dieser Wert auch stimmt aber laut meinem GefÃ¼hl kÃ¶nnte es schon hinkommen.
+*/
+//  UV = uv.readUV()/684.75;
+//Â Â WATT = ((uv.readUV() * 2.5) / 187) * 10;
+
+uint16_t Plugin_213_readUV() {
+  if (Wire.requestFrom(VEML6070_ADDR_H, 1) != 1) return -1;
+  uint16_t uvi = Wire.read();
+  uvi <<= 8;
+  if (Wire.requestFrom(VEML6070_ADDR_L, 1) != 1) return -1;
+  uvi |= Wire.read();
+
+  return uvi;  
+}
+
+uint16_t Plugin_213_convert_to_risk_level(uint16_t uvs_step) {
+  uint16_t risk_level_mapping_table[4] = {2241, 4482, 5976, 8217};
+  uint16_t i;
+  for (i = 0; i < 4; i++) {
+    if (uvs_step <= risk_level_mapping_table[i]) {
+      break;
+    }
+  }
+  return i;
+}
