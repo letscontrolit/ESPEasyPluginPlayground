@@ -9,7 +9,7 @@
 // (3) CHIMEPLAY,<name>           Play saved tokens given name out of FFS
 
 // List of tokens:
-// (a) '1' ... '7'                Bell number - 1=1st bell, 2=2nd bell, 4=3rd bell, numbers can be added to strike simultaniouly, 7=all bells
+// (a) '1'...'9', 'A'...'F'       Bell number - 1=1st bell, 2=2nd bell, 4=3rd bell, 8=4th bell, numbers can be added to strike simultaniouly, F=all bells
 // (b) '!'                        Double strike prev. token
 // (c) '-' or ' '                 Normal Pause
 // (d) '='                        Long Pause (3 times normal)
@@ -22,10 +22,10 @@
 // save twelve comma separated tokens with name "hours", enable checkbox "Hourly Chiming Clock Strike" in plugin web interface and enable NTP (advanced settings)
 //
 // examples:
+// Historical coded with 1 bell:              "1,11,111,1111,11111,111111,1111111,11111111,111111111,1111111111,11111111111,111111111111"
 // Binary coded with 2 bells (2nd bell=1):    "1112,1121,1122,1211,1212,1221,1222,2111,2112,2121,2122,2211"
 // Binary coded with 1 bell (short pause=1):  "1_1_1_11,1_1_11_1,1_1_111,1_11_1_1,1_11_11,1_111_1,1_1111,11_1_1_1,11_1_11,11_11_1,11_111,111_1_1"
 // Binary coded with 1 bell (double strike=1):"1111!,111!1,111!1!,11!11,11!11!,11!1!1,11!1!1!,1!111,1!111!,1!11!1,1!11!1!,1!1!11"
-// Historical coded with 1 bell:              "1,11,111,1111,11111,111111,1111111,11111111,111111111,1111111111,11111111111,111111111111"
 //
 // CHIMESAVE,hours,1111!,111!1,111!1!,11!11,11!11!,11!1!1,11!1!1!,1!111,1!111!,1!11!1,1!11!1!,1!1!11
 
@@ -38,6 +38,8 @@
 // CHIMESAVE,2015                 Delete Alarm at 8:15pm
 
 
+#ifdef PLUGIN_BUILD_TESTING
+
 //#include <*.h>   - no external lib required
 
 #define PLUGIN_146
@@ -48,7 +50,7 @@ static long Plugin_146_millisStateEnd = 0;
 static long Plugin_146_millisChimeTime = 60;
 static long Plugin_146_millisPauseTime = 400;
 
-static int Plugin_146_pin[3] = {-1,-1,-1};
+static int Plugin_146_pin[4] = {-1,-1,-1,-1};
 static byte Plugin_146_lowActive = false;
 static byte Plugin_146_chimeClock = true;
 
@@ -97,16 +99,29 @@ boolean Plugin_146(byte function, struct EventStruct *event, String& string)
         if (Settings.TaskDevicePluginConfig[event->TaskIndex][1] <= 0)   //Plugin_146_millisPauseTime
           Settings.TaskDevicePluginConfig[event->TaskIndex][1] = 400;
 
-        string += F("<TR><TD>Chiming/Strike Time:<TD>");
-        addNumericBox(string, F("chimetime"), Settings.TaskDevicePluginConfig[event->TaskIndex][0]);
-        string += F(" [ms]");
+        addFormPinSelect(string, F("4th GPIO"), F("TDP4"), (int)(Settings.TaskDevicePin[3][event->TaskIndex]));
 
-        string += F("<TR><TD>Normal Pause Time:<TD>");
-        addNumericBox(string, F("pausetime"), Settings.TaskDevicePluginConfig[event->TaskIndex][1]);
-        string += F(" [ms]");
 
-        string += F("<TR><TD>Hourly Chiming Clock Strike:<TD>");
-        addCheckBox(string, F("chimeclock"), Settings.TaskDevicePluginConfig[event->TaskIndex][2]);
+        addFormSubHeader(string, F("Timing"));
+
+        addFormNumericBox(string, F("Chiming/Strike Time (ct)"), F("chimetime"), Settings.TaskDevicePluginConfig[event->TaskIndex][0]);
+        addUnit(string, F("ms"));
+
+        addFormNumericBox(string, F("Normal Pause Time (t)"), F("pausetime"), Settings.TaskDevicePluginConfig[event->TaskIndex][1]);
+        addUnit(string, F("ms"));
+
+        addFormNote(string, F("'1=1'&rArr;3t, '1-1' or '11'&rArr;1t, '1.1'&rArr;&#8531;t, '1|1'&rArr;&frac12;ct"));
+
+
+        addFormSubHeader(string, F("Chiming Clock"));
+
+        addFormCheckBox(string, F("Hourly Chiming Clock Strike"), F("chimeclock"), Settings.TaskDevicePluginConfig[event->TaskIndex][2]);
+        //string += F("<TR><TD><TD>");
+        string += F(" ");
+        addButton(string, F("control?cmd=chimeplay,hours"), F("Test 1&hellip;12"));
+
+        if (Settings.TaskDevicePluginConfig[event->TaskIndex][2] && !Settings.UseNTP)
+          addFormNote(string, F("Enable and configure NTP!"));
 
         success = true;
         break;
@@ -114,13 +129,11 @@ boolean Plugin_146(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_WEBFORM_SAVE:
       {
-        String plugin0 = WebServer.arg(F("chimetime"));
-        Settings.TaskDevicePluginConfig[event->TaskIndex][0] = plugin0.toInt();
+        Settings.TaskDevicePin[3][event->TaskIndex] = (int8_t)getFormItemInt(F("TDP4"));
 
-        String plugin1 = WebServer.arg(F("pausetime"));
-        Settings.TaskDevicePluginConfig[event->TaskIndex][1] = plugin1.toInt();
-
-        Settings.TaskDevicePluginConfig[event->TaskIndex][2] = (WebServer.arg(F("chimeclock")) == "on");
+        Settings.TaskDevicePluginConfig[event->TaskIndex][0] = getFormItemInt(F("chimetime"));
+        Settings.TaskDevicePluginConfig[event->TaskIndex][1] = getFormItemInt(F("pausetime"));
+        Settings.TaskDevicePluginConfig[event->TaskIndex][2] = isFormItemChecked(F("chimeclock"));
 
         success = true;
         break;
@@ -134,7 +147,7 @@ boolean Plugin_146(byte function, struct EventStruct *event, String& string)
         Plugin_146_chimeClock = Settings.TaskDevicePluginConfig[event->TaskIndex][2];
 
         String log = F("Chime: GPIO: ");
-        for (byte i=0; i<3; i++)
+        for (byte i=0; i<4; i++)
         {
           int pin = Settings.TaskDevicePin[i][event->TaskIndex];
           Plugin_146_pin[i] = pin;
@@ -146,6 +159,8 @@ boolean Plugin_146(byte function, struct EventStruct *event, String& string)
           log += pin;
           log += F(" ");
         }
+        if (Plugin_146_lowActive)
+          log += F("!");
         addLog(LOG_LEVEL_INFO, log);
 
         success = true;
@@ -194,7 +209,7 @@ boolean Plugin_146(byte function, struct EventStruct *event, String& string)
           {
             char tmpString[8];
 
-            sprintf_P(tmpString, PSTR("%2d%2d"), hours, minutes);
+            sprintf_P(tmpString, PSTR("%02d%02d"), hours, minutes);
             if (Plugin_146_ReadChime(tmpString, tokens))
               Plugin_146_AddStringFIFO(tokens);
 
@@ -230,7 +245,7 @@ boolean Plugin_146(byte function, struct EventStruct *event, String& string)
         {
           if (Plugin_146_millisStateEnd <= millisAct)   // end reached?
           {
-            for (byte i=0; i<3; i++)
+            for (byte i=0; i<4; i++)
             {
               if (Plugin_146_pin[i] >= 0)
                 digitalWrite(Plugin_146_pin[i], Plugin_146_lowActive);
@@ -252,7 +267,22 @@ boolean Plugin_146(byte function, struct EventStruct *event, String& string)
 
             switch (c)
             {
-              case '0':   //strikes 1=1st bell, 2=2nd bell, 4=3rd bell
+              case 'a':
+              case 'b':
+              case 'c':
+              case 'd':
+              case 'e':
+              case 'f':
+              case 'A':
+              case 'B':
+              case 'C':
+              case 'D':
+              case 'E':
+              case 'F':
+                c -= 'A' - '0' - 10;
+                //vvv
+
+              case '0':   //strikes 1=1st bell, 2=2nd bell, 4=3rd bell, 8=4rd bell
               case '1':
               case '2':
               case '3':
@@ -260,9 +290,11 @@ boolean Plugin_146(byte function, struct EventStruct *event, String& string)
               case '5':
               case '6':
               case '7':
+              case '8':
+              case '9':
               {
                 byte mask = 1;
-                for (byte i=0; i<3; i++)
+                for (byte i=0; i<4; i++)
                 {
                   if (Plugin_146_pin[i] >= 0)
                     if (c & mask)
@@ -273,10 +305,11 @@ boolean Plugin_146(byte function, struct EventStruct *event, String& string)
                 break;
               }
               case '=':   //long pause
+              case ' ':
+              case ',':
                 Plugin_146_millisStateEnd = millisAct + Plugin_146_millisPauseTime*3;
                 break;
               case '-':   //single pause
-              case ' ':
                 Plugin_146_millisStateEnd = millisAct + Plugin_146_millisPauseTime;
                 break;
               case '.':   //short pause
@@ -419,3 +452,5 @@ byte Plugin_146_ReadChime(const String& name, String& tokens)
 
   return tokens.length();
 }
+
+#endif
