@@ -46,20 +46,41 @@
 #define PLUGIN_ID_146         146
 #define PLUGIN_NAME_146       "Chiming Mechanism"
 
-static long Plugin_146_millisStateEnd = 0;
-static long Plugin_146_millisChimeTime = 60;
-static long Plugin_146_millisPauseTime = 400;
-
-static int Plugin_146_pin[4] = {-1,-1,-1,-1};
-static byte Plugin_146_lowActive = false;
-static byte Plugin_146_chimeClock = true;
-
 #define PLUGIN_146_FIFO_SIZE 64   // must be power of 2
 #define PLUGIN_146_FIFO_MASK (PLUGIN_146_FIFO_SIZE-1)
 
-static char Plugin_146_FIFO[PLUGIN_146_FIFO_SIZE];
-static byte Plugin_146_FIFO_IndexR = 0;
-static byte Plugin_146_FIFO_IndexW = 0;
+class CPlugin_146_Data
+{
+public:
+  long millisStateEnd;
+  long millisChimeTime;
+  long millisPauseTime;
+
+  int pin[4];
+  byte lowActive;
+  byte chimeClock;
+
+  char FIFO[PLUGIN_146_FIFO_SIZE];
+  byte FIFO_IndexR;
+  byte FIFO_IndexW;
+
+  void Plugin_146_Data()
+  {
+    millisStateEnd = 0;
+    millisChimeTime = 60;
+    millisPauseTime = 400;
+
+    for (byte i=0; i<4; i++)
+      pin[i] = -1;
+    lowActive = false;
+    chimeClock = true;
+
+    FIFO_IndexR = 0;
+    FIFO_IndexW = 0;
+  }
+};
+
+static CPlugin_146_Data* Plugin_146_Data = NULL;
 
 
 boolean Plugin_146(byte function, struct EventStruct *event, String& string)
@@ -118,7 +139,7 @@ boolean Plugin_146(byte function, struct EventStruct *event, String& string)
         addFormCheckBox(string, F("Hourly Chiming Clock Strike"), F("chimeclock"), Settings.TaskDevicePluginConfig[event->TaskIndex][2]);
         //string += F("<TR><TD><TD>");
         string += F(" ");
-        addButton(string, F("control?cmd=chimeplay,hours"), F("Test 1&hellip;12"));
+        addButton(string, F("'control?cmd=chimeplay,hours'"), F("Test 1&hellip;12"));
 
         if (Settings.TaskDevicePluginConfig[event->TaskIndex][2] && !Settings.UseNTP)
           addFormNote(string, F("Enable and configure NTP!"));
@@ -141,25 +162,28 @@ boolean Plugin_146(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_INIT:
       {
-        Plugin_146_lowActive = Settings.TaskDevicePin1Inversed[event->TaskIndex];
-        Plugin_146_millisChimeTime = Settings.TaskDevicePluginConfig[event->TaskIndex][0];
-        Plugin_146_millisPauseTime = Settings.TaskDevicePluginConfig[event->TaskIndex][1];
-        Plugin_146_chimeClock = Settings.TaskDevicePluginConfig[event->TaskIndex][2];
+        if (!Plugin_146_Data)
+          Plugin_146_Data = new CPlugin_146_Data();
+
+        Plugin_146_Data->lowActive = Settings.TaskDevicePin1Inversed[event->TaskIndex];
+        Plugin_146_Data->millisChimeTime = Settings.TaskDevicePluginConfig[event->TaskIndex][0];
+        Plugin_146_Data->millisPauseTime = Settings.TaskDevicePluginConfig[event->TaskIndex][1];
+        Plugin_146_Data->chimeClock = Settings.TaskDevicePluginConfig[event->TaskIndex][2];
 
         String log = F("Chime: GPIO: ");
         for (byte i=0; i<4; i++)
         {
           int pin = Settings.TaskDevicePin[i][event->TaskIndex];
-          Plugin_146_pin[i] = pin;
+          Plugin_146_Data->pin[i] = pin;
           if (pin >= 0)
           {
             pinMode(pin, OUTPUT);
-            digitalWrite(pin, Plugin_146_lowActive);
+            digitalWrite(pin, Plugin_146_Data->lowActive);
           }
           log += pin;
           log += F(" ");
         }
-        if (Plugin_146_lowActive)
+        if (Plugin_146_Data->lowActive)
           log += F("!");
         addLog(LOG_LEVEL_INFO, log);
 
@@ -169,6 +193,9 @@ boolean Plugin_146(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_WRITE:
       {
+        if (!Plugin_146_Data)
+          break;
+
         String command = parseString(string, 1);
 
         if (command == F("chime"))
@@ -201,11 +228,14 @@ boolean Plugin_146(byte function, struct EventStruct *event, String& string)
 
       case PLUGIN_CLOCK_IN:
         {
+          if (!Plugin_146_Data)
+            break;
+
           String tokens = "";
           byte hours = hour();
           byte minutes = minute();
 
-          if (Plugin_146_chimeClock)
+          if (Plugin_146_Data->chimeClock)
           {
             char tmpString[8];
 
@@ -239,22 +269,25 @@ boolean Plugin_146(byte function, struct EventStruct *event, String& string)
     case PLUGIN_FIFTY_PER_SECOND:
     //case PLUGIN_TEN_PER_SECOND:
       {
+        if (!Plugin_146_Data)
+          break;
+
         long millisAct = millis();
 
-        if (Plugin_146_millisStateEnd > 0)   // just striking?
+        if (Plugin_146_Data->millisStateEnd > 0)   // just striking?
         {
-          if (Plugin_146_millisStateEnd <= millisAct)   // end reached?
+          if (Plugin_146_Data->millisStateEnd <= millisAct)   // end reached?
           {
             for (byte i=0; i<4; i++)
             {
-              if (Plugin_146_pin[i] >= 0)
-                digitalWrite(Plugin_146_pin[i], Plugin_146_lowActive);
+              if (Plugin_146_Data->pin[i] >= 0)
+                digitalWrite(Plugin_146_Data->pin[i], Plugin_146_Data->lowActive);
             }
-            Plugin_146_millisStateEnd = 0;
+            Plugin_146_Data->millisStateEnd = 0;
           }
         }
 
-        if (Plugin_146_millisStateEnd == 0)   // just finished?
+        if (Plugin_146_Data->millisStateEnd == 0)   // just finished?
         {
           if (! Plugin_146_IsEmptyFIFO())
           {
@@ -296,27 +329,27 @@ boolean Plugin_146(byte function, struct EventStruct *event, String& string)
                 byte mask = 1;
                 for (byte i=0; i<4; i++)
                 {
-                  if (Plugin_146_pin[i] >= 0)
+                  if (Plugin_146_Data->pin[i] >= 0)
                     if (c & mask)
-                      digitalWrite(Plugin_146_pin[i], !Plugin_146_lowActive);
+                      digitalWrite(Plugin_146_Data->pin[i], !Plugin_146_Data->lowActive);
                   mask <<= 1;
                 }
-                Plugin_146_millisStateEnd = millisAct + Plugin_146_millisChimeTime;
+                Plugin_146_Data->millisStateEnd = millisAct + Plugin_146_Data->millisChimeTime;
                 break;
               }
               case '=':   //long pause
               case ' ':
               case ',':
-                Plugin_146_millisStateEnd = millisAct + Plugin_146_millisPauseTime*3;
+                Plugin_146_Data->millisStateEnd = millisAct + Plugin_146_Data->millisPauseTime*3;
                 break;
               case '-':   //single pause
-                Plugin_146_millisStateEnd = millisAct + Plugin_146_millisPauseTime;
+                Plugin_146_Data->millisStateEnd = millisAct + Plugin_146_Data->millisPauseTime;
                 break;
               case '.':   //short pause
-                Plugin_146_millisStateEnd = millisAct + Plugin_146_millisPauseTime/3;
+                Plugin_146_Data->millisStateEnd = millisAct + Plugin_146_Data->millisPauseTime/3;
                 break;
               case '|':   //shortest pause
-                Plugin_146_millisStateEnd = millisAct + Plugin_146_millisChimeTime/2;
+                Plugin_146_Data->millisStateEnd = millisAct + Plugin_146_Data->millisChimeTime/2;
                 break;
               case '#':   //comment -> eat till FIFO is empty
                 while (Plugin_146_ReadFIFO());
@@ -339,12 +372,12 @@ boolean Plugin_146(byte function, struct EventStruct *event, String& string)
 
 void Plugin_146_WriteFIFO(char c)
 {
-  if (Plugin_146_FIFO_IndexR == ((Plugin_146_FIFO_IndexW+1) & PLUGIN_146_FIFO_MASK))   // FIFO full?
+  if (Plugin_146_Data->FIFO_IndexR == ((Plugin_146_Data->FIFO_IndexW+1) & PLUGIN_146_FIFO_MASK))   // FIFO full?
     return;
 
-  Plugin_146_FIFO[Plugin_146_FIFO_IndexW] = c;
-  Plugin_146_FIFO_IndexW++;
-  Plugin_146_FIFO_IndexW &= PLUGIN_146_FIFO_MASK;
+  Plugin_146_Data->FIFO[Plugin_146_Data->FIFO_IndexW] = c;
+  Plugin_146_Data->FIFO_IndexW++;
+  Plugin_146_Data->FIFO_IndexW &= PLUGIN_146_FIFO_MASK;
 }
 
 char Plugin_146_ReadFIFO()
@@ -352,9 +385,9 @@ char Plugin_146_ReadFIFO()
   if (Plugin_146_IsEmptyFIFO())
     return '\0';
 
-  char c = Plugin_146_FIFO[Plugin_146_FIFO_IndexR];
-  Plugin_146_FIFO_IndexR++;
-  Plugin_146_FIFO_IndexR &= PLUGIN_146_FIFO_MASK;
+  char c = Plugin_146_Data->FIFO[Plugin_146_Data->FIFO_IndexR];
+  Plugin_146_Data->FIFO_IndexR++;
+  Plugin_146_Data->FIFO_IndexR &= PLUGIN_146_FIFO_MASK;
 
   return c;
 }
@@ -364,12 +397,12 @@ char Plugin_146_PeekFIFO()
   if (Plugin_146_IsEmptyFIFO())
     return '\0';
 
-  return Plugin_146_FIFO[Plugin_146_FIFO_IndexR];
+  return Plugin_146_Data->FIFO[Plugin_146_Data->FIFO_IndexR];
 }
 
 boolean Plugin_146_IsEmptyFIFO()
 {
-  return (Plugin_146_FIFO_IndexR == Plugin_146_FIFO_IndexW);
+  return (Plugin_146_Data->FIFO_IndexR == Plugin_146_Data->FIFO_IndexW);
 }
 
 void Plugin_146_AddStringFIFO(const String& param)
