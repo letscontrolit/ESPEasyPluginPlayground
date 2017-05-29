@@ -1,7 +1,7 @@
 //#######################################################################################################
 //################ Plugin 163: DS1631/1731 High Precision Digital Thermometer I2C #######################
 //#######################################################################################################
-
+// This plugin works with ESPEasy V1 and V2, comment/uncomment specific parts (WEB LOAD and WEB SAVE) 
 // MyMessage *msgTemp163; // Mysensors
 
 #define PLUGIN_163
@@ -49,38 +49,114 @@ boolean Plugin_163(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_WEBFORM_LOAD:
       {
-        byte choice0 = Settings.TaskDevicePluginConfig[event->TaskIndex][0];
 
-        int optionValues0[8];
-        optionValues0[0] = 0x48;
-        optionValues0[1] = 0x49;
-        optionValues0[2] = 0x4A;
-        optionValues0[3] = 0x4B;
-        optionValues0[4] = 0x4C;
-        optionValues0[5] = 0x4D;
-        optionValues0[6] = 0x4E;
-        optionValues0[7] = 0x4F;
-        addFormSelectorI2C(string, F("plugin_163_adr"),8 , optionValues0, choice0);
-        
+        byte choice0 = Settings.TaskDevicePluginConfig[event->TaskIndex][0];
+//// ---------------------- Code for ESP Easy V2 -------------------------------------- ////
+////                   Comment / uncomment this part                                    ////                       
+//        int optionValues0[8];
+//        optionValues0[0] = 0x48;
+//        optionValues0[1] = 0x49;
+//        optionValues0[2] = 0x4A;
+//        optionValues0[3] = 0x4B;
+//        optionValues0[4] = 0x4C;
+//        optionValues0[5] = 0x4D;
+//        optionValues0[6] = 0x4E;
+//        optionValues0[7] = 0x4F;
+//        addFormSelectorI2C(string, F("plugin_163_adr"),8 , optionValues0, choice0);
+//
+//        byte choice1 = Settings.TaskDevicePluginConfig[event->TaskIndex][1];
+//        
+//        String options1[4];
+//        options1[0] = F("9");
+//        options1[1] = F("10");
+//        options1[2] = F("11");
+//        options1[3] = F("12");
+//        int optionValues1[4] = { 0,1,2,3 };
+//        addFormSelector(string, F("Resolution"), F("plugin_163_res"),4 , options1, optionValues1, choice1);
+//        addUnit(string, F("bits"));        
+////                                                                                    ////          
+//// -------------------- End Code for ESP Easy V2 ------------------------------------ ////
+////                                                                                    ////   
+//// ---------------------- Code for ESP Easy V1 -------------------------------------- ////
+////                   Comment / uncomment this part                                    //// 
+        String options0[8];
+        options0[0] = F("0x48 - 000");
+        options0[1] = F("0x49 - 001");
+        options0[2] = F("0x4A - 010");
+        options0[3] = F("0x4B - 011");
+        options0[4] = F("0x4C - 100");
+        options0[5] = F("0x4D - 101");
+        options0[6] = F("0x4E - 110");
+        options0[7] = F("0x4F - 111");
+
+        uint8_t optionValues0[8];
+        optionValues0[0] = (0x48);
+        optionValues0[1] = (0x49);
+        optionValues0[2] = (0x4A);
+        optionValues0[3] = (0x4B);
+        optionValues0[4] = (0x4C);
+        optionValues0[5] = (0x4D);
+        optionValues0[6] = (0x4E);
+        optionValues0[7] = (0x4F);  
+             
+        string += F("<TR><TD>I2C Address:<TD><select name='plugin_163_adr'>");     
+        for (byte x = 0; x < 8; x++) {
+          string += F("<option value='");
+          string += optionValues0[x];
+          string += "'";
+          if (choice0 == optionValues0[x]) string += F(" selected");
+          string += ">";
+          string += options0[x];
+          string += F("</option>");  
+        }
+        string += F("</select>");
+                                             
         byte choice1 = Settings.TaskDevicePluginConfig[event->TaskIndex][1];
         
         String options1[4];
-        options1[0] = F("9");
-        options1[1] = F("10");
-        options1[2] = F("11");
-        options1[3] = F("12");
+        options1[0] = F("9 bits");
+        options1[1] = F("10 bits");
+        options1[2] = F("11 bits");
+        options1[3] = F("12 bits");
         int optionValues1[4] = { 0,1,2,3 };
-        addFormSelector(string, F("Resolution"), F("plugin_163_res"),4 , options1, optionValues1, choice1);
-        addUnit(string, F("bits"));
+        
+        string += F("<TR><TD>Resolution<TD><select name='plugin_163_res'>");     
+        for (byte x = 0; x < 4; x++) {
+          string += F("<option value='");
+          string += optionValues1[x];
+          string += "'";
+          if (choice1 == optionValues1[x]) string += F(" selected");
+          string += ">";
+          string += options1[x];
+          string += F("</option>");  
+        }
+        string += F("</select>");
+////                                                                                    ////          
+//// -------------------- End Code for ESP Easy V1 ------------------------------------ ////
+////                                                                                    //// 
         success = true;
         break;
       }
 
     case PLUGIN_WEBFORM_SAVE:
       {
-        Settings.TaskDevicePluginConfig[event->TaskIndex][0] = getFormItemInt(F("plugin_163_adr"));
-        Settings.TaskDevicePluginConfig[event->TaskIndex][1] = getFormItemInt(F("plugin_163_res"));     
-           
+//// ---------------------- Code for ESP Easy V2 -------------------------------------- ////
+////                   Comment / uncomment this part                                    //// 
+//        Settings.TaskDevicePluginConfig[event->TaskIndex][0] = getFormItemInt(F("plugin_163_adr"));
+//        Settings.TaskDevicePluginConfig[event->TaskIndex][1] = getFormItemInt(F("plugin_163_res"));     
+////                                                                                    ////          
+//// -------------------- End Code for ESP Easy V2 ------------------------------------ ////
+////                                                                                    ////   
+//// ---------------------- Code for ESP Easy V1 -------------------------------------- ////
+////                   Comment / uncomment this part                                    ////         
+        String plugin1 = WebServer.arg("plugin_163_adr");
+        Settings.TaskDevicePluginConfig[event->TaskIndex][0] = plugin1.toInt();
+        String plugin2 = WebServer.arg("plugin_163_res");
+        Settings.TaskDevicePluginConfig[event->TaskIndex][1] = plugin2.toInt();     
+////                                                                                    ////          
+//// -------------------- End Code for ESP Easy V1 ------------------------------------ ////
+////                                                                                    //// 
+        success = true;                      
         Plugin_163_init = false; // Force device setup next time
         success = true;
         break;
