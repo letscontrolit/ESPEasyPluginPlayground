@@ -105,9 +105,15 @@ boolean Plugin_170(byte function, struct EventStruct *event, String& string)
           String log = F("HLW8012: Saved Calibration from Config Page");
           addLog(LOG_LEVEL_INFO, log);
         }
-        Plugin_170_hlw->setCurrentMultiplier(hlwMultipliers[0]);
-        Plugin_170_hlw->setVoltageMultiplier(hlwMultipliers[1]);
-        Plugin_170_hlw->setPowerMultiplier(hlwMultipliers[2]);
+        if (Plugin_170_hlw) {
+          Plugin_170_hlw->setCurrentMultiplier(hlwMultipliers[0]);
+          Plugin_170_hlw->setVoltageMultiplier(hlwMultipliers[1]);
+          Plugin_170_hlw->setPowerMultiplier(hlwMultipliers[2]);
+        }
+        if (PLUGIN_170_DEBUG) {
+          String log = F("HLW8012: Multipliers Reassigned");
+          addLog(LOG_LEVEL_INFO, log);
+        }
         success = true;
         break;
       }
