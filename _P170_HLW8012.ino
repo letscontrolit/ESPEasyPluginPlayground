@@ -114,6 +114,7 @@ boolean Plugin_170(byte function, struct EventStruct *event, String& string)
           String log = F("HLW8012: Multipliers Reassigned");
           addLog(LOG_LEVEL_INFO, log);
         }
+
         success = true;
         break;
       }
