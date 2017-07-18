@@ -12,13 +12,14 @@
 // HLW8012 IC works with 5VDC (it seems at 3.3V is not stable in reading)
 //
 
-#ifdef PLUGIN_BUILD_TESTING
+//#ifdef PLUGIN_BUILD_TESTING
 
 #include <HLW8012.h>
 HLW8012 *Plugin_170_hlw;
 
 #define PLUGIN_170
 #define PLUGIN_ID_170        170
+#define PLUGIN_170_DEBUG     true    //activate extra log info in the debug
 #define PLUGIN_NAME_170       "Voltage & Current (AC) - HLW8012 [TESTING]"
 #define PLUGIN_VALUENAME1_170 "Voltage (V)"
 #define PLUGIN_VALUENAME2_170 "Current (A)"
@@ -100,9 +101,20 @@ boolean Plugin_170(byte function, struct EventStruct *event, String& string)
           arg1 = F("plugin_170_powmult");  tmpString = WebServer.arg(arg1);
           hlwMultipliers[2] = atof(tmpString.c_str());
         SaveCustomTaskSettings(event->TaskIndex, (byte*)&hlwMultipliers, sizeof(hlwMultipliers));
-        Plugin_170_hlw->setCurrentMultiplier(hlwMultipliers[0]);
-        Plugin_170_hlw->setVoltageMultiplier(hlwMultipliers[1]);
-        Plugin_170_hlw->setPowerMultiplier(hlwMultipliers[2]);
+        if (PLUGIN_170_DEBUG) {
+          String log = F("HLW8012: Saved Calibration from Config Page");
+          addLog(LOG_LEVEL_INFO, log);
+        }
+        if (Plugin_170_hlw) {
+          Plugin_170_hlw->setCurrentMultiplier(hlwMultipliers[0]);
+          Plugin_170_hlw->setVoltageMultiplier(hlwMultipliers[1]);
+          Plugin_170_hlw->setPowerMultiplier(hlwMultipliers[2]);
+        }
+        if (PLUGIN_170_DEBUG) {
+          String log = F("HLW8012: Multipliers Reassigned");
+          addLog(LOG_LEVEL_INFO, log);
+        }
+
         success = true;
         break;
       }
@@ -112,8 +124,16 @@ boolean Plugin_170(byte function, struct EventStruct *event, String& string)
         Plugin_170_hlw->setMode(MODE_CURRENT); delay(200); double       hcurrent  = Plugin_170_hlw->getCurrent();
         Plugin_170_hlw->setMode(MODE_VOLTAGE); delay(200); unsigned int hvoltage  = Plugin_170_hlw->getVoltage();
         unsigned int hpower    = Plugin_170_hlw->getActivePower();
-        unsigned int happpower = Plugin_170_hlw->getApparentPower();
+        //unsigned int happpower = Plugin_170_hlw->getApparentPower();
         unsigned int hpowfact  = (int) (100 * Plugin_170_hlw->getPowerFactor());
+        if (PLUGIN_170_DEBUG) {
+          String log = F("HLW8012: Read values");
+          log += F(" - V="); log += hvoltage; 
+          log += F(" - A="); log += hcurrent;
+          log += F(" - W="); log += hpower;
+          log += F(" - Pf%="); log += hpowfact;
+          addLog(LOG_LEVEL_INFO, log);
+        }
         UserVar[event->BaseVarIndex]     = hvoltage;
         UserVar[event->BaseVarIndex + 1] = hcurrent;
         UserVar[event->BaseVarIndex + 2] = hpower;
@@ -127,11 +147,12 @@ boolean Plugin_170(byte function, struct EventStruct *event, String& string)
       {
         if (!Plugin_170_hlw)
         {
-          //addLog(LOG_LEVEL_INFO, F("HLW8x: Init object done!"));
           Plugin_170_hlw = new HLW8012;
           // This initializes the HWL8012 library.
           Plugin_170_hlw->begin(Settings.TaskDevicePin3[event->TaskIndex], Settings.TaskDevicePin2[event->TaskIndex], Settings.TaskDevicePin1[event->TaskIndex], HLW_CURRENT_MODE, false, 1000000);     
+          if (PLUGIN_170_DEBUG) addLog(LOG_LEVEL_INFO, F("HLW8012: Init object done"));
           Plugin_170_hlw->setResistors(HLW_CURRENT_RESISTOR, HLW_VOLTAGE_RESISTOR_UP, HLW_VOLTAGE_RESISTOR_DOWN);
+          if (PLUGIN_170_DEBUG) addLog(LOG_LEVEL_INFO, F("HLW8012: Init Basic Resistor Values done"));
           // If multipliers are empty load default ones and save all of them as "CustomTaskSettings"
           double hlwMultipliers[3];
           LoadCustomTaskSettings(event->TaskIndex, (byte*)&hlwMultipliers, sizeof(hlwMultipliers));
@@ -139,6 +160,7 @@ boolean Plugin_170(byte function, struct EventStruct *event, String& string)
             if (hlwMultipliers[1] == 0) { hlwMultipliers[1] = Plugin_170_hlw->getVoltageMultiplier(); }
             if (hlwMultipliers[2] == 0) { hlwMultipliers[2] = Plugin_170_hlw->getPowerMultiplier();   }
           SaveCustomTaskSettings(event->TaskIndex, (byte*)&hlwMultipliers, sizeof(hlwMultipliers));
+          if (PLUGIN_170_DEBUG) addLog(LOG_LEVEL_INFO, F("HLW8012: Saved Calibration after INIT"));
           StoredTaskIndex = event->TaskIndex; // store task index value in order to use it in the PLUGIN_WRITE routine
         }
         success = true;
@@ -154,14 +176,15 @@ boolean Plugin_170(byte function, struct EventStruct *event, String& string)
           if (argIndex)
             tmpString = tmpString.substring(0, argIndex);
 
-          if (tmpString.equalsIgnoreCase(F("HLWReset")))
+          if (tmpString.equalsIgnoreCase(F("hlwreset")))
           {
             Plugin_170_hlw->resetMultipliers();
             Plugin170_SaveMultipliers();
+            if (PLUGIN_170_DEBUG) addLog(LOG_LEVEL_INFO, F("HLW8012: Reset Multipliers to DEFAULT"));
             success = true;
           }
           
-          if (tmpString.equalsIgnoreCase(F("HLWCalibrate")))
+          if (tmpString.equalsIgnoreCase(F("hlwcalibrate")))
           {
             String tmpStr = string;
             unsigned int CalibVolt = 0;
@@ -181,6 +204,13 @@ boolean Plugin_170(byte function, struct EventStruct *event, String& string)
                 CalibCurr  = atof(tmpStr.substring(comma2+1, comma3).c_str());
                 CalibAcPwr = tmpStr.substring(comma3+1).toInt();
               }
+            }
+            if (PLUGIN_170_DEBUG) {
+              String log = F("HLW8012: Calibration to values");
+              log += F(" - Expected-V="); log += CalibVolt; 
+              log += F(" - Expected-A="); log += CalibCurr;
+              log += F(" - Expected-W="); log += CalibAcPwr;
+              addLog(LOG_LEVEL_INFO, log);
             }
             if (CalibVolt  != 0) { Plugin_170_hlw->expectedVoltage(CalibVolt); }
             if (CalibCurr  != 0) { Plugin_170_hlw->expectedCurrent(CalibCurr); }
@@ -204,4 +234,5 @@ void Plugin170_SaveMultipliers() {
     hlwMultipliers[2] = Plugin_170_hlw->getPowerMultiplier();
     SaveCustomTaskSettings(StoredTaskIndex, (byte*)&hlwMultipliers, sizeof(hlwMultipliers));  
 }
-#endif
+
+//#endif
