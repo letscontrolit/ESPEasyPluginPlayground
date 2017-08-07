@@ -206,9 +206,9 @@ boolean Plugin_118(byte function, struct EventStruct * event, String & string)
             addFormSelector(string, F("I2C Address"), F("plugin_118_i2c_address"), 2, options, optionValues, choice);
 
             // read frequency
-            int frequencyChoice = Settings.TaskDevicePluginConfigLong[event->TaskIndex][0];
+            int frequencyChoice = (int) Settings.TaskDevicePluginConfigLong[event->TaskIndex][0];
             String frequencyOptions[3] = {F("1 second"), F("10 seconds"), F("60 seconds")};
-            int frequencyValues[3] = {1, 10, 60};
+            int frequencyValues[3] = {1, 2, 3};
             addFormSelector(string, F("Take reading every"), F("plugin_118_read_frequency"), 3, frequencyOptions, frequencyValues, frequencyChoice);
 
             addFormSeparator(string);
@@ -269,7 +269,8 @@ boolean Plugin_118(byte function, struct EventStruct * event, String & string)
             myCCS811.setAddress(Plugin_118_I2C_ADDR);
             CCS811Core::status returnCode;
             returnCode = myCCS811.begin();
-            String log = "CCS811  : begin exited with: " + myCCS811.getDriverError(returnCode);
+            String log = F("CCS811  : Begin exited with: ");
+            log       += myCCS811.getDriverError(returnCode);
             addLog(LOG_LEVEL_DEBUG, log);
             UserVar[event->BaseVarIndex]     = NAN;
             UserVar[event->BaseVarIndex + 1] = NAN;
@@ -280,8 +281,8 @@ boolean Plugin_118(byte function, struct EventStruct * event, String & string)
             // Mode 2 = every 10s
             // Mode 3 = every 60s
             // Mode 4 = RAW mode (not used)
-            returnCode = myCCS811.setDriveMode(Settings.TaskDevicePluginConfig[event->TaskIndex][7]);
-            log        = F("CCS811  : Mode request exited with:");
+            returnCode = myCCS811.setDriveMode(Settings.TaskDevicePluginConfigLong[event->TaskIndex][0]);
+            log        = F("CCS811  : Mode request exited with: ");
             log       += myCCS811.getDriverError(returnCode);
             addLog(LOG_LEVEL_DEBUG, log);
 
