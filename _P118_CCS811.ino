@@ -269,7 +269,7 @@ boolean Plugin_118(byte function, struct EventStruct * event, String & string)
             myCCS811.setAddress(Plugin_118_I2C_ADDR);
             CCS811Core::status returnCode;
             returnCode = myCCS811.begin();
-            String log = F("CCS811  : Begin exited with: ");
+            String log = F("CCS811 : Begin exited with: ");
             log       += myCCS811.getDriverError(returnCode);
             addLog(LOG_LEVEL_DEBUG, log);
             UserVar[event->BaseVarIndex]     = NAN;
@@ -282,7 +282,7 @@ boolean Plugin_118(byte function, struct EventStruct * event, String & string)
             // Mode 3 = every 60s
             // Mode 4 = RAW mode (not used)
             returnCode = myCCS811.setDriveMode(Settings.TaskDevicePluginConfigLong[event->TaskIndex][0]);
-            log        = F("CCS811  : Mode request exited with: ");
+            log        = F("CCS811 : Mode request exited with: ");
             log       += myCCS811.getDriverError(returnCode);
             addLog(LOG_LEVEL_DEBUG, log);
 
@@ -302,17 +302,19 @@ boolean Plugin_118(byte function, struct EventStruct * event, String & string)
                 float temperature = UserVar[BaseVarIndex]; // in degrees C
                 // convert to celsius if required
                 int temperature_in_fahrenheit = Settings.TaskDevicePluginConfig[event->TaskIndex][6];
+                String temp = F("°C");
                 if (temperature_in_fahrenheit)
                 {
                     temperature = (temperature - 32) * 5 / 9;
+                    temp =  F("°F");
                 }
 
                 byte TaskIndex2    = Settings.TaskDevicePluginConfig[event->TaskIndex][4];
                 byte BaseVarIndex2 = TaskIndex2 * VARS_PER_TASK + Settings.TaskDevicePluginConfig[event->TaskIndex][5];
                 float humidity     = UserVar[BaseVarIndex2]; // in % relative
 
-                log = "CCS811  : Compensating for Temperature: " + String(temperature) + "°C & Humidity: " + String(
-                    humidity) + "%";
+                log = F("CCS811 : Compensating for Temperature: ");
+                log += String(temperature) + temp + F(" & Humidity: ") + String(humidity) + F("%");
                 addLog(LOG_LEVEL_DEBUG, log);
 
                 myCCS811.setEnvironmentalData(humidity, temperature);
@@ -331,7 +333,7 @@ boolean Plugin_118(byte function, struct EventStruct * event, String & string)
                     UserVar[event->BaseVarIndex + 1] = myCCS811.getCO2();
                     success = true;
 
-                    log  = F("CCS811  : tVOC: ");
+                    log  = F("CCS811 : tVOC: ");
                     log += myCCS811.getTVOC();
                     log += F(", eCO2: ");
                     log += myCCS811.getCO2();
@@ -339,7 +341,7 @@ boolean Plugin_118(byte function, struct EventStruct * event, String & string)
                 }
                 else
                 {
-                    log  = F("CCS811  : Error reading values : ");
+                    log  = F("CCS811 : Error reading values : ");
                     log += readstatus;
                     addLog(LOG_LEVEL_ERROR, log);
                 }
@@ -347,14 +349,20 @@ boolean Plugin_118(byte function, struct EventStruct * event, String & string)
             else if (myCCS811.checkForStatusError() )
             {
                 // If the CCS811 found an internal error, print it.
-                log  = F("CCS811  : Error: ");
+                log  = F("CCS811 : Error: ");
                 log += myCCS811.getSensorError();
                 addLog(LOG_LEVEL_ERROR, log);
             }
             else
             {
-                log = F("CCS811  : No values found.");
+                log = F("CCS811 : No values found.");
                 addLog(LOG_LEVEL_ERROR, log);
+            }
+
+            if(!success)
+            {
+                UserVar[event->BaseVarIndex]     = NAN;
+                UserVar[event->BaseVarIndex + 1] = NAN;
             }
 
             break;
