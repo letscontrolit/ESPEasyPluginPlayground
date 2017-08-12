@@ -12,7 +12,7 @@
 // HLW8012 IC works with 5VDC (it seems at 3.3V is not stable in reading)
 //
 
-//#ifdef PLUGIN_BUILD_TESTING
+#ifdef PLUGIN_BUILD_TESTING
 
 #include <HLW8012.h>
 HLW8012 *Plugin_170_hlw;
@@ -114,7 +114,6 @@ boolean Plugin_170(byte function, struct EventStruct *event, String& string)
           String log = F("HLW8012: Multipliers Reassigned");
           addLog(LOG_LEVEL_INFO, log);
         }
-
         success = true;
         break;
       }
@@ -161,6 +160,10 @@ boolean Plugin_170(byte function, struct EventStruct *event, String& string)
             if (hlwMultipliers[2] == 0) { hlwMultipliers[2] = Plugin_170_hlw->getPowerMultiplier();   }
           SaveCustomTaskSettings(event->TaskIndex, (byte*)&hlwMultipliers, sizeof(hlwMultipliers));
           if (PLUGIN_170_DEBUG) addLog(LOG_LEVEL_INFO, F("HLW8012: Saved Calibration after INIT"));
+          Plugin_170_hlw->setCurrentMultiplier(hlwMultipliers[0]);
+          Plugin_170_hlw->setVoltageMultiplier(hlwMultipliers[1]);
+          Plugin_170_hlw->setPowerMultiplier(hlwMultipliers[2]);
+          if (PLUGIN_170_DEBUG) addLog(LOG_LEVEL_INFO, F("HLW8012: Applied Calibration after INIT"));
           StoredTaskIndex = event->TaskIndex; // store task index value in order to use it in the PLUGIN_WRITE routine
         }
         success = true;
@@ -235,4 +238,4 @@ void Plugin170_SaveMultipliers() {
     SaveCustomTaskSettings(StoredTaskIndex, (byte*)&hlwMultipliers, sizeof(hlwMultipliers));  
 }
 
-//#endif
+#endif
