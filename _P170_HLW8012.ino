@@ -12,7 +12,7 @@
 // HLW8012 IC works with 5VDC (it seems at 3.3V is not stable in reading)
 //
 
-//#ifdef PLUGIN_BUILD_TESTING
+#ifdef PLUGIN_BUILD_TESTING
 
 #include <HLW8012.h>
 HLW8012 *Plugin_170_hlw;
