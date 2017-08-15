@@ -24,6 +24,7 @@
 
 bool Plugin_151_want_unlock=false;
 unsigned long Plugin_151_last_unlock_time=0;
+unsigned long Plugin_151_invert_time=0; //timestamp after which to automatcily invert unlock status.
 
 //measure capicitance by pulsing out_pin and measuring response delay of in_pin
 int Plugin_151_sense(byte out_pin, byte in_pin)
@@ -43,7 +44,7 @@ int Plugin_151_sense(byte out_pin, byte in_pin)
     m=0;
     digitalWrite(out_pin,0);
     // while (digitalRead(in_pin)!=0 && count<1000*max_pulses) count++;
-    while (digitalRead(in_pin)!=0 ) m++;
+    while (digitalRead(in_pin)!=0 && m<1000) m++;
 
 
     if (pulses>=skip_pulses)
@@ -54,7 +55,7 @@ int Plugin_151_sense(byte out_pin, byte in_pin)
     // m=micros();
     m=0;
     digitalWrite(out_pin,1);
-    while (digitalRead(in_pin)!=1) m++;
+    while (digitalRead(in_pin)!=1  && m<1000) m++;
 
     if (pulses>=skip_pulses)
       count=count+(m);
@@ -176,6 +177,7 @@ boolean Plugin_151(byte function, struct EventStruct *event, String& string)
         pinMode(locked_led_pin, OUTPUT);
         pinMode(unlocked_led_pin, OUTPUT);
 
+
         String log;
         log=log+F("lock : ");
 
@@ -192,6 +194,22 @@ boolean Plugin_151(byte function, struct EventStruct *event, String& string)
           log=log+F("LOCKED");
           active_led=locked_led_pin;
           digitalWrite(unlocked_led_pin,!led_on);
+        }
+
+        //automaticly invert locking status after this time (usefull to temporary unlock a door)
+        if (Plugin_151_invert_time)
+        {
+          if (now()>Plugin_151_invert_time)
+          {
+            Plugin_151_want_unlock=!Plugin_151_want_unlock;
+            Plugin_151_invert_time=0;
+          }
+          else
+          {
+              log=log+F("(");
+              log=log+(Plugin_151_invert_time-now());
+              log=log+F("s )");
+          }
         }
 
 
@@ -302,11 +320,18 @@ boolean Plugin_151(byte function, struct EventStruct *event, String& string)
       if (command == F("cisa_unlock"))
       {
         Plugin_151_want_unlock=true;
+        Plugin_151_invert_time=0;
+        if (event->Par1)
+          Plugin_151_invert_time=now()+event->Par1;
+
         success = true;
       }
       if (command == F("cisa_lock"))
       {
         Plugin_151_want_unlock=false;
+        Plugin_151_invert_time=0;
+        if (event->Par1)
+          Plugin_151_invert_time=now()+event->Par1;
         success = true;
       }
 
