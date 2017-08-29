@@ -239,6 +239,7 @@ boolean Plugin_151(byte function, struct EventStruct *event, String& string)
                 log=log+F(", person detected, delaying next open");
                 Plugin_151_blink(locked_led_pin, 100,200, led_on);
                 Plugin_151_blink(unlocked_led_pin, 100,200, led_on);
+                Plugin_151_last_unlock_time=millis(); //reset time until the person releases the door knob
                }
             }
             else
@@ -317,7 +318,8 @@ boolean Plugin_151(byte function, struct EventStruct *event, String& string)
 
       String command = parseString(string, 1);
 
-      if (command == F("cisa_unlock"))
+      //unlock when person touches door handle
+      if (command == F("cisa_unlock") || command == F("cisa_unlockhard"))
       {
         Plugin_151_want_unlock=true;
         Plugin_151_invert_time=0;
@@ -326,6 +328,16 @@ boolean Plugin_151(byte function, struct EventStruct *event, String& string)
 
         success = true;
       }
+
+      //unlock now
+      if (command == F("cisa_unlockhard"))
+      {
+        byte unlock_coil_pin=Settings.TaskDevicePin1[event->TaskIndex];
+        Plugin_151_unlock(unlock_coil_pin);
+
+        success = true;
+      }
+
       if (command == F("cisa_lock"))
       {
         Plugin_151_want_unlock=false;
@@ -334,6 +346,7 @@ boolean Plugin_151(byte function, struct EventStruct *event, String& string)
           Plugin_151_invert_time=now()+event->Par1;
         success = true;
       }
+
 
       break;
     }
