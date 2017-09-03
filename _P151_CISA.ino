@@ -199,7 +199,7 @@ boolean Plugin_151(byte function, struct EventStruct *event, String& string)
         //automaticly invert locking status after this time (usefull to temporary unlock a door)
         if (Plugin_151_invert_time)
         {
-          if (now()>Plugin_151_invert_time)
+          if (millis()>Plugin_151_invert_time)
           {
             Plugin_151_want_unlock=!Plugin_151_want_unlock;
             Plugin_151_invert_time=0;
@@ -207,7 +207,7 @@ boolean Plugin_151(byte function, struct EventStruct *event, String& string)
           else
           {
               log=log+F("(");
-              log=log+(Plugin_151_invert_time-now());
+              log=log+((Plugin_151_invert_time-millis())/1000);
               log=log+F("s )");
           }
         }
@@ -296,7 +296,7 @@ boolean Plugin_151(byte function, struct EventStruct *event, String& string)
           Plugin_151_last_unlock_time=millis();
         }
 
-        addLog(LOG_LEVEL_INFO, log);
+        addLog(LOG_LEVEL_DEBUG, log);
 
 
 
@@ -324,7 +324,7 @@ boolean Plugin_151(byte function, struct EventStruct *event, String& string)
         Plugin_151_want_unlock=true;
         Plugin_151_invert_time=0;
         if (event->Par1)
-          Plugin_151_invert_time=now()+event->Par1;
+          Plugin_151_invert_time=millis()+event->Par1*1000;
 
         success = true;
       }
@@ -343,7 +343,7 @@ boolean Plugin_151(byte function, struct EventStruct *event, String& string)
         Plugin_151_want_unlock=false;
         Plugin_151_invert_time=0;
         if (event->Par1)
-          Plugin_151_invert_time=now()+event->Par1;
+          Plugin_151_invert_time=millis()+event->Par1*1000;
         success = true;
       }
 
