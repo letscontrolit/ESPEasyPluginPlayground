@@ -3,7 +3,7 @@
 //  based on P020 Ser2Net and P001 Switch
 //
 //  designed for TUYA/YEWELINK Wifi Touch Light switch with ESP8266 + PIC16F1829 MCU and
-//  also the similar Sonoff Dual MCU controlled Wifi relay
+//  also the similar Sonoff Dual MCU controlled Wifi relay and LCTECH WIFI RELAY
 //
 //  Dummy device (Switch) must be used to control relays, one device per relay.. with Domoticz at least.
 //  Every relay needs unique idx for control, and rules, i have no other idea.
@@ -21,6 +21,7 @@
 
 #define SER_SWITCH_YEWE 1
 #define SER_SWITCH_SONOFFDUAL 2
+#define SER_SWITCH_LCTECH 3
 
 static byte switchstate[3];
 static byte ostate[3];
@@ -68,11 +69,12 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
     case PLUGIN_WEBFORM_LOAD:
       {
         byte choice = Settings.TaskDevicePluginConfig[event->TaskIndex][0];
-        String options[2];
+        String options[3];
         options[0] = F("Yewelink/TUYA");
         options[1] = F("Sonoff Dual");
-        int optionValues[2] = { SER_SWITCH_YEWE, SER_SWITCH_SONOFFDUAL };
-        addFormSelector(string, F("Switch Type"), F("plugin_165_type"), 2, options, optionValues, choice);
+        options[2] = F("LC TECH");
+        int optionValues[3] = { SER_SWITCH_YEWE, SER_SWITCH_SONOFFDUAL, SER_SWITCH_LCTECH };
+        addFormSelector(string, F("Switch Type"), F("plugin_165_type"), 3, options, optionValues, choice);
 
         if (Settings.TaskDevicePluginConfig[event->TaskIndex][0] == SER_SWITCH_YEWE)
         {
@@ -115,6 +117,12 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
         {
           numrelay = 2;
           Serial.begin(19230, SERIAL_8N1);
+          // on start we do not know the state of the relays...
+        }
+        if (Settings.TaskDevicePluginConfig[event->TaskIndex][0] == SER_SWITCH_LCTECH)
+        {
+          numrelay = 1;
+          Serial.begin(9600, SERIAL_8N1);
           // on start we do not know the state of the relays...
         }
 
@@ -227,7 +235,7 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
                         log = F("SW   : State");
                         switch (btnnum) {
                           case 0: {
-                              if (numrelay > 1) {
+                              if (numrelay > 0) {
                                 UserVar[event->BaseVarIndex + btnnum] = switchstate[btnnum];
                                 log += F(" r0:");
                                 log += switchstate[btnnum];
@@ -235,7 +243,7 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
 
                             }
                           case 1: {
-                              if (numrelay != 2) {
+                              if (numrelay > 1) {
                                 UserVar[event->BaseVarIndex + btnnum] = switchstate[btnnum];
                                 log += F(" r1:");
                                 log += switchstate[btnnum];
@@ -243,7 +251,7 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
 
                             }
                           case 2: {
-                              if (numrelay > 1) {
+                              if (numrelay > 2) {
                                 UserVar[event->BaseVarIndex + btnnum] = switchstate[btnnum];
                                 log += F(" r2:");
                                 log += switchstate[btnnum];
@@ -310,7 +318,7 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
             }
 
             sendmcucommand(rnum, rcmd, Settings.TaskDevicePluginConfig[event->TaskIndex][0]);
-            if ( Settings.TaskDevicePluginConfig[event->TaskIndex][0] == SER_SWITCH_SONOFFDUAL) {
+            if ( Settings.TaskDevicePluginConfig[event->TaskIndex][0] > 1) {
               UserVar[(event->BaseVarIndex + rnum)] = switchstate[rnum];
               event->sensorType = SENSOR_TYPE_SWITCH;
               sendData(event);
@@ -378,6 +386,28 @@ void sendmcucommand(byte btnnum, byte state, byte swtype) // btnnum=0,1,2, state
           Serial.write( sstate );
           Serial.write(0xA1);
           Serial.flush();
+          break;
+        }
+      }
+    case SER_SWITCH_LCTECH:
+      {
+        if (btnnum == 0) {       // only one relay possible as i know
+          switchstate[btnnum] = state;
+
+          for (byte x = 0; x < 2; x++) // try twice to be sure
+          {
+            Serial.write(0xA0);
+            Serial.write(0x01);
+            if (state == 0) { // off
+              Serial.write(0x00);
+              Serial.write(0xA1);
+            } else {         // on
+              Serial.write(0x01);
+              Serial.write(0xA2);
+            }
+            Serial.flush();
+            delay(1);
+          }
           break;
         }
       }
