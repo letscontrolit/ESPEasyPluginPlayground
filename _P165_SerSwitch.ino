@@ -1,4 +1,4 @@
-//############################# Plugin 165: Serial MCU controlled switch ###############################
+//############################# Plugin 165: Serial MCU controlled switch v1.3 ###########################
 //
 //  based on P020 Ser2Net and P001 Switch
 //
@@ -86,6 +86,16 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
           addFormSelector(string, F("Number of relays"), F("plugin_165_button"), 3, buttonOptions, NULL, choice);
         }
 
+        if (Settings.TaskDevicePluginConfig[event->TaskIndex][0] == SER_SWITCH_SONOFFDUAL)
+        {
+          choice = Settings.TaskDevicePluginConfig[event->TaskIndex][1];
+          String modeoptions[2];
+          modeoptions[0] = F("Off");
+          modeoptions[1] = F("On");
+          int modeoptionValues[2] = { 0, 1 };
+          addFormSelector(string, F("Exclude/Blinds mode"), F("plugin_165_mode"), 2, modeoptions, modeoptionValues, choice);
+        }
+
         success = true;
         break;
       }
@@ -96,6 +106,10 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
         if (Settings.TaskDevicePluginConfig[event->TaskIndex][0] == SER_SWITCH_YEWE)
         {
           Settings.TaskDevicePluginConfig[event->TaskIndex][1] = getFormItemInt(F("plugin_165_button"));
+        }
+        if (Settings.TaskDevicePluginConfig[event->TaskIndex][0] == SER_SWITCH_SONOFFDUAL)
+        {
+          Settings.TaskDevicePluginConfig[event->TaskIndex][1] = getFormItemInt(F("plugin_165_mode"));
         }
 
         success = true;
@@ -110,12 +124,12 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
         {
           numrelay = Settings.TaskDevicePluginConfig[event->TaskIndex][1];
           Serial.begin(9600, SERIAL_8N1);
-          delay(10);
+          delay(1);
           getmcustate(); // request status on startup
         }
         if (Settings.TaskDevicePluginConfig[event->TaskIndex][0] == SER_SWITCH_SONOFFDUAL)
         {
-          numrelay = 2;
+          numrelay = 3; // 3rd button is the "wifi" button
           Serial.begin(19230, SERIAL_8N1);
           // on start we do not know the state of the relays...
         }
@@ -183,7 +197,7 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
                         }
                       case SER_SWITCH_SONOFFDUAL:
                         {
-                          if (serial_buf[bytes_read] != 0x04) {
+                          if ((serial_buf[bytes_read] != 0x04) && (serial_buf[bytes_read] != 0x00)) {
                             commandstate = 0;
                             bytes_read = 0;
                           }
@@ -193,15 +207,31 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
                   }
 
                   if ( (bytes_read == 2) && (Settings.TaskDevicePluginConfig[event->TaskIndex][0] == SER_SWITCH_SONOFFDUAL)) {
-                    ostate[0] = switchstate[0]; ostate[1] = switchstate[1];
-                    switchstate[0] = 0; switchstate[1] = 0;
-                    if ((serial_buf[bytes_read] == 1) || (serial_buf[bytes_read] == 3)) {
+                    ostate[0] = switchstate[0]; ostate[1] = switchstate[1]; ostate[2] = switchstate[2];
+                    switchstate[0] = 0; switchstate[1] = 0; switchstate[2] = 0;
+                    if ((serial_buf[bytes_read] & 1) == 1) {
                       switchstate[0] = 1;
                     }
-                    if ((serial_buf[bytes_read] == 2) || (serial_buf[bytes_read] == 3)) {
+                    if ((serial_buf[bytes_read] & 2) == 2) {
                       switchstate[1] = 1;
                     }
+                    if ((serial_buf[bytes_read] & 4) == 4) {
+                      switchstate[2] = 1;
+                    }
                     commandstate = 2; bytes_read = 0;
+
+                    if (Settings.TaskDevicePluginConfig[event->TaskIndex][1] == 1)
+                    { // exclusive on mode
+                      if ((ostate[0] == 1) && (switchstate[1] == 1)) {
+                        sendmcucommand(0, 0, Settings.TaskDevicePluginConfig[event->TaskIndex][0], Settings.TaskDevicePluginConfig[event->TaskIndex][1]);
+                        switchstate[0] = 0;
+                      }
+                      if ((ostate[1] == 1) && (switchstate[0] == 1)) {
+                        sendmcucommand(1, 0, Settings.TaskDevicePluginConfig[event->TaskIndex][0], Settings.TaskDevicePluginConfig[event->TaskIndex][1]);
+                        switchstate[1] = 0;                        
+                      }
+                    }
+
                     log = F("SW   : State ");
                     if (ostate[0] != switchstate[0]) {
                       UserVar[event->BaseVarIndex] = switchstate[0];
@@ -213,8 +243,13 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
                       log += F(" r1:");
                       log += switchstate[1];
                     }
+                    if (ostate[2] != switchstate[2]) {
+                      UserVar[event->BaseVarIndex + 2] = switchstate[2];
+                      log += F(" b2:");
+                      log += switchstate[1];
+                    }
                     addLog(LOG_LEVEL_INFO, log);
-                    if ( (ostate[0] != switchstate[0]) || (ostate[1] != switchstate[1]) ) {
+                    if ( (ostate[0] != switchstate[0]) || (ostate[1] != switchstate[1]) || (ostate[2] != switchstate[2]) ) {
                       event->sensorType = SENSOR_TYPE_SWITCH;
                       sendData(event);
                     }
@@ -302,6 +337,7 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
         String command = parseString(string, 1);
         byte rnum = 0;
         byte rcmd = 0;
+        byte par3 = 0;
 
         if (Plugin_165_init)
         {
@@ -317,11 +353,25 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
               rcmd = event->Par2;
             }
 
-            sendmcucommand(rnum, rcmd, Settings.TaskDevicePluginConfig[event->TaskIndex][0]);
-            if ( Settings.TaskDevicePluginConfig[event->TaskIndex][0] > 1) {
-              UserVar[(event->BaseVarIndex + rnum)] = switchstate[rnum];
-              event->sensorType = SENSOR_TYPE_SWITCH;
-              sendData(event);
+            if ( Settings.TaskDevicePluginConfig[event->TaskIndex][0] < SER_SWITCH_LCTECH) {
+              par3 = Settings.TaskDevicePluginConfig[event->TaskIndex][1];
+            }
+            sendmcucommand(rnum, rcmd, Settings.TaskDevicePluginConfig[event->TaskIndex][0], par3);
+            if ( Settings.TaskDevicePluginConfig[event->TaskIndex][0] > SER_SWITCH_YEWE) { // report state only if not Yewe
+              if (UserVar[(event->BaseVarIndex + rnum)] != switchstate[rnum]) { // report only if state is really changed
+                UserVar[(event->BaseVarIndex + rnum)] = switchstate[rnum];
+                if (( par3 == 1) && (rcmd == 1) )
+                { // exclusive on mode
+                  if (rnum == 0) {
+                    UserVar[(event->BaseVarIndex + 1)] = 0;
+                  }
+                  if (rnum == 1) {
+                    UserVar[event->BaseVarIndex] = 0;
+                  }
+                }
+                event->sensorType = SENSOR_TYPE_SWITCH;
+                sendData(event);
+              }
             }
             String log = F("SW   : SetSwitch r");
             log += event->Par1;
@@ -349,7 +399,7 @@ void getmcustate() {
   Serial.flush();
 }
 
-void sendmcucommand(byte btnnum, byte state, byte swtype) // btnnum=0,1,2, state=0/1
+void sendmcucommand(byte btnnum, byte state, byte swtype, byte btnum_mode) // btnnum=0,1,2, state=0/1
 {
   byte sstate;
 
@@ -374,26 +424,29 @@ void sendmcucommand(byte btnnum, byte state, byte swtype) // btnnum=0,1,2, state
       }
     case SER_SWITCH_SONOFFDUAL:
       {
-        if ((btnnum == 0) || (btnnum == 1)) {
-          switchstate[btnnum] = state;
-          Serial.write(0xA0);
-          Serial.write(0x04);
+        switchstate[btnnum] = state;
+        if (( btnum_mode == 1) && (state == 1) )
+        { // exclusive on mode
           if (btnnum == 0) {
-            sstate = state + (switchstate[1] * 2);
-          } else {
-            sstate = (state * 2) + switchstate[0];
+            switchstate[1] = 0;
           }
-          Serial.write( sstate );
-          Serial.write(0xA1);
-          Serial.flush();
-          break;
+          if (btnnum == 1) {
+            switchstate[0] = 0;
+          }
         }
+        sstate = switchstate[0] + (switchstate[1] << 1) + (switchstate[2] << 2);
+        Serial.write(0xA0);
+        Serial.write(0x04);
+        Serial.write( sstate );
+        Serial.write(0xA1);
+        Serial.flush();
+        delay(1);
+        break;
       }
     case SER_SWITCH_LCTECH:
       {
         if (btnnum == 0) {       // only one relay possible as i know
           switchstate[btnnum] = state;
-
           for (byte x = 0; x < 2; x++) // try twice to be sure
           {
             Serial.write(0xA0);
