@@ -25,6 +25,7 @@
 bool Plugin_151_want_unlock=false;
 unsigned long Plugin_151_last_unlock_time=0;
 unsigned long Plugin_151_invert_time=0; //timestamp after which to automatcily invert unlock status.
+byte unlock_coil_pin=0;
 
 //measure capicitance by pulsing out_pin and measuring response delay of in_pin
 int Plugin_151_sense(byte out_pin, byte in_pin)
@@ -168,7 +169,7 @@ boolean Plugin_151(byte function, struct EventStruct *event, String& string)
     case PLUGIN_TEN_PER_SECOND:
     {
         int sense=Plugin_151_sense(CONFIG(0), CONFIG(1));
-        byte unlock_coil_pin=Settings.TaskDevicePin1[event->TaskIndex];
+        unlock_coil_pin=Settings.TaskDevicePin1[event->TaskIndex];
         byte locked_led_pin=Settings.TaskDevicePin2[event->TaskIndex];
         byte unlocked_led_pin=Settings.TaskDevicePin3[event->TaskIndex];
         byte led_on=!CONFIG(4)   ;
@@ -237,8 +238,8 @@ boolean Plugin_151(byte function, struct EventStruct *event, String& string)
               else
               {
                 log=log+F(", person detected, delaying next open");
-                Plugin_151_blink(locked_led_pin, 100,200, led_on);
-                Plugin_151_blink(unlocked_led_pin, 100,200, led_on);
+                Plugin_151_blink(locked_led_pin, 500,1000, led_on);
+                Plugin_151_blink(unlocked_led_pin, 500,1000, led_on);
                 Plugin_151_last_unlock_time=millis(); //reset time until the person releases the door knob
                }
             }
@@ -249,7 +250,7 @@ boolean Plugin_151(byte function, struct EventStruct *event, String& string)
               {
                 //warn user the door is locked and cant be openend
                 log=log+F(", person detected, denied access!");
-                Plugin_151_blink(active_led, 100,200, led_on);
+                Plugin_151_blink(active_led, 500,1000, led_on);
               }
               else
               {
@@ -284,13 +285,13 @@ boolean Plugin_151(byte function, struct EventStruct *event, String& string)
           {
             //good but inform user so they know its unlocked
             log=log+F("unlocked");
-            Plugin_151_blink(active_led, 100,200, led_on);
+            Plugin_151_blink(active_led, 500,1000, led_on);
           }
           else
           {
             //mechanism is unlocked but we want it to be locked again, warn user (they should close door or open+close it, depending on the state of the mechanism)
             log=log+F("unlocked, please close door!");
-            Plugin_151_blink(active_led, 100,200, led_on);
+            Plugin_151_blink(active_led, 500,1000, led_on);
           }
 
           Plugin_151_last_unlock_time=millis();
@@ -303,14 +304,14 @@ boolean Plugin_151(byte function, struct EventStruct *event, String& string)
     }
 
 
-    case PLUGIN_GET_DEVICEGPIONAMES:
-    {
-
-      event->String1=F("Unlock coil pin");
-      event->String2=F("Locked led pin");
-      event->String3=F("Unlocked led pin");
-      break;
-    }
+    // case PLUGIN_GET_DEVICEGPIONAMES:
+    // {
+    //
+    //   event->String1=F("Unlock coil pin");
+    //   event->String2=F("Locked led pin");
+    //   event->String3=F("Unlocked led pin");
+    //   break;
+    // }
 
 
     case PLUGIN_WRITE:
@@ -332,7 +333,7 @@ boolean Plugin_151(byte function, struct EventStruct *event, String& string)
       //unlock now
       if (command == F("cisa_unlockhard"))
       {
-        byte unlock_coil_pin=Settings.TaskDevicePin1[event->TaskIndex];
+
         Plugin_151_unlock(unlock_coil_pin);
 
         success = true;
