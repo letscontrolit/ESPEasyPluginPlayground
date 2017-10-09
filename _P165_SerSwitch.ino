@@ -1,4 +1,4 @@
-//############################# Plugin 165: Serial MCU controlled switch v1.3 ###########################
+//############################# Plugin 165: Serial MCU controlled switch v1.4 ###########################
 //
 //  based on P020 Ser2Net and P001 Switch
 //
@@ -27,6 +27,9 @@ static byte switchstate[3];
 static byte ostate[3];
 byte commandstate = 0; // 0:no,1:inprogress,2:finished
 byte numrelay = 1;
+byte ownindex;
+byte globalpar0;
+byte globalpar1;
 boolean Plugin_165_init = false;
 
 boolean Plugin_165(byte function, struct EventStruct *event, String& string)
@@ -112,12 +115,17 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
           Settings.TaskDevicePluginConfig[event->TaskIndex][1] = getFormItemInt(F("plugin_165_mode"));
         }
 
+        globalpar0 = Settings.TaskDevicePluginConfig[event->TaskIndex][0];
+        globalpar1 = Settings.TaskDevicePluginConfig[event->TaskIndex][1];
+
         success = true;
         break;
       }
 
     case PLUGIN_INIT:
       {
+        LoadTaskSettings(event->TaskIndex);
+        ownindex = event->TaskIndex;
         Serial.setDebugOutput(false);
         Serial.setRxBufferSize(BUFFER_SIZE); // Arduino core for ESP8266 WiFi chip 2.4.0
         if (Settings.TaskDevicePluginConfig[event->TaskIndex][0] == SER_SWITCH_YEWE)
@@ -140,6 +148,9 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
           // on start we do not know the state of the relays...
         }
 
+        globalpar0 = Settings.TaskDevicePluginConfig[event->TaskIndex][0];
+        globalpar1 = Settings.TaskDevicePluginConfig[event->TaskIndex][1];
+
         success = true;
         Plugin_165_init = true;
         break;
@@ -148,7 +159,6 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_SERIAL_IN:
       {
-
         int bytes_read = 0;
         byte serial_buf[BUFFER_SIZE];
         String log;
@@ -228,7 +238,7 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
                       }
                       if ((ostate[1] == 1) && (switchstate[0] == 1)) {
                         sendmcucommand(1, 0, Settings.TaskDevicePluginConfig[event->TaskIndex][0], Settings.TaskDevicePluginConfig[event->TaskIndex][1]);
-                        switchstate[1] = 0;                        
+                        switchstate[1] = 0;
                       }
                     }
 
@@ -341,7 +351,6 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
 
         if (Plugin_165_init)
         {
-
           if ( command == F("relay") )
           {
             success = true;
@@ -353,20 +362,25 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
               rcmd = event->Par2;
             }
 
-            if ( Settings.TaskDevicePluginConfig[event->TaskIndex][0] < SER_SWITCH_LCTECH) {
-              par3 = Settings.TaskDevicePluginConfig[event->TaskIndex][1];
+            LoadTaskSettings(ownindex);
+            event->TaskIndex = ownindex;
+            byte varIndex = ownindex * VARS_PER_TASK;
+            event->BaseVarIndex = varIndex;
+
+            if ( globalpar0 < SER_SWITCH_LCTECH) {
+              par3 = globalpar1;
             }
-            sendmcucommand(rnum, rcmd, Settings.TaskDevicePluginConfig[event->TaskIndex][0], par3);
-            if ( Settings.TaskDevicePluginConfig[event->TaskIndex][0] > SER_SWITCH_YEWE) { // report state only if not Yewe
-              if (UserVar[(event->BaseVarIndex + rnum)] != switchstate[rnum]) { // report only if state is really changed
-                UserVar[(event->BaseVarIndex + rnum)] = switchstate[rnum];
+            sendmcucommand(rnum, rcmd, globalpar0, par3);
+            if ( globalpar0 > SER_SWITCH_YEWE) { // report state only if not Yewe
+              if (UserVar[(varIndex + rnum)] != switchstate[rnum]) { // report only if state is really changed
+                UserVar[(varIndex + rnum)] = switchstate[rnum];
                 if (( par3 == 1) && (rcmd == 1) )
                 { // exclusive on mode
                   if (rnum == 0) {
-                    UserVar[(event->BaseVarIndex + 1)] = 0;
+                    UserVar[(varIndex + 1)] = 0;
                   }
                   if (rnum == 1) {
-                    UserVar[event->BaseVarIndex] = 0;
+                    UserVar[varIndex] = 0;
                   }
                 }
                 event->sensorType = SENSOR_TYPE_SWITCH;
