@@ -75,7 +75,7 @@ boolean Plugin_210(byte function, struct EventStruct *event, String& string)
         {
           string += F("<TR><TD>MQTT Topic ");
           string += varNr + 1;
-          string += F(":<TD><input type='text' size='40' maxlength='40' name='Plugin_210_template");
+          string += F(":<TD><input type='text' size='80' maxlength='80' name='Plugin_210_template");
           string += varNr + 1;
           string += F("' value='");
           string += deviceTemplate[varNr];
