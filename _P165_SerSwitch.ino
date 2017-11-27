@@ -1,12 +1,12 @@
-//############################# Plugin 165: Serial MCU controlled switch v1.4 ###########################
+//############################# Plugin 165: Serial MCU controlled switch v1.5 ###########################
 //
-//  based on P020 Ser2Net and P001 Switch
+//  Designed for TUYA/YEWELINK Wifi Touch Light switch with ESP8266 + PIC16F1829 MCU,
+//  the similar Sonoff Dual MCU controlled Wifi relay and LCTECH WIFI RELAY is also supported.
+//  Based on P020 Ser2Net and P001 Switch.
 //
-//  designed for TUYA/YEWELINK Wifi Touch Light switch with ESP8266 + PIC16F1829 MCU and
-//  also the similar Sonoff Dual MCU controlled Wifi relay and LCTECH WIFI RELAY
-//
-//  Dummy device (Switch) must be used to control relays, one device per relay.. with Domoticz at least.
-//  Every relay needs unique idx for control, and rules, i have no other idea.
+//  Dummy device (Switch) can be used to control relays, one device per relay and/or rules Publish command 
+//  for example.
+//  Support thread: https://www.letscontrolit.com/forum/viewtopic.php?f=6&t=3245
 //
 //#######################################################################################################
 
@@ -17,19 +17,19 @@
 #define PLUGIN_VALUENAME2_165 "Relay1"
 #define PLUGIN_VALUENAME3_165 "Relay2"
 
-#define BUFFER_SIZE   128
+#define BUFFER_SIZE   128 // at least 3x33 byte serial buffer needed for Tuya
 
 #define SER_SWITCH_YEWE 1
 #define SER_SWITCH_SONOFFDUAL 2
 #define SER_SWITCH_LCTECH 3
 
-static byte switchstate[3];
-static byte ostate[3];
-byte commandstate = 0; // 0:no,1:inprogress,2:finished
-byte numrelay = 1;
-byte ownindex;
-byte globalpar0;
-byte globalpar1;
+static byte Plugin_165_switchstate[3];
+static byte Plugin_165_ostate[3];
+byte Plugin_165_commandstate = 0; // 0:no,1:inprogress,2:finished
+byte Plugin_165_numrelay = 1;
+byte Plugin_165_ownindex;
+byte Plugin_165_globalpar0;
+byte Plugin_165_globalpar1;
 boolean Plugin_165_init = false;
 
 boolean Plugin_165(byte function, struct EventStruct *event, String& string)
@@ -115,8 +115,8 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
           Settings.TaskDevicePluginConfig[event->TaskIndex][1] = getFormItemInt(F("plugin_165_mode"));
         }
 
-        globalpar0 = Settings.TaskDevicePluginConfig[event->TaskIndex][0];
-        globalpar1 = Settings.TaskDevicePluginConfig[event->TaskIndex][1];
+        Plugin_165_globalpar0 = Settings.TaskDevicePluginConfig[event->TaskIndex][0];
+        Plugin_165_globalpar1 = Settings.TaskDevicePluginConfig[event->TaskIndex][1];
 
         success = true;
         break;
@@ -125,31 +125,31 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
     case PLUGIN_INIT:
       {
         LoadTaskSettings(event->TaskIndex);
-        ownindex = event->TaskIndex;
+        Plugin_165_ownindex = event->TaskIndex;
         Serial.setDebugOutput(false);
         Serial.setRxBufferSize(BUFFER_SIZE); // Arduino core for ESP8266 WiFi chip 2.4.0
         if (Settings.TaskDevicePluginConfig[event->TaskIndex][0] == SER_SWITCH_YEWE)
         {
-          numrelay = Settings.TaskDevicePluginConfig[event->TaskIndex][1];
+          Plugin_165_numrelay = Settings.TaskDevicePluginConfig[event->TaskIndex][1];
           Serial.begin(9600, SERIAL_8N1);
           delay(1);
           getmcustate(); // request status on startup
         }
         if (Settings.TaskDevicePluginConfig[event->TaskIndex][0] == SER_SWITCH_SONOFFDUAL)
         {
-          numrelay = 3; // 3rd button is the "wifi" button
+          Plugin_165_numrelay = 3; // 3rd button is the "wifi" button
           Serial.begin(19230, SERIAL_8N1);
           // on start we do not know the state of the relays...
         }
         if (Settings.TaskDevicePluginConfig[event->TaskIndex][0] == SER_SWITCH_LCTECH)
         {
-          numrelay = 1;
+          Plugin_165_numrelay = 1;
           Serial.begin(9600, SERIAL_8N1);
           // on start we do not know the state of the relays...
         }
 
-        globalpar0 = Settings.TaskDevicePluginConfig[event->TaskIndex][0];
-        globalpar1 = Settings.TaskDevicePluginConfig[event->TaskIndex][1];
+        Plugin_165_globalpar0 = Settings.TaskDevicePluginConfig[event->TaskIndex][0];
+        Plugin_165_globalpar1 = Settings.TaskDevicePluginConfig[event->TaskIndex][1];
 
         success = true;
         Plugin_165_init = true;
@@ -172,35 +172,35 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
 
               if (bytes_read == 0) { // packet start
 
-                commandstate = 0;
+                Plugin_165_commandstate = 0;
                 switch (Settings.TaskDevicePluginConfig[event->TaskIndex][0])
                 {
-                  case SER_SWITCH_YEWE:
+                  case SER_SWITCH_YEWE: //decode first byte of package
                     {
                       if (serial_buf[bytes_read] == 0x55) {
-                        commandstate = 1;
+                        Plugin_165_commandstate = 1;
                       }
                       break;
                     }
-                  case SER_SWITCH_SONOFFDUAL:
+                  case SER_SWITCH_SONOFFDUAL: //decode first byte of package
                     {
                       if (serial_buf[bytes_read] == 0xA0) {
-                        commandstate = 1;
+                        Plugin_165_commandstate = 1;
                       }
                       break;
                     }
                 }
               } else {
 
-                if (commandstate == 1) {
+                if (Plugin_165_commandstate == 1) {
 
-                  if (bytes_read == 1) { // packet valid?
+                  if (bytes_read == 1) { // check if packet is valid
                     switch (Settings.TaskDevicePluginConfig[event->TaskIndex][0])
                     {
                       case SER_SWITCH_YEWE:
                         {
                           if (serial_buf[bytes_read] != 0xAA) {
-                            commandstate = 0;
+                            Plugin_165_commandstate = 0;
                             bytes_read = 0;
                           }
                           break;
@@ -208,7 +208,7 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
                       case SER_SWITCH_SONOFFDUAL:
                         {
                           if ((serial_buf[bytes_read] != 0x04) && (serial_buf[bytes_read] != 0x00)) {
-                            commandstate = 0;
+                            Plugin_165_commandstate = 0;
                             bytes_read = 0;
                           }
                           break;
@@ -216,90 +216,90 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
                     }
                   }
 
-                  if ( (bytes_read == 2) && (Settings.TaskDevicePluginConfig[event->TaskIndex][0] == SER_SWITCH_SONOFFDUAL)) {
-                    ostate[0] = switchstate[0]; ostate[1] = switchstate[1]; ostate[2] = switchstate[2];
-                    switchstate[0] = 0; switchstate[1] = 0; switchstate[2] = 0;
+                  if ( (bytes_read == 2) && (Settings.TaskDevicePluginConfig[event->TaskIndex][0] == SER_SWITCH_SONOFFDUAL)) { // decode Sonoff Dual status changes
+                    Plugin_165_ostate[0] = Plugin_165_switchstate[0]; Plugin_165_ostate[1] = Plugin_165_switchstate[1]; Plugin_165_ostate[2] = Plugin_165_switchstate[2];
+                    Plugin_165_switchstate[0] = 0; Plugin_165_switchstate[1] = 0; Plugin_165_switchstate[2] = 0;
                     if ((serial_buf[bytes_read] & 1) == 1) {
-                      switchstate[0] = 1;
+                      Plugin_165_switchstate[0] = 1;
                     }
                     if ((serial_buf[bytes_read] & 2) == 2) {
-                      switchstate[1] = 1;
+                      Plugin_165_switchstate[1] = 1;
                     }
                     if ((serial_buf[bytes_read] & 4) == 4) {
-                      switchstate[2] = 1;
+                      Plugin_165_switchstate[2] = 1;
                     }
-                    commandstate = 2; bytes_read = 0;
+                    Plugin_165_commandstate = 2; bytes_read = 0;
 
                     if (Settings.TaskDevicePluginConfig[event->TaskIndex][1] == 1)
                     { // exclusive on mode
-                      if ((ostate[0] == 1) && (switchstate[1] == 1)) {
+                      if ((Plugin_165_ostate[0] == 1) && (Plugin_165_switchstate[1] == 1)) {
                         sendmcucommand(0, 0, Settings.TaskDevicePluginConfig[event->TaskIndex][0], Settings.TaskDevicePluginConfig[event->TaskIndex][1]);
-                        switchstate[0] = 0;
+                        Plugin_165_switchstate[0] = 0;
                       }
-                      if ((ostate[1] == 1) && (switchstate[0] == 1)) {
+                      if ((Plugin_165_ostate[1] == 1) && (Plugin_165_switchstate[0] == 1)) {
                         sendmcucommand(1, 0, Settings.TaskDevicePluginConfig[event->TaskIndex][0], Settings.TaskDevicePluginConfig[event->TaskIndex][1]);
-                        switchstate[1] = 0;
+                        Plugin_165_switchstate[1] = 0;
                       }
                     }
 
                     log = F("SW   : State ");
-                    if (ostate[0] != switchstate[0]) {
-                      UserVar[event->BaseVarIndex] = switchstate[0];
+                    if (Plugin_165_ostate[0] != Plugin_165_switchstate[0]) {
+                      UserVar[event->BaseVarIndex] = Plugin_165_switchstate[0];
                       log += F(" r0:");
-                      log += switchstate[0];
+                      log += Plugin_165_switchstate[0];
                     }
-                    if (ostate[1] != switchstate[1]) {
-                      UserVar[event->BaseVarIndex + 1] = switchstate[1];
+                    if (Plugin_165_ostate[1] != Plugin_165_switchstate[1]) {
+                      UserVar[event->BaseVarIndex + 1] = Plugin_165_switchstate[1];
                       log += F(" r1:");
-                      log += switchstate[1];
+                      log += Plugin_165_switchstate[1];
                     }
-                    if (ostate[2] != switchstate[2]) {
-                      UserVar[event->BaseVarIndex + 2] = switchstate[2];
+                    if (Plugin_165_ostate[2] != Plugin_165_switchstate[2]) {
+                      UserVar[event->BaseVarIndex + 2] = Plugin_165_switchstate[2];
                       log += F(" b2:");
-                      log += switchstate[1];
+                      log += Plugin_165_switchstate[1];
                     }
                     addLog(LOG_LEVEL_INFO, log);
-                    if ( (ostate[0] != switchstate[0]) || (ostate[1] != switchstate[1]) || (ostate[2] != switchstate[2]) ) {
+                    if ( (Plugin_165_ostate[0] != Plugin_165_switchstate[0]) || (Plugin_165_ostate[1] != Plugin_165_switchstate[1]) || (Plugin_165_ostate[2] != Plugin_165_switchstate[2]) ) {
                       event->sensorType = SENSOR_TYPE_SWITCH;
                       sendData(event);
                     }
                   }
-                  if (Settings.TaskDevicePluginConfig[event->TaskIndex][0] == SER_SWITCH_YEWE) {
+                  if (Settings.TaskDevicePluginConfig[event->TaskIndex][0] == SER_SWITCH_YEWE) { // decode Tuya/Yewelink status report package
                     if ((bytes_read == 3) && (serial_buf[bytes_read] != 7))
                     {
-                      commandstate = 0;  // command code 7 means status reporting, we do not need other packets
+                      Plugin_165_commandstate = 0;  // command code 7 means status reporting, we do not need other packets
                       bytes_read = 0;
                     }
                     if (bytes_read == 10) {
                       byte btnnum = (serial_buf[6] - 1);
-                      ostate[btnnum] = switchstate[btnnum];
-                      switchstate[btnnum] = serial_buf[10];
-                      commandstate = 2; bytes_read = 0;
+                      Plugin_165_ostate[btnnum] = Plugin_165_switchstate[btnnum];
+                      Plugin_165_switchstate[btnnum] = serial_buf[10];
+                      Plugin_165_commandstate = 2; bytes_read = 0;
 
-                      if (ostate[btnnum] != switchstate[btnnum]) {
+                      if (Plugin_165_ostate[btnnum] != Plugin_165_switchstate[btnnum]) {
                         log = F("SW   : State");
                         switch (btnnum) {
                           case 0: {
-                              if (numrelay > 0) {
-                                UserVar[event->BaseVarIndex + btnnum] = switchstate[btnnum];
+                              if (Plugin_165_numrelay > 0) {
+                                UserVar[event->BaseVarIndex + btnnum] = Plugin_165_switchstate[btnnum];
                                 log += F(" r0:");
-                                log += switchstate[btnnum];
+                                log += Plugin_165_switchstate[btnnum];
                               }
 
                             }
                           case 1: {
-                              if (numrelay > 1) {
-                                UserVar[event->BaseVarIndex + btnnum] = switchstate[btnnum];
+                              if (Plugin_165_numrelay > 1) {
+                                UserVar[event->BaseVarIndex + btnnum] = Plugin_165_switchstate[btnnum];
                                 log += F(" r1:");
-                                log += switchstate[btnnum];
+                                log += Plugin_165_switchstate[btnnum];
                               }
 
                             }
                           case 2: {
-                              if (numrelay > 2) {
-                                UserVar[event->BaseVarIndex + btnnum] = switchstate[btnnum];
+                              if (Plugin_165_numrelay > 2) {
+                                UserVar[event->BaseVarIndex + btnnum] = Plugin_165_switchstate[btnnum];
                                 log += F(" r2:");
-                                log += switchstate[btnnum];
+                                log += Plugin_165_switchstate[btnnum];
                               }
 
                             }
@@ -308,20 +308,20 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
                         addLog(LOG_LEVEL_INFO, log);
                         sendData(event);
                       }
-                    } //10th byte
+                    } //10th byte end (Tuya package)
 
 
-                  } // yewe decode
-                } // commandstate 1 end
+                  } // yewe decode end
+                } // Plugin_165_commandstate 1 end
               } // end of status decoding
 
-              if (commandstate == 1) {
+              if (Plugin_165_commandstate == 1) {
                 bytes_read++;
               }
             } else
               Serial.read(); // if buffer full, dump incoming
           }
-        } // plugin initialized
+        } // plugin initialized end
         success = true;
         break;
       }
@@ -330,8 +330,8 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
       {
         if (Plugin_165_init)
         {
-          if ((Settings.TaskDevicePluginConfig[event->TaskIndex][0] == SER_SWITCH_YEWE) && (commandstate != 1))
-          {
+          if ((Settings.TaskDevicePluginConfig[event->TaskIndex][0] == SER_SWITCH_YEWE) && (Plugin_165_commandstate != 1))
+          { // check Tuya state if anybody ask for it
             String log = F("SW   : ReadState");
             addLog(LOG_LEVEL_INFO, log);
             getmcustate();
@@ -351,31 +351,31 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
 
         if (Plugin_165_init)
         {
-          if ( command == F("relay") )
+          if ( command == F("relay") ) // deal with relay change command
           {
             success = true;
 
-            if ((event->Par1 >= 0) && (event->Par1 < numrelay)) {
+            if ((event->Par1 >= 0) && (event->Par1 < Plugin_165_numrelay)) {
               rnum = event->Par1;
             }
             if ((event->Par2 == 0) || (event->Par2 == 1)) {
               rcmd = event->Par2;
             }
 
-            LoadTaskSettings(ownindex);
-            event->TaskIndex = ownindex;
-            byte varIndex = ownindex * VARS_PER_TASK;
+            LoadTaskSettings(Plugin_165_ownindex); // get our own task values please
+            event->TaskIndex = Plugin_165_ownindex;
+            byte varIndex = Plugin_165_ownindex * VARS_PER_TASK;
             event->BaseVarIndex = varIndex;
 
-            if ( globalpar0 < SER_SWITCH_LCTECH) {
-              par3 = globalpar1;
+            if ( Plugin_165_globalpar0 < SER_SWITCH_LCTECH) {
+              par3 = Plugin_165_globalpar1;
             }
-            sendmcucommand(rnum, rcmd, globalpar0, par3);
-            if ( globalpar0 > SER_SWITCH_YEWE) { // report state only if not Yewe
-              if (UserVar[(varIndex + rnum)] != switchstate[rnum]) { // report only if state is really changed
-                UserVar[(varIndex + rnum)] = switchstate[rnum];
+            sendmcucommand(rnum, rcmd, Plugin_165_globalpar0, par3);
+            if ( Plugin_165_globalpar0 > SER_SWITCH_YEWE) { // report state only if not Yewe
+              if (UserVar[(varIndex + rnum)] != Plugin_165_switchstate[rnum]) { // report only if state is really changed
+                UserVar[(varIndex + rnum)] = Plugin_165_switchstate[rnum];
                 if (( par3 == 1) && (rcmd == 1) )
-                { // exclusive on mode
+                { // exclusive on mode for Dual
                   if (rnum == 0) {
                     UserVar[(varIndex + 1)] = 0;
                   }
@@ -402,11 +402,11 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
   return success;
 }
 
-void getmcustate() {
-  Serial.write(0x55); // request status information
+void getmcustate() { 
+  Serial.write(0x55); // Tuya header 55AA
   Serial.write(0xAA);
-  Serial.write(0x00);
-  Serial.write(0x08);
+  Serial.write(0x00); // version 00
+  Serial.write(0x08); // Tuya command 08 - request status
   Serial.write(0x00);
   Serial.write(0x00);
   Serial.write(0x07);
@@ -421,10 +421,10 @@ void sendmcucommand(byte btnnum, byte state, byte swtype, byte btnum_mode) // bt
   {
     case SER_SWITCH_YEWE:
       {
-        Serial.write(0x55); // header 55AA
+        Serial.write(0x55); // Tuya header 55AA
         Serial.write(0xAA);
         Serial.write(0x00); // version 00
-        Serial.write(0x06); // command 06 - send order
+        Serial.write(0x06); // Tuya command 06 - send order
         Serial.write(0x00);
         Serial.write(0x05); // following data length 0x05
         Serial.write( (btnnum + 1) ); // relay number 1,2,3
@@ -438,17 +438,17 @@ void sendmcucommand(byte btnnum, byte state, byte swtype, byte btnum_mode) // bt
       }
     case SER_SWITCH_SONOFFDUAL:
       {
-        switchstate[btnnum] = state;
+        Plugin_165_switchstate[btnnum] = state;
         if (( btnum_mode == 1) && (state == 1) )
         { // exclusive on mode
           if (btnnum == 0) {
-            switchstate[1] = 0;
+            Plugin_165_switchstate[1] = 0;
           }
           if (btnnum == 1) {
-            switchstate[0] = 0;
+            Plugin_165_switchstate[0] = 0;
           }
         }
-        sstate = switchstate[0] + (switchstate[1] << 1) + (switchstate[2] << 2);
+        sstate = Plugin_165_switchstate[0] + (Plugin_165_switchstate[1] << 1) + (Plugin_165_switchstate[2] << 2);
         Serial.write(0xA0);
         Serial.write(0x04);
         Serial.write( sstate );
@@ -460,7 +460,7 @@ void sendmcucommand(byte btnnum, byte state, byte swtype, byte btnum_mode) // bt
     case SER_SWITCH_LCTECH:
       {
         if (btnnum == 0) {       // only one relay possible as i know
-          switchstate[btnnum] = state;
+          Plugin_165_switchstate[btnnum] = state;
           for (byte x = 0; x < 2; x++) // try twice to be sure
           {
             Serial.write(0xA0);
