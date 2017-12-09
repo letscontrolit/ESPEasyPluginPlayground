@@ -97,7 +97,7 @@ boolean Plugin_166(byte function, struct EventStruct *event, String& string)
         String command = parseString(string, 1);
 
         if (Plugin_166_init)
-        { // for time? email plugin!
+        {
           if ( command == F("modemsleep") )
           {
             success = true;

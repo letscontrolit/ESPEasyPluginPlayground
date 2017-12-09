@@ -1,18 +1,27 @@
 //#######################################################################################################
 //#################################### Plugin 167: ADS1015 I2C 0x48)  ###################################
+//# Supports slow, purple chinese ADS1015
+//# Needs soligen2010/Adafruit_ADS1x15 patched library
+//# https://github.com/soligen2010/Adafruit_ADS1X15
+//# WARNING: This plugin can not coexist with ADS1115 plugin!
 //#######################################################################################################
+
+#ifdef PLUGIN_BUILD_TESTING
 
 #include <Adafruit_ADS1015.h>
 
 #define ARDUINO_ARCH_ESP8266
 #define PLUGIN_167
-#define PLUGIN_ID_167 25
+#define PLUGIN_ID_167 167
 #define PLUGIN_NAME_167 "Analog input - ADS1015"
-#define PLUGIN_VALUENAME1_167 "Analog"
+#define PLUGIN_VALUENAME1_167 "AIN0"
+#define PLUGIN_VALUENAME2_167 "AIN1"
+#define PLUGIN_VALUENAME3_167 "AIN2"
+#define PLUGIN_VALUENAME4_167 "AIN3"
 
-boolean Plugin_167_reading = false;
 boolean Plugin_167_init = false;
 Adafruit_ADS1015 Plugin_167_ads;
+static byte Plugin_167_muxes[5];
 
 boolean Plugin_167(byte function, struct EventStruct *event, String& string)
 {
@@ -28,10 +37,10 @@ boolean Plugin_167(byte function, struct EventStruct *event, String& string)
         Device[deviceCount].PullUpOption = false;
         Device[deviceCount].InverseLogicOption = false;
         Device[deviceCount].FormulaOption = true;
-        Device[deviceCount].ValueCount = 1;
+        Device[deviceCount].ValueCount = 4;
         Device[deviceCount].SendDataOption = true;
         Device[deviceCount].TimerOption = true;
-        Device[deviceCount].GlobalSyncOption = true;
+        Device[deviceCount].GlobalSyncOption = false;
         break;
       }
 
@@ -44,6 +53,9 @@ boolean Plugin_167(byte function, struct EventStruct *event, String& string)
     case PLUGIN_GET_DEVICEVALUENAMES:
       {
         strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_VALUENAME1_167));
+        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[1], PSTR(PLUGIN_VALUENAME2_167));
+        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[2], PSTR(PLUGIN_VALUENAME3_167));
+        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[3], PSTR(PLUGIN_VALUENAME4_167));
         break;
       }
 
@@ -68,31 +80,12 @@ boolean Plugin_167(byte function, struct EventStruct *event, String& string)
         };
         addFormSelector(string, F("Gain"), F("plugin_167_gain"), ADS1015_PGA_OPTION, pgaOptions, NULL, pga);
 
-#define ADS1015_MUX_OPTION 8
-        byte mux = Settings.TaskDevicePluginConfig[event->TaskIndex][2];
-        String muxOptions[ADS1015_MUX_OPTION] = {
-          F("AIN0 - AIN1 (Differential)"),
-          F("AIN0 - AIN3 (Differential)"),
-          F("AIN1 - AIN3 (Differential)"),
-          F("AIN2 - AIN3 (Differential)"),
-          F("AIN0 - GND (Single-Ended)"),
-          F("AIN1 - GND (Single-Ended)"),
-          F("AIN2 - GND (Single-Ended)"),
-          F("AIN3 - GND (Single-Ended)"),
-        };
-        addFormSelector(string, F("Input Multiplexer"), F("plugin_167_mode"), ADS1015_MUX_OPTION, muxOptions, NULL, mux);
+        addFormSubHeader(string, F("Used analog input pins:"));
 
-        addFormSubHeader(string, F("Two Point Calibration"));
-
-        addFormCheckBox(string, F("Calibration Enabled"), F("plugin_167_cal"), Settings.TaskDevicePluginConfig[event->TaskIndex][3]);
-
-        addFormNumericBox(string, F("Point 1"), F("plugin_167_adc1"), Settings.TaskDevicePluginConfigLong[event->TaskIndex][0], -32768, 32767);
-        string += F(" &#8793; ");
-        addTextBox(string, F("plugin_167_out1"), String(Settings.TaskDevicePluginConfigFloat[event->TaskIndex][0], 3), 10);
-
-        addFormNumericBox(string, F("Point 2"), F("plugin_167_adc2"), Settings.TaskDevicePluginConfigLong[event->TaskIndex][1], -32768, 32767);
-        string += F(" &#8793; ");
-        addTextBox(string, F("plugin_167_out2"), String(Settings.TaskDevicePluginConfigFloat[event->TaskIndex][1], 3), 10);
+        addFormCheckBox(string, F("AIN0"), F("plugin_167_ain0"), Settings.TaskDevicePluginConfig[event->TaskIndex][2]);
+        addFormCheckBox(string, F("AIN1"), F("plugin_167_ain1"), Settings.TaskDevicePluginConfig[event->TaskIndex][3]);
+        addFormCheckBox(string, F("AIN2"), F("plugin_167_ain2"), Settings.TaskDevicePluginConfig[event->TaskIndex][4]);
+        addFormCheckBox(string, F("AIN3"), F("plugin_167_ain3"), Settings.TaskDevicePluginConfig[event->TaskIndex][5]);
 
         success = true;
         break;
@@ -104,17 +97,11 @@ boolean Plugin_167(byte function, struct EventStruct *event, String& string)
 
         Settings.TaskDevicePluginConfig[event->TaskIndex][1] = getFormItemInt(F("plugin_167_gain"));
 
-        Settings.TaskDevicePluginConfig[event->TaskIndex][2] = getFormItemInt(F("plugin_167_mode"));
+        Settings.TaskDevicePluginConfig[event->TaskIndex][2] = isFormItemChecked(F("plugin_167_ain0"));
+        Settings.TaskDevicePluginConfig[event->TaskIndex][3] = isFormItemChecked(F("plugin_167_ain1"));
+        Settings.TaskDevicePluginConfig[event->TaskIndex][4] = isFormItemChecked(F("plugin_167_ain2"));
+        Settings.TaskDevicePluginConfig[event->TaskIndex][5] = isFormItemChecked(F("plugin_167_ain3"));
 
-        Settings.TaskDevicePluginConfig[event->TaskIndex][3] = isFormItemChecked(F("plugin_167_cal"));
-
-        Settings.TaskDevicePluginConfigLong[event->TaskIndex][0] = getFormItemInt(F("plugin_167_adc1"));
-        Settings.TaskDevicePluginConfigFloat[event->TaskIndex][0] = getFormItemFloat(F("plugin_167_out1"));
-
-        Settings.TaskDevicePluginConfigLong[event->TaskIndex][1] = getFormItemInt(F("plugin_167_adc2"));
-        Settings.TaskDevicePluginConfigFloat[event->TaskIndex][1] = getFormItemFloat(F("plugin_167_out2"));
-
-        Plugin_167_init = false; // Force device setup next time
         success = true;
         break;
       }
@@ -123,15 +110,8 @@ boolean Plugin_167(byte function, struct EventStruct *event, String& string)
       {
         Plugin_167_ads = Adafruit_ADS1015(Settings.TaskDevicePluginConfig[event->TaskIndex][0]);
         Plugin_167_ads.begin(Settings.Pin_i2c_sda, Settings.Pin_i2c_scl);
-        Plugin_167_ads.setSPS(ADS1015_DR_250SPS);
+        Plugin_167_ads.setSPS(ADS1015_DR_128SPS);
         Plugin_167_init = true;
-        success = true;
-        break;
-      }
-
-    case PLUGIN_READ:
-      {
-
         byte pga = Settings.TaskDevicePluginConfig[event->TaskIndex][1];
         switch (pga)
         {
@@ -167,92 +147,86 @@ boolean Plugin_167(byte function, struct EventStruct *event, String& string)
             }
         }
 
-
-
-        byte count = 0;
-        boolean plugin167_success = false;
-        int16_t value = 0;
-        String log = F("ADS1015 : Analog value: ");
-        byte mux = Settings.TaskDevicePluginConfig[event->TaskIndex][2];
-
-        while ((count < 10) && (plugin167_success == false)) {  // eliminate possible race conditions
-          if (Plugin_167_reading == false) {
-
-            Plugin_167_reading = true;
-
-            switch (mux)
-            {
-              case 0:
-                {
-                  value = Plugin_167_ads.readADC_Differential_0_1();
-                  break;
-                }
-              case 1:
-                {
-                  value = Plugin_167_ads.readADC_Differential_0_3();
-                  break;
-                }
-              case 2:
-                {
-                  value = Plugin_167_ads.readADC_Differential_1_3();
-                  break;
-                }
-              case 3:
-                {
-                  value = Plugin_167_ads.readADC_Differential_2_3();
-                  break;
-                }
-              case 4:
-                {
-                  value = Plugin_167_ads.readADC_SingleEnded(0);
-                  break;
-                }
-              case 5:
-                {
-                  value = Plugin_167_ads.readADC_SingleEnded(1);
-                  break;
-                }
-              case 6:
-                {
-                  value = Plugin_167_ads.readADC_SingleEnded(2);
-                  break;
-                }
-              case 7:
-                {
-                  value = Plugin_167_ads.readADC_SingleEnded(3);
-                  break;
-                }
-            }
-            Plugin_167_reading = false;
-            plugin167_success = true;
+        byte apin = 0;
+        Plugin_167_muxes[4] = 0;
+        while (apin < 4) {
+          if (Settings.TaskDevicePluginConfig[event->TaskIndex][2 + apin] == true) {
+            Plugin_167_muxes[apin] = 1;
+            Plugin_167_muxes[4] = Plugin_167_muxes[4] + 1;
           } else {
-            delay(8);
+            Plugin_167_muxes[apin] = 0;
           }
-          count++;
+          apin++;
         }
 
+        success = true;
+        break;
+      }
 
-        UserVar[event->BaseVarIndex] = (float)value;
-        log += value;
+    case PLUGIN_READ:
+      {
 
-        if (Settings.TaskDevicePluginConfig[event->TaskIndex][3])   //Calibration?
-        {
-          int adc1 = Settings.TaskDevicePluginConfigLong[event->TaskIndex][0];
-          int adc2 = Settings.TaskDevicePluginConfigLong[event->TaskIndex][1];
-          float out1 = Settings.TaskDevicePluginConfigFloat[event->TaskIndex][0];
-          float out2 = Settings.TaskDevicePluginConfigFloat[event->TaskIndex][1];
-          if (adc1 != adc2)
-          {
-            float normalized = (float)(value - adc1) / (float)(adc2 - adc1);
-            UserVar[event->BaseVarIndex] = normalized * (out2 - out1) + out1;
+        int16_t value = 0;
 
-            log += F(" ");
-            log += UserVar[event->BaseVarIndex];
+        String log = F("ADS1015 : ");
+        if (Plugin_167_muxes[4] > 0) { // only start if at least one analog pin selected
+
+          log += F("Analog value:");
+          if (Plugin_167_muxes[4] == 1) { // only one channel
+            byte apin = 0;
+            while (apin < 4) {
+              if (Plugin_167_muxes[apin] == 1) {
+                value = Plugin_167_ads.readADC_SingleEnded(apin);
+                UserVar[event->BaseVarIndex + apin] = (float)value;
+                log += F(" A");
+                log += apin;
+                log = F("=");
+                log += value;
+              }
+              apin++;
+            }
+          } else { // multiple channels selected
+
+            if (Plugin_167_muxes[1] == 1) { // mux1 in list
+              value = Plugin_167_ads.readADC_SingleEnded(1);  // fetch AIN1 as reference
+              UserVar[event->BaseVarIndex + 1] = (float)value;
+              if (Plugin_167_muxes[0] == 1) {
+                UserVar[event->BaseVarIndex] = UserVar[event->BaseVarIndex + 1] + Plugin_167_ads.readADC_Differential_0_1();
+              }
+              if (Plugin_167_muxes[3] == 1) {
+                UserVar[event->BaseVarIndex + 3] = UserVar[event->BaseVarIndex + 1] - Plugin_167_ads.readADC_Differential_1_3();
+              }
+              if (Plugin_167_muxes[2] == 1) {
+                value = Plugin_167_ads.readADC_SingleEnded(2);
+                UserVar[event->BaseVarIndex + 2] = (float)value;
+              }
+              value = Plugin_167_ads.readADC_SingleEnded(1);  // fetch AIN1 to memory - last reading sometime arrives in the next read cycle as result for any channel
+            } else { // mux1 not in list
+
+              if (Plugin_167_muxes[3] == 1) { // mux3 in list
+                value = Plugin_167_ads.readADC_SingleEnded(3);  // fetch AIN3 as reference
+                UserVar[event->BaseVarIndex + 3] = (float)value;
+                if (Plugin_167_muxes[0] == 1) {
+                  UserVar[event->BaseVarIndex] = UserVar[event->BaseVarIndex + 3] + Plugin_167_ads.readADC_Differential_0_3();
+                }
+                if (Plugin_167_muxes[2] == 1) {
+                  UserVar[event->BaseVarIndex + 2] = UserVar[event->BaseVarIndex + 3] + Plugin_167_ads.readADC_Differential_2_3();
+                }
+                value = Plugin_167_ads.readADC_SingleEnded(3);  // fetch AIN3 to memory
+              } else { // end of mux3
+
+                if (Plugin_167_muxes[0] == 1) { // mux0 in list
+                  value = Plugin_167_ads.readADC_SingleEnded(0);  // fetch AIN0 as reference
+                  UserVar[event->BaseVarIndex] = (float)value;
+                  value = Plugin_167_ads.readADC_SingleEnded(2);
+                  UserVar[event->BaseVarIndex + 2] = (float)value;
+                  value = Plugin_167_ads.readADC_SingleEnded(0);  // fetch AIN0 to memory
+                }
+              } // end of not mux3
+            } // end of not mux1
           }
         }
 
-        //TEST log += F(" @0x");
-        //TEST log += String(config, 16);
         addLog(LOG_LEVEL_DEBUG, log);
         success = true;
         break;
@@ -260,3 +234,5 @@ boolean Plugin_167(byte function, struct EventStruct *event, String& string)
   }
   return success;
 }
+
+#endif
