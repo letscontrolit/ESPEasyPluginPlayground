@@ -1,10 +1,10 @@
-//############################# Plugin 165: Serial MCU controlled switch v1.5 ###########################
+//############################# Plugin 165: Serial MCU controlled switch v1.6 ###########################
 //
 //  Designed for TUYA/YEWELINK Wifi Touch Light switch with ESP8266 + PIC16F1829 MCU,
 //  the similar Sonoff Dual MCU controlled Wifi relay and LCTECH WIFI RELAY is also supported.
 //  Based on P020 Ser2Net and P001 Switch.
 //
-//  Dummy device (Switch) can be used to control relays, one device per relay and/or rules Publish command 
+//  Dummy device (Switch) can be used to control relays, one device per relay and/or rules Publish command
 //  for example.
 //  Support thread: https://www.letscontrolit.com/forum/viewtopic.php?f=6&t=3245
 //
@@ -92,11 +92,12 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
         if (Settings.TaskDevicePluginConfig[event->TaskIndex][0] == SER_SWITCH_SONOFFDUAL)
         {
           choice = Settings.TaskDevicePluginConfig[event->TaskIndex][1];
-          String modeoptions[2];
-          modeoptions[0] = F("Off");
-          modeoptions[1] = F("On");
-          int modeoptionValues[2] = { 0, 1 };
-          addFormSelector(string, F("Exclude/Blinds mode"), F("plugin_165_mode"), 2, modeoptions, modeoptionValues, choice);
+          String modeoptions[3];
+          modeoptions[0] = F("Normal");
+          modeoptions[1] = F("Exclude/Blinds mode");
+          modeoptions[2] = F("Simultaneous mode");
+          int modeoptionValues[3] = { 0, 1, 2 };
+          addFormSelector(string, F("Relay working mode"), F("plugin_165_mode"), 2, modeoptions, modeoptionValues, choice);
         }
 
         success = true;
@@ -241,6 +242,18 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
                         Plugin_165_switchstate[1] = 0;
                       }
                     }
+                    if (Settings.TaskDevicePluginConfig[event->TaskIndex][1] == 2)
+                    { // simultaneous mode
+                      if ((Plugin_165_ostate[0] + Plugin_165_switchstate[0]) == 1) {
+                        sendmcucommand(1, Plugin_165_switchstate[0], Settings.TaskDevicePluginConfig[event->TaskIndex][0], Settings.TaskDevicePluginConfig[event->TaskIndex][1]);
+                        Plugin_165_switchstate[1] = Plugin_165_switchstate[0];
+                      } else {
+                        if ((Plugin_165_ostate[1] + Plugin_165_switchstate[1]) == 1) {
+                          sendmcucommand(0, Plugin_165_switchstate[1], Settings.TaskDevicePluginConfig[event->TaskIndex][0], Settings.TaskDevicePluginConfig[event->TaskIndex][1]);
+                          Plugin_165_switchstate[0] = Plugin_165_switchstate[1];
+                        }
+                      }
+                    }
 
                     log = F("SW   : State ");
                     if (Plugin_165_ostate[0] != Plugin_165_switchstate[0]) {
@@ -374,14 +387,12 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
             if ( Plugin_165_globalpar0 > SER_SWITCH_YEWE) { // report state only if not Yewe
               if (UserVar[(varIndex + rnum)] != Plugin_165_switchstate[rnum]) { // report only if state is really changed
                 UserVar[(varIndex + rnum)] = Plugin_165_switchstate[rnum];
-                if (( par3 == 1) && (rcmd == 1) )
+                if (( par3 == 1) && (rcmd == 1) && (rnum < 2))
                 { // exclusive on mode for Dual
-                  if (rnum == 0) {
-                    UserVar[(varIndex + 1)] = 0;
-                  }
-                  if (rnum == 1) {
-                    UserVar[varIndex] = 0;
-                  }
+                  UserVar[(varIndex + 1 - rnum)] = 0;
+                }
+                if (par3 == 2) { // simultaneous mode for Dual
+                  UserVar[(varIndex + 1 - rnum)] = Plugin_165_switchstate[1 - rnum];
                 }
                 event->sensorType = SENSOR_TYPE_SWITCH;
                 sendData(event);
@@ -402,7 +413,7 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
   return success;
 }
 
-void getmcustate() { 
+void getmcustate() {
   Serial.write(0x55); // Tuya header 55AA
   Serial.write(0xAA);
   Serial.write(0x00); // version 00
@@ -439,14 +450,14 @@ void sendmcucommand(byte btnnum, byte state, byte swtype, byte btnum_mode) // bt
     case SER_SWITCH_SONOFFDUAL:
       {
         Plugin_165_switchstate[btnnum] = state;
-        if (( btnum_mode == 1) && (state == 1) )
+        if (( btnum_mode == 1) && (state == 1) && (btnnum < 2))
         { // exclusive on mode
-          if (btnnum == 0) {
-            Plugin_165_switchstate[1] = 0;
-          }
-          if (btnnum == 1) {
-            Plugin_165_switchstate[0] = 0;
-          }
+          Plugin_165_switchstate[(1 - btnnum)] = 0;
+        }
+        if (btnum_mode == 2)
+        { // simultaneous mode
+          Plugin_165_switchstate[0] = state;
+          Plugin_165_switchstate[1] = state;
         }
         sstate = Plugin_165_switchstate[0] + (Plugin_165_switchstate[1] << 1) + (Plugin_165_switchstate[2] << 2);
         Serial.write(0xA0);
