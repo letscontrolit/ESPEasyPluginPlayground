@@ -125,11 +125,18 @@ boolean Plugin_133(byte function, struct EventStruct *event, String& string)
 
         if (Plugin_133_init[idx])
         {
-          UserVar[event->BaseVarIndex] = sensor.readRangeSingleMillimeters();
+          success = true;
+          long dist = sensor.readRangeSingleMillimeters();
           if (sensor.timeoutOccurred()) {
             addLog(LOG_LEVEL_DEBUG, "VL53L0X: TIMEOUT");
+            success = false;
+          } else if ( dist >= 8190 ) {
+            addLog(LOG_LEVEL_DEBUG, "VL53L0X: NO MEASUREMENT");
+            success = false;
+          } else {
+            UserVar[event->BaseVarIndex] = dist;
           }
-
+          
           addLog(LOG_LEVEL_DEBUG, log);
           log = F("VL53L0X: Address: 0x");
           log += String(Settings.TaskDevicePluginConfig[event->TaskIndex][0], HEX);
@@ -141,7 +148,6 @@ boolean Plugin_133(byte function, struct EventStruct *event, String& string)
           log += UserVar[event->BaseVarIndex];
           addLog(LOG_LEVEL_INFO, log);
 
-          success = true;
         }
         break;
       }
