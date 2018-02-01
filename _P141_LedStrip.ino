@@ -31,7 +31,7 @@ static float	plugin141_hsv_dest[3]	= {0,0,0};
 static float	plugin141_hsv_act[3]	= {0,0,0};
 static long		plugin141_ms_fade_begin	= 0;
 static long		plugin141_ms_fade_end	= 0;
-static long		plugin141_ms_fade_time	= 1500;
+
 static float	plugin141_cycle			= 0;
 static int		plugin141_pins[4]		= {-1,-1,-1,-1};
 static int		plugin141_pin_inverse	= false;
@@ -40,10 +40,20 @@ static int		plugin141_pin_inverse	= false;
 #define PLUGIN_ID_141			141
 #define PLUGIN_NAME_141			"Output - LedStrip"
 
-#define PLUGIN_141_VALUENAME1	"H"
-#define PLUGIN_141_VALUENAME2	"S"
-#define PLUGIN_141_VALUENAME3	"V"
-#define PLUGIN_141_PWM_OFFSET 		0		
+#define PLUGIN_141_MAX_PINS		16
+#define PLUGIN_141_CONF_0		"pin_r"
+#define PLUGIN_141_CONF_1		"pin_g"
+#define PLUGIN_141_CONF_2		"pin_b"
+#define PLUGIN_141_CONF_3		"pin_w1"
+
+#define PLUGIN_141_VALUENAME_0	"Hue"
+#define PLUGIN_141_VALUENAME_1	"Sat"
+#define PLUGIN_141_VALUENAME_2	"Val"
+#define PLUGIN_141_VALUENAME_3	"State"
+
+#define PLUGIN_141_MS_FADE_TIME	1500
+
+#define PLUGIN_141_PWM_OFFSET 	0		
 // ESP-PWM has flickering problems with values <6 and >1017. If problem is fixed in ESP libs the define can be set to 0 (or code removed)
 // see https://github.com/esp8266/Arduino/issues/836		https://github.com/SmingHub/Sming/issues/70		https://github.com/espruino/Espruino/issues/914
 
@@ -64,7 +74,7 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 			Device[deviceCount].PullUpOption	= false;
 			Device[deviceCount].InverseLogicOption = true;
 			Device[deviceCount].FormulaOption	= true;
-			Device[deviceCount].ValueCount		= 3;
+			Device[deviceCount].ValueCount		= 4;
 			Device[deviceCount].SendDataOption	= true;
 			Device[deviceCount].TimerOption		= true;
 			Device[deviceCount].TimerOptional	= true;
@@ -80,9 +90,10 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 
 		case PLUGIN_GET_DEVICEVALUENAMES: 
 		{
-			strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_141_VALUENAME1));
-			strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[1], PSTR(PLUGIN_141_VALUENAME2));
-			strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[2], PSTR(PLUGIN_141_VALUENAME3));
+			strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_141_VALUENAME_0));
+			strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[1], PSTR(PLUGIN_141_VALUENAME_1));
+			strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[2], PSTR(PLUGIN_141_VALUENAME_2));
+			strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[3], PSTR(PLUGIN_141_VALUENAME_3));
 			break;
 		}
 
@@ -93,13 +104,13 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 			string += F("<TR><TD>GPIO:<TD>");
 
 			string += F("<TR><TD>1st GPIO (R):<TD>");
-			addPinSelect(false, string, "taskdevicepin1", Settings.TaskDevicePluginConfig[event->TaskIndex][0]);
+			addPinSelect(false, string, PLUGIN_141_CONF_0, Settings.TaskDevicePluginConfig[event->TaskIndex][0]);
 			string += F("<TR><TD>2nd GPIO (G):<TD>");
-			addPinSelect(false, string, "taskdevicepin2", Settings.TaskDevicePluginConfig[event->TaskIndex][1]);
+			addPinSelect(false, string, PLUGIN_141_CONF_1, Settings.TaskDevicePluginConfig[event->TaskIndex][1]);
 			string += F("<TR><TD>3rd GPIO (B):<TD>");
-			addPinSelect(false, string, "taskdevicepin3", Settings.TaskDevicePluginConfig[event->TaskIndex][2]);
+			addPinSelect(false, string, PLUGIN_141_CONF_2, Settings.TaskDevicePluginConfig[event->TaskIndex][2]);
 			string += F("<TR><TD>4th GPIO (W) optional:<TD>");
-			addPinSelect(false, string, "taskdeviceport", Settings.TaskDevicePluginConfig[event->TaskIndex][3]);
+			addPinSelect(false, string, PLUGIN_141_CONF_3, Settings.TaskDevicePluginConfig[event->TaskIndex][3]);
 
 			success = true;
 			break;
@@ -107,18 +118,15 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 
 		case PLUGIN_WEBFORM_SAVE:	
 		{
-			String plugin2 = WebServer.arg("taskdevicepin1");
-			Settings.TaskDevicePluginConfig[event->TaskIndex][0] = plugin2.toInt();
-			String plugin3 = WebServer.arg("taskdevicepin2");
-			Settings.TaskDevicePluginConfig[event->TaskIndex][1] = plugin3.toInt();
-			String plugin4 = WebServer.arg("taskdevicepin3");
-			Settings.TaskDevicePluginConfig[event->TaskIndex][2] = plugin4.toInt();
-			String plugin5 = WebServer.arg("taskdeviceport");
-			Settings.TaskDevicePluginConfig[event->TaskIndex][3] = plugin5.toInt();
-
+        	Settings.TaskDevicePluginConfig[event->TaskIndex][0] = getFormItemInt(F(PLUGIN_141_CONF_0));
+        	Settings.TaskDevicePluginConfig[event->TaskIndex][1] = getFormItemInt(F(PLUGIN_141_CONF_1));
+        	Settings.TaskDevicePluginConfig[event->TaskIndex][2] = getFormItemInt(F(PLUGIN_141_CONF_2));
+        	Settings.TaskDevicePluginConfig[event->TaskIndex][3] = getFormItemInt(F(PLUGIN_141_CONF_3));
+			
+			// reset invalid pins
 			for (byte i=0; i<4; i++){
-				if (Settings.TaskDevicePluginConfig[event->TaskIndex][3] >= 16){
-					Settings.TaskDevicePluginConfig[event->TaskIndex][3] = -1;
+				if (Settings.TaskDevicePluginConfig[event->TaskIndex][i] >= PLUGIN_141_MAX_PINS){
+					Settings.TaskDevicePluginConfig[event->TaskIndex][i] = -1;
 				}
 			}
 
@@ -129,7 +137,9 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 		case PLUGIN_INIT:	
 		{
 			analogWriteFreq(400);
-			String log = F("RGB-S: Pin ");
+
+			// assign pins
+			String log = F("LedStrip: Pins ");
 			for (byte i=0; i<4; i++)	{
 				int pin = Settings.TaskDevicePluginConfig[event->TaskIndex][i];
 				plugin141_pins[i] = pin;
@@ -139,7 +149,14 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 				log += pin;
 				log += F(" ");
 			}
+
 			plugin141_pin_inverse = Settings.TaskDevicePin1Inversed[event->TaskIndex];
+			if(plugin141_pin_inverse){
+				log += F("INVERT");
+			}
+			else{
+				log += F("NORM");
+			}
 			addLog(LOG_LEVEL_INFO, log);
 
 			Plugin141_Output(plugin141_hsv_dest);
@@ -150,7 +167,7 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 
 		case PLUGIN_WRITE:
 		{
-			bool bNewValue = false;
+			bool has_new_value = false;
 
 			String command = parseString(string, 1);
 
@@ -161,14 +178,14 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 				rgb[2] = event->Par3 / 255.0;		//B
 				Plugin141_hsvClamp(rgb);
 				Plugin141_rgb2hsv(rgb, plugin141_hsv_dest);
-				bNewValue = true;
+				has_new_value = true;
 			}
 
 			if (command == F("hsv"))	{
 				plugin141_hsv_dest[0] = event->Par1 / 360.0;	 //Hue
 				plugin141_hsv_dest[1] = event->Par2 / 100.0;	 //Saturation
 				plugin141_hsv_dest[2] = event->Par3 / 100.0;	 //Value/Brightness
-				bNewValue = true;
+				has_new_value = true;
 			}
 
 			if (command == F("hsl"))	{
@@ -177,27 +194,27 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 				hsl[1] = event->Par2 / 100.0;		//Saturation
 				hsl[2] = event->Par3 / 100.0;		//Lightness
 				Plugin141_hsl2hsv(hsl, plugin141_hsv_dest);
-				bNewValue = true;
+				has_new_value = true;
 			}
 
 			if (command == F("hue"))	{
 				plugin141_hsv_dest[0] = event->Par1 / 360.0;	 //Hue
-				bNewValue = true;
+				has_new_value = true;
 			}
 
 			if (command == F("sat"))	{
 				plugin141_hsv_dest[1] = event->Par1 / 100.0;	 //Saturation
-				bNewValue = true;
+				has_new_value = true;
 			}
 
 			if (command == F("val") || command == F("dimm"))	{
 				plugin141_hsv_dest[2] = event->Par1 / 100.0;	 //Value/Brightness
-				bNewValue = true;
+				has_new_value = true;
 			}
 
 			if (command == F("off"))	{
 				plugin141_hsv_dest[2] = 0.0;	 //Value/Brightness
-				bNewValue = true;
+				has_new_value = true;
 			}
 
 			if (command == F("cycle"))	{
@@ -208,7 +225,7 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 				success = true;
 			}
 
-			if (bNewValue)	{
+			if (has_new_value)	{
 				Plugin141_hsvClamp(plugin141_hsv_dest);
 				Plugin141_hsvClamp(plugin141_hsv_prev);
 
@@ -227,9 +244,9 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 				}
 
 				plugin141_ms_fade_begin = millis();
-				plugin141_ms_fade_end = plugin141_ms_fade_begin + plugin141_ms_fade_time;
+				plugin141_ms_fade_end = plugin141_ms_fade_begin + PLUGIN_141_MS_FADE_TIME;
 
-				String log = F("RGB-S: hsv ");
+				String log = F("LedStrip: hsv ");
 				for (byte i=0; i<3; i++) {
 					log += toString(plugin141_hsv_dest[i], 3);
 					log += F(" ");
@@ -254,23 +271,26 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 		//case PLUGIN_TEN_PER_SECOND:
 		case PLUGIN_FIFTY_PER_SECOND:	
 		{
-
-			if (plugin141_cycle > 0) {			// cyclic colors
+			// cyclic colors
+			if (plugin141_cycle > 0) {
 				plugin141_hsv_dest[0] += plugin141_cycle;
 				Plugin141_hsvCopy(plugin141_hsv_dest, plugin141_hsv_prev);
 				Plugin141_hsvCopy(plugin141_hsv_dest, plugin141_hsv_act);
 				Plugin141_Output(plugin141_hsv_dest);
 			}
-			else if (plugin141_ms_fade_end != 0) {		//fading required?
+			//fading required?
+			else if (plugin141_ms_fade_end != 0) {		
 				long millisAct = millis();
 
-				if (millisAct >= plugin141_ms_fade_end) {	//destination reached?
+				//destination reached?
+				if (millisAct >= plugin141_ms_fade_end) {	
 					plugin141_ms_fade_begin = 0;
 					plugin141_ms_fade_end = 0;
 					Plugin141_hsvCopy(plugin141_hsv_dest, plugin141_hsv_prev);
 					Plugin141_hsvCopy(plugin141_hsv_dest, plugin141_hsv_act);
 				}
-				else {	//just fading
+				//just fading
+				else {	
 					float fade = float(millisAct-plugin141_ms_fade_begin) / float(plugin141_ms_fade_end-plugin141_ms_fade_begin);
 					fade = Plugin141_ValueClamp(fade);
 					fade = Plugin141_ValueSmoothFadingOut(fade);
@@ -294,7 +314,7 @@ void Plugin141_Output(float* hsvIn) {
 	float hsvw[4];
 	float rgbw[4];
 
-	String log = F("RGB-S: RGBW ");
+	String log = F("LedStrip: RGBW ");
 
 	Plugin141_hsvCopy(hsvIn, hsvw);
 	Plugin141_hsvClamp(hsvw);
