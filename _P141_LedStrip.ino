@@ -1,7 +1,7 @@
 //#######################################################################################################
-//#################################### Plugin 142: RGB-Strip ############################################
+//#################################### Plugin 141: LedStrip ############################################
 //#######################################################################################################
-// written by Jochen Krapf (jk@nerd2nerd.org)
+// Origanl Work by by Jochen Krapf (jk@nerd2nerd.org)
 
 // List of commands:
 // (1) RGB,<red 0-255>,<green 0-255>,<blue 0-255>
@@ -19,29 +19,29 @@
 
 //#include <*.h>   - no external lib required
 
-static float Plugin_142_hsvPrev[3] = {0,0,0};
-static float Plugin_142_hsvDest[3] = {0,0,0};
-static float Plugin_142_hsvAct[3] = {0,0,0};
+static float Plugin_141_hsvPrev[3] = {0,0,0};
+static float Plugin_141_hsvDest[3] = {0,0,0};
+static float Plugin_141_hsvAct[3] = {0,0,0};
 static long millisFadeBegin = 0;
 static long millisFadeEnd = 0;
 static long millisFadeTime = 1500;
-static float Plugin_142_cycle = 0;
+static float Plugin_141_cycle = 0;
 
-static int Plugin_142_pin[4] = {-1,-1,-1,-1};
-static int Plugin_142_lowActive = false;
+static int Plugin_141_pin[4] = {-1,-1,-1,-1};
+static int Plugin_141_lowActive = false;
 
-#define PLUGIN_142
-#define PLUGIN_ID_142         142
-#define PLUGIN_NAME_142       "RGB-Strip"
-#define PLUGIN_VALUENAME1_142 "H"
-#define PLUGIN_VALUENAME2_142 "S"
-#define PLUGIN_VALUENAME3_142 "V"
+#define Plugin_141
+#define PLUGIN_ID_141         141
+#define PLUGIN_NAME_141       "Output - LedStrip"
+#define PLUGIN_VALUENAME1_141 "H"
+#define PLUGIN_VALUENAME2_141 "S"
+#define PLUGIN_VALUENAME3_141 "V"
 
 #define PLUGIN_PWM_OFFSET 0   //ESP-PWM has flickering problems with values <6 and >1017. If problem is fixed in ESP libs the define can be set to 0 (or code removed)
 //see https://github.com/esp8266/Arduino/issues/836   https://github.com/SmingHub/Sming/issues/70   https://github.com/espruino/Espruino/issues/914
 
 
-boolean Plugin_142(byte function, struct EventStruct *event, String& string)
+boolean Plugin_141(byte function, struct EventStruct *event, String& string)
 {
   boolean success = false;
 
@@ -49,7 +49,7 @@ boolean Plugin_142(byte function, struct EventStruct *event, String& string)
   {
     case PLUGIN_DEVICE_ADD:
       {
-        Device[++deviceCount].Number = PLUGIN_ID_142;
+        Device[++deviceCount].Number = PLUGIN_ID_141;
         Device[deviceCount].Type = DEVICE_TYPE_DUMMY;           // Nothing else really fit the bill ...
         Device[deviceCount].Ports = 0;
         Device[deviceCount].VType = SENSOR_TYPE_TRIPLE;
@@ -66,15 +66,15 @@ boolean Plugin_142(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_GET_DEVICENAME:
       {
-        string = F(PLUGIN_NAME_142);
+        string = F(PLUGIN_NAME_141);
         break;
       }
 
     case PLUGIN_GET_DEVICEVALUENAMES:
       {
-        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_VALUENAME1_142));
-        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[1], PSTR(PLUGIN_VALUENAME2_142));
-        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[2], PSTR(PLUGIN_VALUENAME3_142));
+        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_VALUENAME1_141));
+        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[1], PSTR(PLUGIN_VALUENAME2_141));
+        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[2], PSTR(PLUGIN_VALUENAME3_141));
         break;
       }
 
@@ -123,16 +123,16 @@ boolean Plugin_142(byte function, struct EventStruct *event, String& string)
         for (byte i=0; i<4; i++)
         {
           int pin = Settings.TaskDevicePluginConfig[event->TaskIndex][i];
-          Plugin_142_pin[i] = pin;
+          Plugin_141_pin[i] = pin;
           if (pin >= 0)
             pinMode(pin, OUTPUT);
           log += pin;
           log += F(" ");
         }
-        Plugin_142_lowActive = Settings.TaskDevicePin1Inversed[event->TaskIndex];
+        Plugin_141_lowActive = Settings.TaskDevicePin1Inversed[event->TaskIndex];
         addLog(LOG_LEVEL_INFO, log);
 
-        Plugin_142_Output(Plugin_142_hsvDest);
+        Plugin_141_Output(Plugin_141_hsvDest);
 
         success = true;
         break;
@@ -150,16 +150,16 @@ boolean Plugin_142(byte function, struct EventStruct *event, String& string)
           rgb[0] = event->Par1 / 255.0;   //R
           rgb[1] = event->Par2 / 255.0;   //G
           rgb[2] = event->Par3 / 255.0;   //B
-          Plugin_142_hsvClamp(rgb);
-          Plugin_142_rgb2hsv(rgb, Plugin_142_hsvDest);
+          Plugin_141_hsvClamp(rgb);
+          Plugin_141_rgb2hsv(rgb, Plugin_141_hsvDest);
           bNewValue = true;
         }
 
         if (command == F("hsv"))
         {
-          Plugin_142_hsvDest[0] = event->Par1 / 360.0;   //Hue
-          Plugin_142_hsvDest[1] = event->Par2 / 100.0;   //Saturation
-          Plugin_142_hsvDest[2] = event->Par3 / 100.0;   //Value/Brightness
+          Plugin_141_hsvDest[0] = event->Par1 / 360.0;   //Hue
+          Plugin_141_hsvDest[1] = event->Par2 / 100.0;   //Saturation
+          Plugin_141_hsvDest[2] = event->Par3 / 100.0;   //Value/Brightness
           bNewValue = true;
         }
 
@@ -169,56 +169,56 @@ boolean Plugin_142(byte function, struct EventStruct *event, String& string)
           hsl[0] = event->Par1 / 360.0;   //Hue
           hsl[1] = event->Par2 / 100.0;   //Saturation
           hsl[2] = event->Par3 / 100.0;   //Lightness
-          Plugin_142_hsl2hsv(hsl, Plugin_142_hsvDest);
+          Plugin_141_hsl2hsv(hsl, Plugin_141_hsvDest);
           bNewValue = true;
         }
 
         if (command == F("hue"))
         {
-          Plugin_142_hsvDest[0] = event->Par1 / 360.0;   //Hue
+          Plugin_141_hsvDest[0] = event->Par1 / 360.0;   //Hue
           bNewValue = true;
         }
 
         if (command == F("sat"))
         {
-          Plugin_142_hsvDest[1] = event->Par1 / 100.0;   //Saturation
+          Plugin_141_hsvDest[1] = event->Par1 / 100.0;   //Saturation
           bNewValue = true;
         }
 
         if (command == F("val") || command == F("dimm"))
         {
-          Plugin_142_hsvDest[2] = event->Par1 / 100.0;   //Value/Brightness
+          Plugin_141_hsvDest[2] = event->Par1 / 100.0;   //Value/Brightness
           bNewValue = true;
         }
 
         if (command == F("off"))
         {
-          Plugin_142_hsvDest[2] = 0.0;   //Value/Brightness
+          Plugin_141_hsvDest[2] = 0.0;   //Value/Brightness
           bNewValue = true;
         }
 
         if (command == F("cycle"))
         {
-          Plugin_142_cycle = event->Par1;   //seconds for a full color hue circle
-          if (Plugin_142_cycle > 0)
-            Plugin_142_cycle = (1.0 / 50.0) / Plugin_142_cycle;   //50Hz based increment value
+          Plugin_141_cycle = event->Par1;   //seconds for a full color hue circle
+          if (Plugin_141_cycle > 0)
+            Plugin_141_cycle = (1.0 / 50.0) / Plugin_141_cycle;   //50Hz based increment value
           success = true;
         }
 
         if (bNewValue)
         {
-          Plugin_142_hsvClamp(Plugin_142_hsvDest);
-          Plugin_142_hsvClamp(Plugin_142_hsvPrev);
+          Plugin_141_hsvClamp(Plugin_141_hsvDest);
+          Plugin_141_hsvClamp(Plugin_141_hsvPrev);
 
           if (millisFadeBegin!=0)   //still fading?
             for (byte i=0; i<3; i++)
-              Plugin_142_hsvPrev[i] = Plugin_142_hsvAct[i];
+              Plugin_141_hsvPrev[i] = Plugin_141_hsvAct[i];
 
           //get the shortest way around the color circle
-          if ((Plugin_142_hsvDest[0]-Plugin_142_hsvPrev[0]) > 0.5)
-            Plugin_142_hsvPrev[0] += 1.0;
-          if ((Plugin_142_hsvDest[0]-Plugin_142_hsvPrev[0]) < -0.5)
-            Plugin_142_hsvPrev[0] -= 1.0;
+          if ((Plugin_141_hsvDest[0]-Plugin_141_hsvPrev[0]) > 0.5)
+            Plugin_141_hsvPrev[0] += 1.0;
+          if ((Plugin_141_hsvDest[0]-Plugin_141_hsvPrev[0]) < -0.5)
+            Plugin_141_hsvPrev[0] -= 1.0;
 
           millisFadeBegin = millis();
           millisFadeEnd = millisFadeBegin + millisFadeTime;
@@ -226,12 +226,12 @@ boolean Plugin_142(byte function, struct EventStruct *event, String& string)
           String log = F("RGB-S: hsv ");
           for (byte i=0; i<3; i++)
           {
-            log += toString(Plugin_142_hsvDest[i], 3);
+            log += toString(Plugin_141_hsvDest[i], 3);
             log += F(" ");
           }
           addLog(LOG_LEVEL_INFO, log);
 
-          Plugin_142_cycle = 0;   //ends cycle loop
+          Plugin_141_cycle = 0;   //ends cycle loop
           success = true;
         }
         break;
@@ -239,9 +239,9 @@ boolean Plugin_142(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_READ:
       {
-        UserVar[event->BaseVarIndex + 0] = Plugin_142_hsvDest[0] * 360.0;
-        UserVar[event->BaseVarIndex + 1] = Plugin_142_hsvDest[1] * 100.0;
-        UserVar[event->BaseVarIndex + 2] = Plugin_142_hsvDest[2] * 100.0;
+        UserVar[event->BaseVarIndex + 0] = Plugin_141_hsvDest[0] * 360.0;
+        UserVar[event->BaseVarIndex + 1] = Plugin_141_hsvDest[1] * 100.0;
+        UserVar[event->BaseVarIndex + 2] = Plugin_141_hsvDest[2] * 100.0;
         success = true;
         break;
       }
@@ -249,12 +249,12 @@ boolean Plugin_142(byte function, struct EventStruct *event, String& string)
     case PLUGIN_FIFTY_PER_SECOND:
     //case PLUGIN_TEN_PER_SECOND:
       {
-        if (Plugin_142_cycle > 0)   // cyclic colors
+        if (Plugin_141_cycle > 0)   // cyclic colors
         {
-          Plugin_142_hsvDest[0] += Plugin_142_cycle;
-          Plugin_142_hsvCopy(Plugin_142_hsvDest, Plugin_142_hsvPrev);
-          Plugin_142_hsvCopy(Plugin_142_hsvDest, Plugin_142_hsvAct);
-          Plugin_142_Output(Plugin_142_hsvDest);
+          Plugin_141_hsvDest[0] += Plugin_141_cycle;
+          Plugin_141_hsvCopy(Plugin_141_hsvDest, Plugin_141_hsvPrev);
+          Plugin_141_hsvCopy(Plugin_141_hsvDest, Plugin_141_hsvAct);
+          Plugin_141_Output(Plugin_141_hsvDest);
         }
         else if (millisFadeEnd != 0)   //fading required?
         {
@@ -264,20 +264,20 @@ boolean Plugin_142(byte function, struct EventStruct *event, String& string)
           {
             millisFadeBegin = 0;
             millisFadeEnd = 0;
-            Plugin_142_hsvCopy(Plugin_142_hsvDest, Plugin_142_hsvPrev);
-            Plugin_142_hsvCopy(Plugin_142_hsvDest, Plugin_142_hsvAct);
+            Plugin_141_hsvCopy(Plugin_141_hsvDest, Plugin_141_hsvPrev);
+            Plugin_141_hsvCopy(Plugin_141_hsvDest, Plugin_141_hsvAct);
           }
           else   //just fading
           {
             float fade = float(millisAct-millisFadeBegin) / float(millisFadeEnd-millisFadeBegin);
-            fade = Plugin_142_valueClamp(fade);
-            fade = Plugin_142_valueSmoothFadingOut(fade);
+            fade = Plugin_141_valueClamp(fade);
+            fade = Plugin_141_valueSmoothFadingOut(fade);
 
             for (byte i=0; i<3; i++)
-              Plugin_142_hsvAct[i] = mix(Plugin_142_hsvPrev[i], Plugin_142_hsvDest[i], fade);
+              Plugin_141_hsvAct[i] = mix(Plugin_141_hsvPrev[i], Plugin_141_hsvDest[i], fade);
           }
 
-          Plugin_142_Output(Plugin_142_hsvAct);
+          Plugin_141_Output(Plugin_141_hsvAct);
         }
         success = true;
         break;
@@ -287,17 +287,17 @@ boolean Plugin_142(byte function, struct EventStruct *event, String& string)
   return success;
 }
 
-void Plugin_142_Output(float* hsvIn)
+void Plugin_141_Output(float* hsvIn)
 {
   float hsvw[4];
   float rgbw[4];
 
   String log = F("RGB-S: RGBW ");
 
-  Plugin_142_hsvCopy(hsvIn, hsvw);
-  Plugin_142_hsvClamp(hsvw);
+  Plugin_141_hsvCopy(hsvIn, hsvw);
+  Plugin_141_hsvClamp(hsvw);
 
-  if (Plugin_142_pin[3] >= 0)   //has white channel?
+  if (Plugin_141_pin[3] >= 0)   //has white channel?
   {
     hsvw[3] = (1.0 - hsvw[1]) * hsvw[2];   // w = (1-s)*v
     hsvw[2] *= hsvw[1];   // v = s*v
@@ -306,7 +306,7 @@ void Plugin_142_Output(float* hsvIn)
     hsvw[3] = 0.0;   // w = 0
 
   //convert to RGB color space
-  Plugin_142_hsv2rgb(hsvw, rgbw);
+  Plugin_141_hsv2rgb(hsvw, rgbw);
   rgbw[3] = hsvw[3];
 
   //reduce power for mix colors
@@ -325,7 +325,7 @@ void Plugin_142_Output(float* hsvIn)
   //converting and corrections for each RGBW value
   for (byte i=0; i<4; i++)
   {
-    int pin = Plugin_142_pin[i];
+    int pin = Plugin_141_pin[i];
     //log += pin;
     //log += F("=");
     if (pin >= 0)   //pin assigned for RGBW value
@@ -351,18 +351,18 @@ void Plugin_142_Output(float* hsvIn)
   //output to PWM
   for (byte i=0; i<4; i++)
   {
-    int pin = Plugin_142_pin[i];
+    int pin = Plugin_141_pin[i];
     if (pin >= 0)   //pin assigned for RGBW value
     {
       if (lastRGBW[i] != actRGBW[i])   //has changed since last output?
       {
         lastRGBW[i] = actRGBW[i];
 
-        if (Plugin_142_lowActive)   //low active or common annode LED?
+        if (Plugin_141_lowActive)   //low active or common annode LED?
           actRGBW[i] = PWMRANGE - actRGBW[i];
 
         analogWrite(pin, actRGBW[i]);
-        setPinState(PLUGIN_ID_142, pin, PIN_MODE_PWM, actRGBW[i]);
+        setPinState(PLUGIN_ID_141, pin, PIN_MODE_PWM, actRGBW[i]);
 
         log += F("~");
       }
@@ -382,7 +382,7 @@ float mix(float a, float b, float t) { return a + (b - a) * t; }
 
 float step(float e, float x) { return x < e ? 0.0 : 1.0; }
 
-float* Plugin_142_hsv2rgb(const float* hsv, float* rgb)
+float* Plugin_141_hsv2rgb(const float* hsv, float* rgb)
 {
   rgb[0] = hsv[2] * mix(1.0, constrain(abs(fract(hsv[0] + 1.0) * 6.0 - 3.0) - 1.0, 0.0, 1.0), hsv[1]);
   rgb[1] = hsv[2] * mix(1.0, constrain(abs(fract(hsv[0] + 0.6666666) * 6.0 - 3.0) - 1.0, 0.0, 1.0), hsv[1]);
@@ -390,7 +390,7 @@ float* Plugin_142_hsv2rgb(const float* hsv, float* rgb)
   return rgb;
 }
 
-float* Plugin_142_rgb2hsv(const float* rgb, float* hsv)
+float* Plugin_141_rgb2hsv(const float* rgb, float* hsv)
 {
   float s = step(rgb[2], rgb[1]);
   float px = mix(rgb[2], rgb[1], s);
@@ -409,7 +409,7 @@ float* Plugin_142_rgb2hsv(const float* rgb, float* hsv)
 }
 
 //see http://codeitdown.com/hsl-hsb-hsv-color/
-float* Plugin_142_hsl2hsv(const float* hsl, float* hsv)
+float* Plugin_141_hsl2hsv(const float* hsl, float* hsv)
 {
   float B = ( 2.0*hsl[2] + hsl[1] * (1.0-(2.0*hsl[2]-1.0)) ) / 2.0;   // B = ( 2L+Shsl(1-|2L-1|) ) / 2
   float S = (B!=0) ? 2.0*(B-hsl[2]) / B : 0.0;   // S = 2(B-L) / B
@@ -419,14 +419,14 @@ float* Plugin_142_hsl2hsv(const float* hsl, float* hsv)
   return hsv;
 }
 
-float* Plugin_142_hsvCopy(const float* hsvSrc, float* hsvDst)
+float* Plugin_141_hsvCopy(const float* hsvSrc, float* hsvDst)
 {
   for (byte i=0; i<3; i++)
     hsvDst[i] = hsvSrc[i];
   return hsvDst;
 }
 
-float* Plugin_142_hsvClamp(float* hsv)
+float* Plugin_141_hsvClamp(float* hsv)
 {
   while (hsv[0] > 1.0)
     hsv[0] -= 1.0;
@@ -443,7 +443,7 @@ float* Plugin_142_hsvClamp(float* hsv)
   return hsv;
 }
 
-float Plugin_142_valueClamp(float v)
+float Plugin_141_valueClamp(float v)
 {
   if (v < 0.0)
     v = 0.0;
@@ -452,9 +452,9 @@ float Plugin_142_valueClamp(float v)
   return v;
 }
 
-float Plugin_142_valueSmoothFadingOut(float v)
+float Plugin_141_valueSmoothFadingOut(float v)
 {
-  v = Plugin_142_valueClamp(v);
+  v = Plugin_141_valueClamp(v);
   v = 1.0-v;   //smooth fading out
   v *= v;
   v = 1.0-v;
