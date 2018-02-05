@@ -167,9 +167,12 @@ boolean Plugin_167(byte function, struct EventStruct *event, String& string)
       {
 
         int16_t value = 0;
+<<<<<<< HEAD
         int16_t value2 = 0;
         int16_t value3 = 0;
         int16_t valueref = 0;
+=======
+>>>>>>> 0a15da610153040f8b59d6daae513e03aa3bb1a8
 
         String log = F("ADS1015 : ");
         if (Plugin_167_muxes[4] > 0) { // only start if at least one analog pin selected
@@ -191,6 +194,7 @@ boolean Plugin_167(byte function, struct EventStruct *event, String& string)
           } else { // multiple channels selected
 
             if (Plugin_167_muxes[1] == 1) { // mux1 in list
+<<<<<<< HEAD
               valueref = Plugin_167_ads.readADC_SingleEnded(1);  // fetch AIN1 as reference
               log += F(" A1=");
               log += valueref;
@@ -250,18 +254,32 @@ boolean Plugin_167(byte function, struct EventStruct *event, String& string)
                 log += valueref;
                 log += F(" A3=");
                 log += UserVar[event->BaseVarIndex + 3];
+=======
+              value = Plugin_167_ads.readADC_SingleEnded(1);  // fetch AIN1 as reference
+              UserVar[event->BaseVarIndex + 1] = (float)value;
+              if (Plugin_167_muxes[0] == 1) {
+                UserVar[event->BaseVarIndex] = UserVar[event->BaseVarIndex + 1] + Plugin_167_ads.readADC_Differential_0_1();
+              }
+              if (Plugin_167_muxes[3] == 1) {
+                UserVar[event->BaseVarIndex + 3] = UserVar[event->BaseVarIndex + 1] - Plugin_167_ads.readADC_Differential_1_3();
+>>>>>>> 0a15da610153040f8b59d6daae513e03aa3bb1a8
               }
               if (Plugin_167_muxes[2] == 1) {
                 value = Plugin_167_ads.readADC_SingleEnded(2);
                 UserVar[event->BaseVarIndex + 2] = (float)value;
+<<<<<<< HEAD
                 log += F(" A2=");
                 log += UserVar[event->BaseVarIndex + 2];
               }
               UserVar[event->BaseVarIndex + 1] = (float)valueref;
+=======
+              }
+>>>>>>> 0a15da610153040f8b59d6daae513e03aa3bb1a8
               value = Plugin_167_ads.readADC_SingleEnded(1);  // fetch AIN1 to memory - last reading sometime arrives in the next read cycle as result for any channel
             } else { // mux1 not in list
 
               if (Plugin_167_muxes[3] == 1) { // mux3 in list
+<<<<<<< HEAD
                 valueref = Plugin_167_ads.readADC_SingleEnded(3);  // fetch AIN3 as reference
                 log += F(" A3=");
                 log += valueref;
@@ -326,18 +344,33 @@ boolean Plugin_167(byte function, struct EventStruct *event, String& string)
 
                 }
                 UserVar[event->BaseVarIndex + 3] = (float)valueref;
+=======
+                value = Plugin_167_ads.readADC_SingleEnded(3);  // fetch AIN3 as reference
+                UserVar[event->BaseVarIndex + 3] = (float)value;
+                if (Plugin_167_muxes[0] == 1) {
+                  UserVar[event->BaseVarIndex] = UserVar[event->BaseVarIndex + 3] + Plugin_167_ads.readADC_Differential_0_3();
+                }
+                if (Plugin_167_muxes[2] == 1) {
+                  UserVar[event->BaseVarIndex + 2] = UserVar[event->BaseVarIndex + 3] + Plugin_167_ads.readADC_Differential_2_3();
+                }
+>>>>>>> 0a15da610153040f8b59d6daae513e03aa3bb1a8
                 value = Plugin_167_ads.readADC_SingleEnded(3);  // fetch AIN3 to memory
               } else { // end of mux3
 
                 if (Plugin_167_muxes[0] == 1) { // mux0 in list
                   value = Plugin_167_ads.readADC_SingleEnded(0);  // fetch AIN0 as reference
                   UserVar[event->BaseVarIndex] = (float)value;
+<<<<<<< HEAD
                   log += F(" A0=");
                   log += value;
                   value = Plugin_167_ads.readADC_SingleEnded(2);
                   UserVar[event->BaseVarIndex + 2] = (float)value;
                   log += F(" A2=");
                   log += value;
+=======
+                  value = Plugin_167_ads.readADC_SingleEnded(2);
+                  UserVar[event->BaseVarIndex + 2] = (float)value;
+>>>>>>> 0a15da610153040f8b59d6daae513e03aa3bb1a8
                   value = Plugin_167_ads.readADC_SingleEnded(0);  // fetch AIN0 to memory
                 }
               } // end of not mux3
@@ -345,7 +378,11 @@ boolean Plugin_167(byte function, struct EventStruct *event, String& string)
           }
         }
 
+<<<<<<< HEAD
         addLog(LOG_LEVEL_INFO, log);
+=======
+        addLog(LOG_LEVEL_DEBUG, log);
+>>>>>>> 0a15da610153040f8b59d6daae513e03aa3bb1a8
         success = true;
         break;
       }
@@ -353,4 +390,8 @@ boolean Plugin_167(byte function, struct EventStruct *event, String& string)
   return success;
 }
 
+<<<<<<< HEAD
 #endif
+=======
+#endif
+>>>>>>> 0a15da610153040f8b59d6daae513e03aa3bb1a8

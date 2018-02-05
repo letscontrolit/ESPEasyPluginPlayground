@@ -12,7 +12,7 @@
 
 #define PLUGIN_153
 #define PLUGIN_ID_153 153
-#define PLUGIN_NAME_153 "Ambient Light - MAX44009 [TESTING]"
+#define PLUGIN_NAME_153 "Light/Lux - MAX44009 (GY-49)"
 #define PLUGIN_VALUENAME1_153 "Lux"
 
 boolean Plugin_153_init = false;
@@ -85,7 +85,6 @@ void Plugin_153_setModeManual(uint8_t CDR, uint8_t TIM)
 boolean Plugin_153(byte function, struct EventStruct *event, String& string)
 {
   boolean success = false;
-  static byte portValue = 0;
   switch (function)
   {
     case PLUGIN_DEVICE_ADD:

@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 //############################# Plugin 166: WiFi Power Management Functions v1.1########################
+=======
+//############################# Plugin 166: WiFi Power Management Functions v1.0########################
+>>>>>>> 0a15da610153040f8b59d6daae513e03aa3bb1a8
 //
 //  Can be used with commands and rules
 //
@@ -9,8 +13,11 @@
 #define PLUGIN_NAME_166       "WiFiMan"
 #define PLUGIN_VALUENAME1_166 "ModemSleep"
 #define PLUGIN_VALUENAME2_166 "TX"
+<<<<<<< HEAD
 #define PLUGIN_VALUENAME3_166 "Connected"
 #define PLUGIN_VALUENAME4_166 "KillAP"
+=======
+>>>>>>> 0a15da610153040f8b59d6daae513e03aa3bb1a8
 #define MAX_TX_POWER          20.5
 
 byte Plugin_166_ownindex;
@@ -33,7 +40,11 @@ boolean Plugin_166(byte function, struct EventStruct *event, String& string)
         Device[deviceCount].PullUpOption = false;
         Device[deviceCount].InverseLogicOption = false;
         Device[deviceCount].FormulaOption = false;
+<<<<<<< HEAD
         Device[deviceCount].ValueCount = 4;
+=======
+        Device[deviceCount].ValueCount = 2;
+>>>>>>> 0a15da610153040f8b59d6daae513e03aa3bb1a8
         Device[deviceCount].SendDataOption = false;
         Device[deviceCount].TimerOption = true;
         Device[deviceCount].TimerOptional = true;
@@ -50,8 +61,11 @@ boolean Plugin_166(byte function, struct EventStruct *event, String& string)
       {
         strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_VALUENAME1_166));
         strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[1], PSTR(PLUGIN_VALUENAME2_166));
+<<<<<<< HEAD
         strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[2], PSTR(PLUGIN_VALUENAME3_166));
         strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[3], PSTR(PLUGIN_VALUENAME4_166));
+=======
+>>>>>>> 0a15da610153040f8b59d6daae513e03aa3bb1a8
         success = true;
         break;
       }
@@ -72,6 +86,7 @@ boolean Plugin_166(byte function, struct EventStruct *event, String& string)
       {
         LoadTaskSettings(event->TaskIndex);
         Plugin_166_ownindex = event->TaskIndex;
+<<<<<<< HEAD
         Plugin_166_modemsleepstatus = 0;
         if (WiFi.status() != WL_CONNECTED)
         {
@@ -82,12 +97,23 @@ boolean Plugin_166(byte function, struct EventStruct *event, String& string)
         UserVar[event->BaseVarIndex] = Plugin_166_modemsleepstatus;
         UserVar[event->BaseVarIndex + 1] = MAX_TX_POWER;
         UserVar[event->BaseVarIndex + 3] = 0;
+=======
+        if (WiFi.status() != WL_CONNECTED)
+        {
+          Plugin_166_modemsleepstatus = 1;
+         } else {
+          Plugin_166_modemsleepstatus = 0;
+         }
+        UserVar[event->BaseVarIndex] = Plugin_166_modemsleepstatus;
+        UserVar[event->BaseVarIndex+1] = MAX_TX_POWER;
+>>>>>>> 0a15da610153040f8b59d6daae513e03aa3bb1a8
 
         success = true;
         Plugin_166_init = true;
         break;
       }
 
+<<<<<<< HEAD
     case PLUGIN_ONCE_A_SECOND:
       {
         if (Plugin_166_init)
@@ -112,6 +138,8 @@ boolean Plugin_166(byte function, struct EventStruct *event, String& string)
         break;
       }
 
+=======
+>>>>>>> 0a15da610153040f8b59d6daae513e03aa3bb1a8
     case PLUGIN_READ:
       {
         if (Plugin_166_init)
@@ -170,6 +198,7 @@ boolean Plugin_166(byte function, struct EventStruct *event, String& string)
             addLog(LOG_LEVEL_INFO, log);
 
           }
+<<<<<<< HEAD
           if ( command == F("killap") )
           {
             success = true;
@@ -191,6 +220,8 @@ boolean Plugin_166(byte function, struct EventStruct *event, String& string)
 
           }
 
+=======
+>>>>>>> 0a15da610153040f8b59d6daae513e03aa3bb1a8
 
         }
         break;
