@@ -1,4 +1,7 @@
 /*
+https://github.com/ddtlabs/ESPEasy-Plugin-Lights/blob/master/_P123_LIGHTS.ino
+
+
 //#######################################################################################################
 //#################################### Plugin 141: LedStrip ############################################
 //#######################################################################################################
@@ -70,7 +73,7 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 			Device[++deviceCount].Number		= PLUGIN_ID_141;
 			Device[deviceCount].Type			= DEVICE_TYPE_DUMMY;						// Nothing else really fit the bill ...
 			Device[deviceCount].Ports			= 0;
-			Device[deviceCount].VType			= SENSOR_TYPE_TRIPLE;
+			Device[deviceCount].VType			= SENSOR_TYPE_QUAD;
 			Device[deviceCount].PullUpOption	= false;
 			Device[deviceCount].InverseLogicOption = true;
 			Device[deviceCount].FormulaOption	= true;
