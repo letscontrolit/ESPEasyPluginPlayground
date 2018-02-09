@@ -16,6 +16,8 @@ https://github.com/ddtlabs/ESPEasy-Plugin-Lights/blob/master/_P123_LIGHTS.ino
 	* SAT,<saturation 0-100>
 	* VAL,<value/brightness 0-100>
 	* DIM,<value/brightness 0-100>
+	* HEXRGB,<RGB HEX COLOR > ie FF0000 for red
+	* HEXHSV,<HSV HEX COLOR > ie 00FFFF for red
 	* ON
 	* OFF
 	* MODE,<mode 0-6>,<Speed 1-255>	time for full color hue circle;
@@ -47,14 +49,15 @@ https://github.com/ddtlabs/ESPEasy-Plugin-Lights/blob/master/_P123_LIGHTS.ino
 //#include <IRremoteESP8266.h>
 
 
-static int		plugin141_pins[6]		= {-1,-1, -1,-1, -1,-1};
-static int		plugin141_pin_inverse	= false;
+// ESP-PWM has flickering problems with values <6 and >1017. If problem is fixed in ESP libs the define can be set to 0 (or code removed)
+// see https://github.com/esp8266/Arduino/issues/836		https://github.com/SmingHub/Sming/issues/70		https://github.com/espruino/Espruino/issues/914
 
+
+// #### Defined ##########################################################################
 #define PLUGIN_141
 #define PLUGIN_ID_141			141
 #define PLUGIN_NAME_141			"Output - LedStrip"
 
-#define PLUGIN_141_MAX_PINS		16
 #define PLUGIN_141_CONF_0		"strip_type"
 #define PLUGIN_141_CONF_1		"strip_pin1"
 #define PLUGIN_141_CONF_2		"strip_pin2"
@@ -68,19 +71,20 @@ static int		plugin141_pin_inverse	= false;
 #define PLUGIN_141_VALUENAME_2	"Val"
 #define PLUGIN_141_VALUENAME_3	"Mode"
 
-#define PLUGIN_141_MS_FADE_TIME	1500
+#define PLUGIN_141_MAX_GPIO_NUMBER		16
 
-#define PLUGIN_141_PWM_OFFSET 	0
-// ESP-PWM has flickering problems with values <6 and >1017. If problem is fixed in ESP libs the define can be set to 0 (or code removed)
-// see https://github.com/esp8266/Arduino/issues/836		https://github.com/SmingHub/Sming/issues/70		https://github.com/espruino/Espruino/issues/914
+
+#define PLUGIN_141_MAX_GPIO_NUMBER		16
+#define PLUGIN_141_PIN_1				1		// first setting 
+#define PLUGIN_141_PIN_COUNT			5
+
+#define PLUGIN_141_FIRST_STRIP_TYPE_PIX	 11
+#define PLUGIN_141_FIRST_ANIM_MODE	 	3
 
 
 #define PLUGIN_141_STRIP_TYPE	0
-#define PLUGIN_141_LOGPREFIX	"LedStrip1: "
+#define PLUGIN_141_LOGPREFIX	"LedStrip: "
 
-
-
-// #### Defined ##########################################################################
 #define LIGHT_IR_PIN        4    // IR LED
 
 #ifndef PLUGIN_141_CUSTOM_BUT
@@ -189,9 +193,13 @@ unsigned long plugin141_but_colors[]={	// IR remote buttons colors
 	0			//	Smooth
 };
 
-// variables declarations ###############################################################
+static int		plugin141_pins[5]		= {-1, -1, -1, -1, -1};
+static int		plugin141_pin_ir		=  -1;
+static int		plugin141_pin_inverse	= false;
+
 CHSV 			plugin141_cur_color				= CHSV(0,255,255);
-CHSV 			plugin141_cur_anim_color		= CHSV(0,0,0);
+CHSV 			plugin141_cur_anim_color		= CHSV(0,255,255);
+byte 			plugin141_cur_strip_type 		= 0 ;
 byte 			plugin141_cur_anim_mode  		= 0 ;
 byte 			plugin141_cur_anim_step  		= 0;
 boolean 		plugin141_cur_anim_dir	  		= true;
@@ -249,7 +257,7 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 
 			byte i=0;
 
-			options[i] 			= F("-- Basic -----------------------");
+			options[i] 			= F("-- Basic ----------------------");
 			optionValues[i++]	= 0;
 
 			options[i] 			= F("RGB");
@@ -366,9 +374,9 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 	        Settings.TaskDevicePluginConfig[event->TaskIndex][6] = getFormItemInt(F(PLUGIN_141_CONF_6));
 
 			// reset invalid pins
-			for (byte i=1; i <=6; i++){
-				if (Settings.TaskDevicePluginConfig[event->TaskIndex][i] >= PLUGIN_141_MAX_PINS){
-					//Settings.TaskDevicePluginConfig[event->TaskIndex][i] = -1;
+			for (byte i=PLUGIN_141_PIN_1; i < (PLUGIN_141_PIN_1 + PLUGIN_141_PIN_COUNT) ; i++){
+				if (Settings.TaskDevicePluginConfig[event->TaskIndex][i] >= PLUGIN_141_MAX_GPIO_NUMBER){
+					Settings.TaskDevicePluginConfig[event->TaskIndex][i] = -1;
 				}
 			}
 
@@ -386,19 +394,19 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 
 
 			// assign pins .................
-			
 			String log = F(PLUGIN_141_LOGPREFIX);
 			log += F("Pins ");
-			
-			for (byte i=0; i<3; i++)	{
+			for (byte i=PLUGIN_141_PIN_1; i < (PLUGIN_141_PIN_1 + PLUGIN_141_PIN_COUNT) ; i++)	{
 				int pin = Settings.TaskDevicePluginConfig[event->TaskIndex][i];
-				plugin141_pins[i] = pin;
+				plugin141_pins[i - PLUGIN_141_PIN_1] = pin;
 				if (pin >= 0){
 					pinMode(pin, OUTPUT);
 				}
 				log += pin;
 				log += F(" ");
 			}
+			plugin141_pin_ir = Settings.TaskDevicePluginConfig[event->TaskIndex][6];
+			
 
 			/*
 			plugin141_pin_inverse = Settings.TaskDevicePin1Inversed[event->TaskIndex];
@@ -421,33 +429,33 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 
 			if (command == F("rgb"))	{
 				CRGB rgb = CRGB( (int) event->Par1 , (int) event->Par2 , (int) event->Par3 );
-				CHSV hsv = Plugin141_RgbToHSV(rgb);
-				Plugin141_SetCurrentColor(hsv);
-				Plugin141_OutputHSV(hsv);
+				plugin141_cur_color = Plugin141_RgbToHSV(rgb);
+				Plugin141_SetCurrentColor(plugin141_cur_color);
+				Plugin141_OutputCurrentColor();
 			}
 
 			if (command == F("hsv"))	{
-				CHSV hsv = CHSV ( (int) event->Par1 , (int) event->Par2 , (int) event->Par3   );
-				Plugin141_SetCurrentColor(hsv);
-				Plugin141_OutputHSV(hsv);
+				plugin141_cur_color = CHSV ( (int) event->Par1 , (int) event->Par2 , (int) event->Par3   );
+				Plugin141_SetCurrentColor(plugin141_cur_color);
+				Plugin141_OutputCurrentColor();
 			}
 
 			if (command == F("hue"))	{
 				plugin141_cur_color.h = event->Par1 ;	 //Hue
 				Plugin141_SetCurrentColor(plugin141_cur_color);
-				Plugin141_OutputHSV(plugin141_cur_color);
+				Plugin141_OutputCurrentColor();
 			}
 
 			if (command == F("sat"))	{
 				plugin141_cur_color.s = event->Par1 ;	 //Saturation
 				Plugin141_SetCurrentColor(plugin141_cur_color);
-				Plugin141_OutputHSV(plugin141_cur_color);
+				Plugin141_OutputCurrentColor();
 			}
 
 			if (command == F("val") || command == F("dim"))	{
 				plugin141_cur_color.v = event->Par1 ;	 //Value/Brightness
 				Plugin141_SetCurrentColor(plugin141_cur_color);
-				Plugin141_OutputHSV(plugin141_cur_color);
+				Plugin141_OutputCurrentColor();
 			}
 
 			if (command == F("off"))	{
@@ -456,6 +464,24 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 
 			if (command == F("on"))	{
 				Plugin141_CommandOn();
+			}
+
+			if (command == F("hexrgb"))	{
+				String color = parseString(string, 2);
+				//color.toUpperCase();
+				plugin141_cur_color = Plugin141_RgbToHSV(_charToRgb( color.c_str() ));
+				Plugin141_SetCurrentColor(plugin141_cur_color);
+				Plugin141_OutputCurrentColor();
+				String log = F(PLUGIN_141_LOGPREFIX); log += F("HEXRGB="); log += color; addLog(LOG_LEVEL_DEBUG, log);
+			}
+
+			if (command == F("hexhsv"))	{
+				String color = parseString(string, 2);
+				//color.toUpperCase();
+				plugin141_cur_color = _charToHsv( color.c_str() );
+				Plugin141_SetCurrentColor(plugin141_cur_color);
+				Plugin141_OutputCurrentColor();
+				String log = F(PLUGIN_141_LOGPREFIX); log += F("HEXHSV="); log += color; addLog(LOG_LEVEL_DEBUG, log);
 			}
 
 
@@ -506,32 +532,33 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 
 // ---------------------------------------------------------------------------------------
 void Plugin141_CommandOn(){
-	plugin141_cur_color.v=255;
-	Plugin141_SetCurrentColor(plugin141_cur_color);
+	plugin141_cur_color.v	= 255;
 	Plugin141_SetCurrentMode(1);
-	Plugin141_OutputHSV(plugin141_cur_color);
+	Plugin141_SetCurrentColor(plugin141_cur_color);
+	Plugin141_OutputCurrentColor();
 }
 
 // ---------------------------------------------------------------------------------------
 void Plugin141_CommandOff(){
-	plugin141_cur_color.v = 0;
-	Plugin141_SetCurrentColor(plugin141_cur_color);
+	plugin141_cur_color.v 	= 0;
 	Plugin141_SetCurrentMode(0);
-	Plugin141_OutputHSV(plugin141_cur_color);
+	Plugin141_SetCurrentColor(plugin141_cur_color);
+	Plugin141_OutputCurrentColor();
 }
 
 // ---------------------------------------------------------------------------------------
 void Plugin141_OutputRGB( const CRGB& rgb){
-	if(PLUGIN_141_STRIP_TYPE == 0 ){
+	if(plugin141_cur_strip_type < PLUGIN_141_FIRST_STRIP_TYPE_PIX ){
 		analogWrite(plugin141_pins[0], plugin141_pin_inverse ? (PWMRANGE - rgb.r)  : rgb.r);
 		analogWrite(plugin141_pins[1], plugin141_pin_inverse ? (PWMRANGE - rgb.g)  : rgb.g);
 		analogWrite(plugin141_pins[2], plugin141_pin_inverse ? (PWMRANGE - rgb.b)  : rgb.b);
 	}
-	else if(PLUGIN_141_STRIP_TYPE > 0){
-
+	else{
+		// pixels mode
 	}
 
-	if(plugin141_cur_anim_mode < 2){
+	//log only when NOT in anim mode
+	if(plugin141_cur_anim_mode < PLUGIN_141_FIRST_ANIM_MODE ){
 		String log = F(PLUGIN_141_LOGPREFIX);
 		log += F("RGB = ");
 		log += rgb.r;	log += F(",");
@@ -543,6 +570,7 @@ void Plugin141_OutputRGB( const CRGB& rgb){
 
 // ---------------------------------------------------------------------------------------
 void Plugin141_OutputHSV(CHSV hsv){
+	//log only when NOT in anim mode
 	if(plugin141_cur_anim_mode < 2){
 		String log = F(PLUGIN_141_LOGPREFIX);
 		log += F("HSV = ");
@@ -555,13 +583,19 @@ void Plugin141_OutputHSV(CHSV hsv){
 }
 
 // ---------------------------------------------------------------------------------------
+void Plugin141_OutputCurrentColor(){
+	Plugin141_OutputHSV( plugin141_cur_color );
+}
+
+
+// ---------------------------------------------------------------------------------------
 CHSV Plugin141_RgbToHSV(CRGB rgb){
      return rgb2hsv_approximate(rgb);
 }
 
 // ---------------------------------------------------------------------------------------
 void Plugin141_SetCurrentColor(CHSV hsv){
-	plugin141_cur_color 		= hsv;
+	plugin141_cur_color 	= hsv;
 	plugin141_cur_anim_color = hsv;
 	
 	//UserVar[event->BaseVarIndex + 0]= plugin141_cur_color.h;
@@ -574,3 +608,63 @@ void Plugin141_SetCurrentMode(byte mode){
 	plugin141_cur_anim_mode 		= mode;
 	//UserVar[event->BaseVarIndex + 3]= mode;	
 }
+
+
+
+
+
+// ---------------------------------------------------------------------------------------
+CRGB _charToRgb(const char * rgb) {
+
+    char * p = (char *) rgb;
+
+    // if color begins with a # then assume HEX RGB
+    if (p[0] == '#') {
+           ++p;
+ 	}
+    return _longToRgb( strtoul(p, NULL, 16) );
+}
+
+// ---------------------------------------------------------------------------------------
+CHSV _charToHsv(const char * rgb) {
+
+    char * p = (char *) rgb;
+
+    // if color begins with a # then assume HEX RGB
+    if (p[0] == '#') {
+           ++p;
+ 	}
+    return _longToHsv( strtoul(p, NULL, 16) );
+}
+
+// ---------------------------------------------------------------------------------------
+CRGB _longToRgb(unsigned long rgb){
+	CRGB out;
+	out.r = rgb >> 16;
+	out.g = rgb >> 8 & 0xFF;
+	out.b = rgb & 0xFF;
+	return out;
+}
+
+// ---------------------------------------------------------------------------------------
+CHSV _longToHsv(unsigned long hsv){
+	CHSV out;
+	out.h = hsv >> 16;
+	out.s = hsv >> 8 & 0xFF;
+	out.v = hsv & 0xFF;
+	return out;
+}
+
+/*
+// ---------------------------------------------------------------------------------------
+unsigned long _rgbToLong(CRGB in){
+	return (((long)in.r & 0xFF) << 16) + (((long)in.g & 0xFF) << 8) + ((long)in.b & 0xFF);
+}
+
+// ---------------------------------------------------------------------------------------
+unsigned long _hsvToLong(CHSV in){
+	return (((long)in.h & 0xFF) << 16) + (((long)in.s & 0xFF) << 8) + ((long)in.v & 0xFF);
+}
+*/
+
+
