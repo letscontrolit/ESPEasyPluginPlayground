@@ -18,6 +18,18 @@ https://github.com/ddtlabs/ESPEasy-Plugin-Lights/blob/master/_P123_LIGHTS.ino
 	* DIM,<value/brightness 0-100>
 	* ON
 	* OFF
+	* MODE,<mode 0-6>,<Speed 1-255>	time for full color hue circle;
+		Available  Modes:
+		- 0 : same as OFF
+		- 1 : same as ON
+		- 2 : Flash
+		- 3 : Strobe
+		- 4 : Fade
+		- 5 : Rainbow
+		- 6 : Party 
+
+	Exemple:
+	- Set RGB Color to LED (eg. /control?cmd=RGB,255,255,255)
 
 
 	--- HUACANXING H801 ---------------------------------
