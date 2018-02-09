@@ -1,46 +1,60 @@
-/*
-https://github.com/ddtlabs/ESPEasy-Plugin-Lights/blob/master/_P123_LIGHTS.ino
+/* #######################################################################################
+############################### Plugin 141: LedStrip #####################################
+##########################################################################################
 
+Features :
+	- Controls basic RGB Led Strips
+	- [TODO] Controls basic RGBW(W) Led Strips
+	- [TODO] Controls various "Pixels" Led Strips
+	- RGB or HSV commands
+	- Various Animations mode
+	- [TODO] Supports Infra-Red Remotes
 
-//#######################################################################################################
-//#################################### Plugin 141: LedStrip ############################################
-//#######################################################################################################
-
-	Copyright Francois Dechery 2017 - https://github.com/soif
-
-
-	List of commands:
-	* ON
-	* OFF
-	* RGB,<red 0-255>,<green 0-255>,<blue 0-255>
-	* HSV,<hue 0-255>,<saturation 0-255>,<value/brightness 0-255>
-	* HUE,<hue 0-360>
-	* SAT,<saturation 0-100>
-	* VAL,<value/brightness 0-100>
-	* DIM,<value/brightness 0-100>
-	* HEXRGB,<RGB HEX COLOR > ie FF0000 for red
-	* HEXHSV,<HSV HEX COLOR > ie 00FFFF for red
-	* SPEED,<0-65535> Fast to slow
-	* MODE,<mode 0-6>,<Speed 1-255>	time for full color hue circle;
+Installation :
+	- Add the FastLED library in the 'src/lib/' folder from https://github.com/FastLED/FastLED/tree/3.1.8
+	- Move this file to the 'src/' folder
+	- Add "#include <FastLED.h>" at the start of src/lib/ESPEasy.ino file else compiler fails
+	
+List of commands :
+	- ON
+	- OFF
+	- RGB,<red 0-255>,<green 0-255>,<blue 0-255>
+	- HSV,<hue 0-255>,<saturation 0-255>,<value/brightness 0-255>
+	- HUE,<hue 0-360>
+	- SAT,<saturation 0-100>
+	- VAL,<value/brightness 0-100>
+	- DIM,<value/brightness 0-100>
+	- H_RGB,<RGB HEX COLOR > ie FF0000 for red
+	- H_HSV,<HSV HEX COLOR > ie 00FFFF for red
+	- SPEED,<0-65535> Fast to slow
+	- MODE,<mode 0-6>,<Speed 1-255>	time for full color hue circle;
 		Available  Modes:
-		- 0 : same as OFF
-		- 1 : same as ON
-		- 2 : Flash
-		- 3 : Strobe
-		- 4 : Fade
-		- 5 : Smooth
-		- 6 : Party 
+		* 0 : OFF
+		* 1 : ON
+		* 2 : Flash
+		* 3 : Strobe
+		* 4 : Fade
+		* 5 : Smooth
+		* 6 : Party 
 
-	Exemple:
-	- Set RGB Color to LED (eg. /control?cmd=RGB,255,255,255)
+Command Examples :
+	-  /control?cmd=ON					Turn Leds On
+	-  /control?cmd=OFF					Turn Leds Off
+	-  /control?cmd=RGB,255,0,0			Set Leds to Red
+	-  /control?cmd=HSV,0,255,255		Set Leds to Red
+	-  /control?cmd=Mode,2				Animate Leds in "Flash" mode
+	-  /control?cmd=Mode,5,400			Animate Leds in "Smooth" mode, with a speed of 400
 
-
-	--- HUACANXING H801 ---------------------------------
-	RGBWW GPIO	: 15, 13, 12, 14, 4, NOT Inversed (REBOOT)
-	Led   GPIO	: 5, Inversed
-
-
+------------------------------------------------------------------------------------------
+	Copyright Francois Dechery 2017 - https://github.com/soif/
+------------------------------------------------------------------------------------------
 */
+
+
+
+// #### Includes #########################################################################
+// ESP-PWM has flickering problems with values <6 and >1017. If problem is fixed in ESP libs the define can be set to 0 (or code removed)
+// see https://github.com/esp8266/Arduino/issues/836		https://github.com/SmingHub/Sming/issues/70		https://github.com/espruino/Espruino/issues/914
 
 //#define FASTLED_FORCE_SOFTWARE_SPI
 //#define FASTLED_ESP8266_RAW_PIN_ORDER
@@ -50,11 +64,7 @@ https://github.com/ddtlabs/ESPEasy-Plugin-Lights/blob/master/_P123_LIGHTS.ino
 //#include <IRremoteESP8266.h>
 
 
-// ESP-PWM has flickering problems with values <6 and >1017. If problem is fixed in ESP libs the define can be set to 0 (or code removed)
-// see https://github.com/esp8266/Arduino/issues/836		https://github.com/SmingHub/Sming/issues/70		https://github.com/espruino/Espruino/issues/914
-
-
-// #### Defined ##########################################################################
+// #### Defines ##########################################################################
 #define PLUGIN_141
 #define PLUGIN_ID_141			141
 #define PLUGIN_NAME_141			"Output - LedStrip"
@@ -72,22 +82,17 @@ https://github.com/ddtlabs/ESPEasy-Plugin-Lights/blob/master/_P123_LIGHTS.ino
 #define PLUGIN_141_VALUENAME_2	"Val"
 #define PLUGIN_141_VALUENAME_3	"Mode"
 
-#define PLUGIN_141_MAX_GPIO_NUMBER		16
-
-
-#define PLUGIN_141_MAX_GPIO_NUMBER		16
-#define PLUGIN_141_PIN_1				1		// first setting 
-#define PLUGIN_141_PIN_COUNT			5
-
-#define PLUGIN_141_FIRST_STRIP_TYPE_PIX	 11
-#define PLUGIN_141_FIRST_ANIM_MODE	 	3
-
-
-#define PLUGIN_141_STRIP_TYPE	0
 #define PLUGIN_141_LOGPREFIX	"LedStrip: "
 
-#define LIGHT_IR_PIN        4    // IR LED
+#define PLUGIN_141_GPIO_LAST	16		// last GPIO available
 
+#define PLUGIN_141_PIN_1		1		// first setting holding pins
+#define PLUGIN_141_PINS_COUNT	5		// max number of pins
+
+#define PLUGIN_141_FIRST_TYPE_PIX		11	// first strip type which is a "pixels" one
+#define PLUGIN_141_FIRST_TYPE_PIX_SPI	31	// first strip type which is a "SPI pixels" one
+
+// IR Buttons -------------------------------------
 #ifndef PLUGIN_141_CUSTOM_BUT
 	#define PLUGIN_141_IR_BUT_0  0xFF906F // Brightness +
 	#define PLUGIN_141_IR_BUT_1  0xFFB847 // Brightness -
@@ -119,19 +124,21 @@ https://github.com/ddtlabs/ESPEasy-Plugin-Lights/blob/master/_P123_LIGHTS.ino
 	#define PLUGIN_141_IR_BUT_22 0xFFF00F // "Blue" 4
 	#define PLUGIN_141_IR_BUT_23 0xFF30CF // SMOOTH Mode
 #endif
-#define PLUGIN_141_BUTTONS_COUNT 24
+#define PLUGIN_141_IR_BUTTONS_COUNT 24
 
+// Animations -------------------------------------
+#define PLUGIN_141_FIRST_ANIM_MODE	 	2		// first mode which is an animation
+#define PLUGIN_141_MODES_TOTAL 			(2 + 5)	// total number of animation mode
 
-#define PLUGIN_141_MODES_COUNT (2 + 5)
-#define PLUGIN_141_ANIM_SPEED_STEP 20
+#define PLUGIN_141_ANIM_FLASH_SPEED		350		// flash ON Variable
+#define PLUGIN_141_ANIM_FLASH_PAUSE		200		// flash OFF fixed
 
-#define PLUGIN_141_ANIM_FLASH_SPEED 350		// flash ON Variable
-#define PLUGIN_141_ANIM_FLASH_PAUSE 200		// flash OFF fixed
-#define PLUGIN_141_ANIM_STROBE_SPEED 550	// strobe OFF variable
-#define PLUGIN_141_ANIM_STROBE_PAUSE 150	// storbe ON fixed
-#define PLUGIN_141_ANIM_FADE_SPEED 100		// fade speed
-#define PLUGIN_141_ANIM_SMOOTH_SPEED 700	// smooth speed
-#define PLUGIN_141_ANIM_PARTY_SPEED 200		// party speed
+#define PLUGIN_141_ANIM_STROBE_SPEED	550		// strobe OFF variable
+#define PLUGIN_141_ANIM_STROBE_PAUSE	150		// storbe ON fixed
+
+#define PLUGIN_141_ANIM_FADE_SPEED		100		// fade speed
+#define PLUGIN_141_ANIM_SMOOTH_SPEED	700		// smooth speed
+#define PLUGIN_141_ANIM_PARTY_SPEED		200		// party speed
 
 
 // #### Variables ########################################################################
@@ -195,9 +202,8 @@ unsigned long v_p141_but_colors[]={	// IR remote buttons colors
 };
 
 static int		v_p141_pins[5]				= {-1, -1, -1, -1, -1};
-static int		v_p141_pin_ir				=  -1;
+static int		v_p141_pin_ir				= -1;
 static int		v_p141_pin_inverse			= false;
-
 CHSV 			v_p141_cur_color			= CHSV(0,255,255);
 CHSV 			v_p141_cur_anim_color		= CHSV(0,255,255);
 byte 			v_p141_cur_strip_type 		= 0 ;
@@ -207,6 +213,7 @@ boolean 		v_p141_cur_anim_dir	  		= true;
 unsigned long	v_p141_cur_anim_speed 		= 1000;
 unsigned long	v_p141_anim_last_update 	= millis();
 unsigned long	v_p141_last_ir_button		= 0;
+
 
 // #######################################################################################
 
@@ -316,7 +323,8 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 
 			// show options depending on type selected ..........
 			//led Strip
-			if( type> 0 && type <= 10 ){
+			if( type> 0 && type < PLUGIN_141_FIRST_TYPE_PIX ){
+				// RGB
 				addRowLabel(string, "GPIO Red");
 				addPinSelect(false, string, PLUGIN_141_CONF_1, Settings.TaskDevicePluginConfig[event->TaskIndex][1]);
 			
@@ -343,19 +351,20 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 					addRowLabel(string, "GPIO InfraRed");
 					addPinSelect(false, string, PLUGIN_141_CONF_6, Settings.TaskDevicePluginConfig[event->TaskIndex][6]);
 				}
+
 				addFormSeparator(string);
 				string += F("<TR><TD>H801 pins:</TD><TD>15, 13, 12, 14, 4 - normal<TD>");			
 				string += F("<TR><TD>MagicHome v1 pins:</TD><TD> 14, 5, 12, 13, IR=? - Invers<TD>");			
 				string += F("<TR><TD>MagicHome v2 pins:</TD><TD> 5, 12, 13, 15, IR=4 - Invers<TD>");			
 			}
-			else if( type > 10){
+			else if( type >= PLUGIN_141_FIRST_TYPE_PIX ){
 				string += F("<TR><TD><b style='color:red'>NOT yet implemented</b><TD>");			
 				
-				if (type < 31){
+				if (type < PLUGIN_141_FIRST_TYPE_PIX_SPI){
 					addRowLabel(string, "GPIO Data");
 					addPinSelect(false, string, PLUGIN_141_CONF_1, Settings.TaskDevicePluginConfig[event->TaskIndex][1]);			
 				}
-				else if (type > 30){
+				else {
 					string += F("<TR><TD>Use hardware SPI GPIOs<TD>");
 				}
 			}
@@ -375,8 +384,8 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 	        Settings.TaskDevicePluginConfig[event->TaskIndex][6] = getFormItemInt(F(PLUGIN_141_CONF_6));
 
 			// reset invalid pins
-			for (byte i=PLUGIN_141_PIN_1; i < (PLUGIN_141_PIN_1 + PLUGIN_141_PIN_COUNT) ; i++){
-				if (Settings.TaskDevicePluginConfig[event->TaskIndex][i] >= PLUGIN_141_MAX_GPIO_NUMBER){
+			for (byte i=PLUGIN_141_PIN_1; i < (PLUGIN_141_PIN_1 + PLUGIN_141_PINS_COUNT) ; i++){
+				if (Settings.TaskDevicePluginConfig[event->TaskIndex][i] > PLUGIN_141_GPIO_LAST){
 					Settings.TaskDevicePluginConfig[event->TaskIndex][i] = -1;
 				}
 			}
@@ -390,14 +399,15 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 			analogWriteFreq(400);
 
 			// start IR Receivers ..........
-			//IRrecv v_p141_ir_recv(LIGHT_IR_PIN); 		//IRrecv _ir_recv(IR_PIN, IR_LED_PIN); dont work. Why ?
+			//IRrecv v_p141_ir_recv(v_p141_pin_ir); 		//IRrecv _ir_recv(v_p141_pin_ir, IR_LED_PIN); dont work. Why ?
 			//decode_results v_p141_ir_results;
 
 
 			// assign pins .................
 			String log = F(PLUGIN_141_LOGPREFIX);
 			log += F("Pins ");
-			for (byte i=PLUGIN_141_PIN_1; i < (PLUGIN_141_PIN_1 + PLUGIN_141_PIN_COUNT) ; i++)	{
+
+			for (byte i=PLUGIN_141_PIN_1; i < (PLUGIN_141_PIN_1 + PLUGIN_141_PINS_COUNT) ; i++)	{
 				int pin = Settings.TaskDevicePluginConfig[event->TaskIndex][i];
 				v_p141_pins[i - PLUGIN_141_PIN_1] = pin;
 				if (pin >= 0){
@@ -406,18 +416,11 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 				log += pin;
 				log += F(" ");
 			}
-			v_p141_pin_ir = Settings.TaskDevicePluginConfig[event->TaskIndex][6];
-			
 
-			/*
-			v_p141_pin_inverse = Settings.TaskDevicePin1Inversed[event->TaskIndex];
-			if(v_p141_pin_inverse){
-				log += F("INVERT");
-			}
-			else{
-				log += F("NORM");
-			}
-			*/
+			v_p141_pin_ir		= Settings.TaskDevicePluginConfig[event->TaskIndex][6];
+			v_p141_pin_inverse	= Settings.TaskDevicePin1Inversed[event->TaskIndex];
+			
+			//if(v_p141_pin_inverse){log += F("INVERT");}else{log += F("NORM");}
 			addLog(LOG_LEVEL_INFO, log);
 
 			success = true;
@@ -437,15 +440,12 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 			}
 
 			if (command == F("rgb"))	{
-				CRGB rgb 			= CRGB(event->Par1, event->Par2, event->Par3);
-				v_p141_cur_color	= Fp141_RgbToHSV(rgb);
-				Fp141_SetCurrentColor(v_p141_cur_color);
+				Fp141_SetCurrentColor( Fp141_RgbToHSV(CRGB(event->Par1, event->Par2, event->Par3)));
 				Fp141_OutputCurrentColor();
 			}
 
 			if (command == F("hsv"))	{
-				v_p141_cur_color	= CHSV (event->Par1, event->Par2, event->Par3);
-				Fp141_SetCurrentColor(v_p141_cur_color);
+				Fp141_SetCurrentColor(CHSV (event->Par1, event->Par2, event->Par3));
 				Fp141_OutputCurrentColor();
 			}
 
@@ -471,20 +471,20 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 				v_p141_cur_anim_speed = event->Par1 ;
 			}
 
-			if (command == F("hexrgb"))	{
+			if (command == F("h_rgb"))	{
 				String color = parseString(string, 2);
 				v_p141_cur_color = Fp141_RgbToHSV(Fp141_CharToRgb( color.c_str() ));
 				Fp141_SetCurrentColor(v_p141_cur_color);
 				Fp141_OutputCurrentColor();
-				String log = F(PLUGIN_141_LOGPREFIX); log += F("HEXRGB="); log += color; addLog(LOG_LEVEL_DEBUG, log);
+				//String log = F(PLUGIN_141_LOGPREFIX); log += F("H_RGB="); log += color; addLog(LOG_LEVEL_DEBUG, log);
 			}
 
-			if (command == F("hexhsv"))	{
+			if (command == F("h_hsv"))	{
 				String color		= parseString(string, 2);
 				v_p141_cur_color	= Fp141_CharToHsv( color.c_str() );
 				Fp141_SetCurrentColor(v_p141_cur_color);
 				Fp141_OutputCurrentColor();
-				String log = F(PLUGIN_141_LOGPREFIX); log += F("HEXHSV="); log += color; addLog(LOG_LEVEL_DEBUG, log);
+				//String log = F(PLUGIN_141_LOGPREFIX); log += F("H_HSV="); log += color; addLog(LOG_LEVEL_DEBUG, log);
 			}
 
 
@@ -497,8 +497,8 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 				else if(mode == 1){
 					Fp141_CommandOn();
 				}
-				else if(mode > 1 && mode < PLUGIN_141_MODES_COUNT ){
-					Fp141_processAnimation(mode, true, false, event->Par2, event->Par3, event->Par4, event->Par5);
+				else if(mode >= PLUGIN_141_FIRST_ANIM_MODE && mode < PLUGIN_141_MODES_TOTAL ){
+					Fp141_ProcessAnimation(mode, true, false, event->Par2, event->Par3, event->Par4, event->Par5);
 				}
 			}
 
@@ -509,7 +509,6 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 		case PLUGIN_READ:
 		{
 			//String log = F(PLUGIN_141_LOGPREFIX); log += F("PLUGIN_READ !!!!"); addLog(LOG_LEVEL_INFO, log);
-
 			UserVar[event->BaseVarIndex + 0] = (int) v_p141_cur_color.h;
 			UserVar[event->BaseVarIndex + 1] = (int) v_p141_cur_color.s;
 			UserVar[event->BaseVarIndex + 2] = (int) v_p141_cur_color.v;
@@ -518,7 +517,6 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 			break;
 		}
 
-		//case PLUGIN_TEN_PER_SECOND:
 		case PLUGIN_FIFTY_PER_SECOND:
 		{
 			Fp141_Loop();
@@ -536,11 +534,11 @@ void Fp141_confirmFlash(){
 
 // ---------------------------------------------------------------------------------------
 void Fp141_Loop(){
-	Fp141_processAnimation(v_p141_cur_anim_mode, false, false, 0, 0, 0, 0);
+	Fp141_ProcessAnimation(v_p141_cur_anim_mode, false, false, 0, 0, 0, 0);
 }
 
 // ---------------------------------------------------------------------------------------
-void Fp141_processAnimation(byte mode, boolean init, boolean is_button, int speed, int p3, int p4, int p5 ){
+void Fp141_ProcessAnimation(byte mode, boolean init, boolean is_button, int speed, int p3, int p4, int p5 ){
 	String log = F(PLUGIN_141_LOGPREFIX);
 
 	if(init){
@@ -548,25 +546,21 @@ void Fp141_processAnimation(byte mode, boolean init, boolean is_button, int spee
 
 		if(v_p141_cur_anim_mode == mode && is_button){
 			Fp141_confirmFlash();
-			log += F("Stop Animation "); log += mode; addLog(LOG_LEVEL_INFO, log);
+			//log += F("Stop Animation "); log += mode; addLog(LOG_LEVEL_INFO, log);
 			Fp141_CommandOff();
 			return;
 		}
 /*
 		else if(mode == 0){
-			log += F("Stop Animation "); log += mode; addLog(LOG_LEVEL_INFO, log);
+			//log += F("Stop Animation "); log += mode; addLog(LOG_LEVEL_INFO, log);
 			Fp141_CommandOff();
 			return;
 		}
 */
 		else{
-			if(is_button){
-				Fp141_confirmFlash();
-			}
-			log = F(PLUGIN_141_LOGPREFIX); log += F("Start Animation "); log += mode; addLog(LOG_LEVEL_INFO, log);
+			//log = F(PLUGIN_141_LOGPREFIX); log += F("Start Animation "); log += mode; addLog(LOG_LEVEL_INFO, log);
 		}
 	}
-
 
 	if     (mode==2)	{Fp141_AnimFlash	(init, speed);}
 	else if(mode==3)	{Fp141_AnimStrobe	(init, speed);}
@@ -576,13 +570,11 @@ void Fp141_processAnimation(byte mode, boolean init, boolean is_button, int spee
 	else{
 		//invalid mode
 	}
-
 }
 
 
 
 // ---------------------------------------------------------------------------------------
-// anim1 : flash
 void Fp141_AnimFlash(boolean init, byte speed){
 	if(init){
 		v_p141_cur_anim_speed	= speed ? speed : PLUGIN_141_ANIM_FLASH_SPEED;
@@ -602,7 +594,6 @@ void Fp141_AnimFlash(boolean init, byte speed){
 }
 
 // ---------------------------------------------------------------------------------------
-// anim2 : strobe
 void Fp141_AnimStrobe(boolean init, byte speed){
 	if(init){
 		v_p141_cur_anim_speed	= speed ? speed : PLUGIN_141_ANIM_STROBE_SPEED;
@@ -622,16 +613,13 @@ void Fp141_AnimStrobe(boolean init, byte speed){
 }
 
 // ---------------------------------------------------------------------------------------
-// anim3 : fade
 void Fp141_AnimFade(boolean init, byte speed){
 	if(init){
 		v_p141_cur_anim_speed	= speed ? speed : PLUGIN_141_ANIM_FADE_SPEED;
 		v_p141_cur_anim_step	= v_p141_cur_color.v;
 	}
-
 	unsigned long now= millis();
 	if( now > (v_p141_anim_last_update + v_p141_cur_anim_speed) ){
-
 		Fp141_OutputHSV( CHSV(v_p141_cur_color.h, v_p141_cur_color.s, dim8_lin(v_p141_cur_anim_step)) );
 		if(v_p141_cur_anim_dir){
 			if(v_p141_cur_anim_step == 255){
@@ -651,11 +639,9 @@ void Fp141_AnimFade(boolean init, byte speed){
 		}
 		v_p141_anim_last_update = now;
 	}
-
 }
 
 // ---------------------------------------------------------------------------------------
-// anim4 : smooth (raimbow)
 void Fp141_AnimSmooth(boolean init, byte speed){
 	if(init){
 		v_p141_cur_anim_speed	= speed ? speed : PLUGIN_141_ANIM_SMOOTH_SPEED;
@@ -664,7 +650,6 @@ void Fp141_AnimSmooth(boolean init, byte speed){
 		v_p141_cur_anim_color.s	= 255;
 		v_p141_cur_anim_color.v	= 255;
 	}
-
 	unsigned long now= millis();
 	if( now > (v_p141_anim_last_update + v_p141_cur_anim_speed) ){
 		v_p141_cur_anim_color.h = v_p141_cur_anim_step;
@@ -678,7 +663,6 @@ void Fp141_AnimSmooth(boolean init, byte speed){
 }
 
 // ---------------------------------------------------------------------------------------
-// anim5 : party
 void Fp141_AnimParty(boolean init, byte speed){
 	if(init){
 		v_p141_cur_anim_speed	= speed ? speed : PLUGIN_141_ANIM_PARTY_SPEED;
@@ -701,7 +685,6 @@ void Fp141_AnimParty(boolean init, byte speed){
 	}
 }
 
-
 // ---------------------------------------------------------------------------------------
 void Fp141_CommandOn(){
 	v_p141_cur_color.v	= 255;
@@ -720,7 +703,7 @@ void Fp141_CommandOff(){
 
 // ---------------------------------------------------------------------------------------
 void Fp141_OutputRGB( const CRGB& rgb){
-	if(v_p141_cur_strip_type < PLUGIN_141_FIRST_STRIP_TYPE_PIX ){
+	if(v_p141_cur_strip_type < PLUGIN_141_FIRST_TYPE_PIX ){
 		analogWrite(v_p141_pins[0], v_p141_pin_inverse ? (PWMRANGE - rgb.r)  : rgb.r);
 		analogWrite(v_p141_pins[1], v_p141_pin_inverse ? (PWMRANGE - rgb.g)  : rgb.g);
 		analogWrite(v_p141_pins[2], v_p141_pin_inverse ? (PWMRANGE - rgb.b)  : rgb.b);
@@ -759,7 +742,6 @@ void Fp141_OutputCurrentColor(){
 	Fp141_OutputHSV( v_p141_cur_color );
 }
 
-
 // ---------------------------------------------------------------------------------------
 CHSV Fp141_RgbToHSV(CRGB rgb){
      return rgb2hsv_approximate(rgb);
@@ -783,9 +765,7 @@ void Fp141_SetCurrentMode(byte mode){
 
 // ---------------------------------------------------------------------------------------
 CRGB Fp141_CharToRgb(const char * rgb) {
-
     char * p = (char *) rgb;
-
     // if color begins with a # then assume HEX RGB
     if (p[0] == '#') {
            ++p;
@@ -795,9 +775,7 @@ CRGB Fp141_CharToRgb(const char * rgb) {
 
 // ---------------------------------------------------------------------------------------
 CHSV Fp141_CharToHsv(const char * rgb) {
-
     char * p = (char *) rgb;
-
     // if color begins with a # then assume HEX RGB
     if (p[0] == '#') {
            ++p;
@@ -834,5 +812,3 @@ unsigned long Fp141_hsvToLong(CHSV in){
 	return (((long)in.h & 0xFF) << 16) + (((long)in.s & 0xFF) << 8) + ((long)in.v & 0xFF);
 }
 */
-
-
