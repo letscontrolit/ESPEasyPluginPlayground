@@ -10,6 +10,8 @@ https://github.com/ddtlabs/ESPEasy-Plugin-Lights/blob/master/_P123_LIGHTS.ino
 
 
 	List of commands:
+	* ON
+	* OFF
 	* RGB,<red 0-255>,<green 0-255>,<blue 0-255>
 	* HSV,<hue 0-255>,<saturation 0-255>,<value/brightness 0-255>
 	* HUE,<hue 0-360>
@@ -18,8 +20,7 @@ https://github.com/ddtlabs/ESPEasy-Plugin-Lights/blob/master/_P123_LIGHTS.ino
 	* DIM,<value/brightness 0-100>
 	* HEXRGB,<RGB HEX COLOR > ie FF0000 for red
 	* HEXHSV,<HSV HEX COLOR > ie 00FFFF for red
-	* ON
-	* OFF
+	* SPEED,<0-10000>
 	* MODE,<mode 0-6>,<Speed 1-255>	time for full color hue circle;
 		Available  Modes:
 		- 0 : same as OFF
@@ -27,7 +28,7 @@ https://github.com/ddtlabs/ESPEasy-Plugin-Lights/blob/master/_P123_LIGHTS.ino
 		- 2 : Flash
 		- 3 : Strobe
 		- 4 : Fade
-		- 5 : Rainbow
+		- 5 : Smooth
 		- 6 : Party 
 
 	Exemple:
@@ -124,13 +125,13 @@ https://github.com/ddtlabs/ESPEasy-Plugin-Lights/blob/master/_P123_LIGHTS.ino
 #define PLUGIN_141_MODES_COUNT (2 + 5)
 #define PLUGIN_141_ANIM_SPEED_STEP 20
 
-#define PLUGIN_141_ANIM1_SPEED 350		// flash ON Variable
-#define PLUGIN_141_ANIM1_PAUSE 200		// flash OFF fixed
-#define PLUGIN_141_ANIM2_SPEED 550		// strobe OFF variable
-#define PLUGIN_141_ANIM2_PAUSE 150		// storbe ON fixed
-#define PLUGIN_141_ANIM3_SPEED 100		// fade speed
-#define PLUGIN_141_ANIM4_SPEED 700		// smooth speed
-#define PLUGIN_141_ANIM5_SPEED 200		// party speed
+#define PLUGIN_141_ANIM_FLASH_SPEED 350		// flash ON Variable
+#define PLUGIN_141_ANIM_FLASH_PAUSE 200		// flash OFF fixed
+#define PLUGIN_141_ANIM_STROBE_SPEED 550		// strobe OFF variable
+#define PLUGIN_141_ANIM_STROBE_PAUSE 150		// storbe ON fixed
+#define PLUGIN_141_ANIM_FADE_SPEED 100		// fade speed
+#define PLUGIN_141_ANIM_SMOOTH_SPEED 700		// smooth speed
+#define PLUGIN_141_ANIM_PARTY_SPEED 200		// party speed
 
 
 // #### Variables ########################################################################
@@ -427,15 +428,24 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 		{
 			String command = parseString(string, 1);
 
+
+			if (command == F("off"))	{
+				Plugin141_CommandOff();
+			}
+
+			if (command == F("on"))	{
+				Plugin141_CommandOn();
+			}
+
 			if (command == F("rgb"))	{
-				CRGB rgb = CRGB( (int) event->Par1 , (int) event->Par2 , (int) event->Par3 );
+				CRGB rgb 			= CRGB(event->Par1, event->Par2, event->Par3);
 				plugin141_cur_color = Plugin141_RgbToHSV(rgb);
 				Plugin141_SetCurrentColor(plugin141_cur_color);
 				Plugin141_OutputCurrentColor();
 			}
 
 			if (command == F("hsv"))	{
-				plugin141_cur_color = CHSV ( (int) event->Par1 , (int) event->Par2 , (int) event->Par3   );
+				plugin141_cur_color = CHSV (event->Par1, event->Par2, event->Par3);
 				Plugin141_SetCurrentColor(plugin141_cur_color);
 				Plugin141_OutputCurrentColor();
 			}
@@ -458,12 +468,8 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 				Plugin141_OutputCurrentColor();
 			}
 
-			if (command == F("off"))	{
-				Plugin141_CommandOff();
-			}
-
-			if (command == F("on"))	{
-				Plugin141_CommandOn();
+			if (command == F("speed"))	{
+				plugin141_cur_anim_speed = event->Par1 ;
 			}
 
 			if (command == F("hexrgb"))	{
@@ -484,32 +490,27 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 				String log = F(PLUGIN_141_LOGPREFIX); log += F("HEXHSV="); log += color; addLog(LOG_LEVEL_DEBUG, log);
 			}
 
-
 			if (command == F("mode"))	{
-				int mode = (int) event->Par1;
+				byte mode = event->Par1;
 				
 				if(mode == 0){
 					Plugin141_CommandOff();
 				}
 				else if(mode == 1){
-					Plugin141_CommandOff();
+					Plugin141_CommandOn();
 				}
 				else if(mode > 1 && mode < PLUGIN_141_MODES_COUNT ){
-					int speed = (int) event->Par2;
-					Plugin141_SetCurrentMode(mode);
+					Plugin141_processAnimation(mode, true, false, event->Par2, event->Par3, event->Par4, event->Par5);
 				}
 			}
 
 			success = true;
-
 			break;
 		}
 
 		case PLUGIN_READ:
 		{
-			String log = F(PLUGIN_141_LOGPREFIX);
-			log += F("PLUGIN_READ !!!!");
-			addLog(LOG_LEVEL_INFO, log);
+			//String log = F(PLUGIN_141_LOGPREFIX); log += F("PLUGIN_READ !!!!"); addLog(LOG_LEVEL_INFO, log);
 
 			UserVar[event->BaseVarIndex + 0] = (int) plugin141_cur_color.h;
 			UserVar[event->BaseVarIndex + 1] = (int) plugin141_cur_color.s;
@@ -522,6 +523,7 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 		//case PLUGIN_TEN_PER_SECOND:
 		case PLUGIN_FIFTY_PER_SECOND:
 		{
+			Plugin141_Loop();
 			success = true;
 			break;
 		}
@@ -529,6 +531,179 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 
 	return success;
 }
+
+// ---------------------------------------------------------------------------------------
+void Plugin141_confirmFlash(){
+}
+
+// ---------------------------------------------------------------------------------------
+void Plugin141_Loop(){
+	Plugin141_processAnimation(plugin141_cur_anim_mode, false, false, 0, 0, 0, 0);
+}
+
+// ---------------------------------------------------------------------------------------
+void Plugin141_processAnimation(byte mode, boolean init, boolean is_button, int speed, int p3, int p4, int p5 ){
+	String log = F(PLUGIN_141_LOGPREFIX);
+
+	if(init){
+		Plugin141_SetCurrentMode(mode);
+
+		if(plugin141_cur_anim_mode == mode && is_button){
+			Plugin141_confirmFlash();
+			log += F("Stop Animation "); log += mode; addLog(LOG_LEVEL_INFO, log);
+			Plugin141_CommandOff();
+			return;
+		}
+/*
+		else if(mode == 0){
+			log += F("Stop Animation "); log += mode; addLog(LOG_LEVEL_INFO, log);
+			Plugin141_CommandOff();
+			return;
+		}
+*/
+		else{
+			if(is_button){
+				Plugin141_confirmFlash();
+			}
+			log = F(PLUGIN_141_LOGPREFIX); log += F("Start Animation "); log += mode; addLog(LOG_LEVEL_INFO, log);
+		}
+	}
+
+
+	if     (mode==2){Plugin141_AnimFlash(init, speed);}
+	else if(mode==3){Plugin141_AnimStrobe(init, speed);}
+	else if(mode==4){Plugin141_AnimFade(init, speed);}
+	else if(mode==5){Plugin141_AnimSmooth(init, speed);}
+	else if(mode==6){Plugin141_AnimParty(init, speed);}
+	else{
+		//invalid mode
+		Plugin141_CommandOff();
+	}
+
+}
+
+
+
+// ---------------------------------------------------------------------------------------
+// anim1 : flash
+void Plugin141_AnimFlash(boolean init, byte speed){
+	if(init){
+		plugin141_cur_anim_speed	= speed ? speed : PLUGIN_141_ANIM_FLASH_SPEED;
+		plugin141_cur_anim_step		= 1;
+	}
+	unsigned long now= millis();
+	if(plugin141_cur_anim_step ==1 && now > (plugin141_anim_last_update + plugin141_cur_anim_speed) ){
+		plugin141_cur_anim_step		= 0;
+		plugin141_anim_last_update	= now;
+		Plugin141_OutputCurrentColor();
+	}
+	else if(plugin141_cur_anim_step ==0 && now > (plugin141_anim_last_update + PLUGIN_141_ANIM_FLASH_PAUSE) ){
+		plugin141_cur_anim_step		= 1;
+		plugin141_anim_last_update	= now;
+		Plugin141_OutputHSV(CHSV {0,0,0});
+	}
+}
+
+// ---------------------------------------------------------------------------------------
+// anim2 : strobe
+void Plugin141_AnimStrobe(boolean init, byte speed){
+	if(init){
+		plugin141_cur_anim_speed	= speed ? speed : PLUGIN_141_ANIM_STROBE_SPEED;
+		plugin141_cur_anim_step		= 1;
+	}
+	unsigned long now= millis();
+	if(plugin141_cur_anim_step==1 && now > (plugin141_anim_last_update + PLUGIN_141_ANIM_STROBE_PAUSE) ){
+		plugin141_cur_anim_step		= 0;
+		plugin141_anim_last_update	= now;
+		Plugin141_OutputCurrentColor();
+	}
+	else if(plugin141_cur_anim_step==0 && now > (plugin141_anim_last_update + plugin141_cur_anim_speed) ){
+		plugin141_cur_anim_step		= 1;
+		plugin141_anim_last_update	= now;
+		Plugin141_OutputHSV(CHSV {0,0,0});
+	}
+}
+
+// ---------------------------------------------------------------------------------------
+// anim3 : fade
+void Plugin141_AnimFade(boolean init, byte speed){
+	if(init){
+		plugin141_cur_anim_speed	= speed ? speed : PLUGIN_141_ANIM_FADE_SPEED;
+		plugin141_cur_anim_step		= plugin141_cur_color.v;
+	}
+
+	unsigned long now= millis();
+	if( now > (plugin141_anim_last_update + plugin141_cur_anim_speed) ){
+
+		Plugin141_OutputHSV( CHSV(plugin141_cur_color.h, plugin141_cur_color.s, dim8_lin(plugin141_cur_anim_step)) );
+		if(plugin141_cur_anim_dir){
+			if(plugin141_cur_anim_step == 255){
+				plugin141_cur_anim_dir=false;
+			}
+			else{
+				plugin141_cur_anim_step++;
+			}
+		}
+		else{
+			if(plugin141_cur_anim_step == 1){
+				plugin141_cur_anim_dir=true;
+			}
+			else{
+				plugin141_cur_anim_step--;
+			}
+		}
+		plugin141_anim_last_update = now;
+	}
+
+}
+
+// ---------------------------------------------------------------------------------------
+// anim4 : smooth (raimbow)
+void Plugin141_AnimSmooth(boolean init, byte speed){
+	if(init){
+		plugin141_cur_anim_speed	= speed ? speed : PLUGIN_141_ANIM_SMOOTH_SPEED;
+		plugin141_cur_anim_step		= 0;
+		plugin141_cur_anim_color	= plugin141_cur_color;
+		plugin141_cur_anim_color.s	= 255;
+		plugin141_cur_anim_color.v	= 255;
+	}
+
+	unsigned long now= millis();
+	if( now > (plugin141_anim_last_update + plugin141_cur_anim_speed) ){
+		plugin141_cur_anim_color.h = plugin141_cur_anim_step;
+		Plugin141_OutputHSV(plugin141_cur_anim_color);
+		plugin141_cur_anim_step++;
+		if(plugin141_cur_anim_step > 255){
+			plugin141_cur_anim_step=0;
+		}
+		plugin141_anim_last_update = now;
+	}
+}
+
+// ---------------------------------------------------------------------------------------
+// anim5 : party
+void Plugin141_AnimParty(boolean init, byte speed){
+	if(init){
+		plugin141_cur_anim_speed	= speed ? speed : PLUGIN_141_ANIM_PARTY_SPEED;
+		plugin141_cur_anim_step		= 0;
+		plugin141_cur_anim_color	= plugin141_cur_color;
+		plugin141_cur_anim_color.s	= 255;
+		plugin141_cur_anim_color.v	= 255;
+	}
+	unsigned long now= millis();
+	if(plugin141_cur_anim_step == 1 && now > (plugin141_anim_last_update + plugin141_cur_anim_speed) ){ 
+		plugin141_cur_anim_color.h	= random(0,255); 
+		Plugin141_OutputHSV(plugin141_cur_anim_color);
+		plugin141_cur_anim_step		= 0;
+		plugin141_anim_last_update	= now;
+	}
+	else if(plugin141_cur_anim_step==0 && now > (plugin141_anim_last_update + plugin141_cur_anim_speed + 15) ){
+		Plugin141_OutputHSV(CHSV {0,0,0});
+		plugin141_cur_anim_step		= 1;
+		plugin141_anim_last_update	= now;
+	}
+}
+
 
 // ---------------------------------------------------------------------------------------
 void Plugin141_CommandOn(){
