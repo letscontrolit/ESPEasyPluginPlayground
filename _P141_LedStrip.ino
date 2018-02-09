@@ -127,15 +127,15 @@ https://github.com/ddtlabs/ESPEasy-Plugin-Lights/blob/master/_P123_LIGHTS.ino
 
 #define PLUGIN_141_ANIM_FLASH_SPEED 350		// flash ON Variable
 #define PLUGIN_141_ANIM_FLASH_PAUSE 200		// flash OFF fixed
-#define PLUGIN_141_ANIM_STROBE_SPEED 550		// strobe OFF variable
-#define PLUGIN_141_ANIM_STROBE_PAUSE 150		// storbe ON fixed
+#define PLUGIN_141_ANIM_STROBE_SPEED 550	// strobe OFF variable
+#define PLUGIN_141_ANIM_STROBE_PAUSE 150	// storbe ON fixed
 #define PLUGIN_141_ANIM_FADE_SPEED 100		// fade speed
-#define PLUGIN_141_ANIM_SMOOTH_SPEED 700		// smooth speed
+#define PLUGIN_141_ANIM_SMOOTH_SPEED 700	// smooth speed
 #define PLUGIN_141_ANIM_PARTY_SPEED 200		// party speed
 
 
 // #### Variables ########################################################################
-unsigned long plugin141_but_codes[]={		// IR remote buttons codes
+unsigned long v_p141_but_codes[]={		// IR remote buttons codes
 	PLUGIN_141_IR_BUT_0  , //	Brightness +
 	PLUGIN_141_IR_BUT_1  , //	Brightness -
 	PLUGIN_141_IR_BUT_2  , //	OFF
@@ -167,7 +167,7 @@ unsigned long plugin141_but_codes[]={		// IR remote buttons codes
 	PLUGIN_141_IR_BUT_23	//	Smooth
 };
 
-unsigned long plugin141_but_colors[]={	// IR remote buttons colors
+unsigned long v_p141_but_colors[]={	// IR remote buttons colors
 	0,			//	Brightness +
 	0,			//	Brightness -
 	0,			//	OFF
@@ -194,19 +194,19 @@ unsigned long plugin141_but_colors[]={	// IR remote buttons colors
 	0			//	Smooth
 };
 
-static int		plugin141_pins[5]		= {-1, -1, -1, -1, -1};
-static int		plugin141_pin_ir		=  -1;
-static int		plugin141_pin_inverse	= false;
+static int		v_p141_pins[5]				= {-1, -1, -1, -1, -1};
+static int		v_p141_pin_ir				=  -1;
+static int		v_p141_pin_inverse			= false;
 
-CHSV 			plugin141_cur_color				= CHSV(0,255,255);
-CHSV 			plugin141_cur_anim_color		= CHSV(0,255,255);
-byte 			plugin141_cur_strip_type 		= 0 ;
-byte 			plugin141_cur_anim_mode  		= 0 ;
-byte 			plugin141_cur_anim_step  		= 0;
-boolean 		plugin141_cur_anim_dir	  		= true;
-unsigned long	plugin141_cur_anim_speed 		= 1000;
-unsigned long	plugin141_anim_last_update 		= millis();
-unsigned long	plugin141_last_ir_button		= 0;
+CHSV 			v_p141_cur_color			= CHSV(0,255,255);
+CHSV 			v_p141_cur_anim_color		= CHSV(0,255,255);
+byte 			v_p141_cur_strip_type 		= 0 ;
+byte 			v_p141_cur_anim_mode  		= 0 ;
+byte 			v_p141_cur_anim_step  		= 0;
+boolean 		v_p141_cur_anim_dir	  		= true;
+unsigned long	v_p141_cur_anim_speed 		= 1000;
+unsigned long	v_p141_anim_last_update 	= millis();
+unsigned long	v_p141_last_ir_button		= 0;
 
 // #######################################################################################
 
@@ -390,8 +390,8 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 			analogWriteFreq(400);
 
 			// start IR Receivers ..........
-			//IRrecv plugin141_ir_recv(LIGHT_IR_PIN); 		//IRrecv _ir_recv(IR_PIN, IR_LED_PIN); dont work. Why ?
-			//decode_results plugin141_ir_results;
+			//IRrecv v_p141_ir_recv(LIGHT_IR_PIN); 		//IRrecv _ir_recv(IR_PIN, IR_LED_PIN); dont work. Why ?
+			//decode_results v_p141_ir_results;
 
 
 			// assign pins .................
@@ -399,19 +399,19 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 			log += F("Pins ");
 			for (byte i=PLUGIN_141_PIN_1; i < (PLUGIN_141_PIN_1 + PLUGIN_141_PIN_COUNT) ; i++)	{
 				int pin = Settings.TaskDevicePluginConfig[event->TaskIndex][i];
-				plugin141_pins[i - PLUGIN_141_PIN_1] = pin;
+				v_p141_pins[i - PLUGIN_141_PIN_1] = pin;
 				if (pin >= 0){
 					pinMode(pin, OUTPUT);
 				}
 				log += pin;
 				log += F(" ");
 			}
-			plugin141_pin_ir = Settings.TaskDevicePluginConfig[event->TaskIndex][6];
+			v_p141_pin_ir = Settings.TaskDevicePluginConfig[event->TaskIndex][6];
 			
 
 			/*
-			plugin141_pin_inverse = Settings.TaskDevicePin1Inversed[event->TaskIndex];
-			if(plugin141_pin_inverse){
+			v_p141_pin_inverse = Settings.TaskDevicePin1Inversed[event->TaskIndex];
+			if(v_p141_pin_inverse){
 				log += F("INVERT");
 			}
 			else{
@@ -429,61 +429,61 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 			String command = parseString(string, 1);
 
 			if (command == F("off"))	{
-				Plugin141_CommandOff();
+				Fp141_CommandOff();
 			}
 
 			if (command == F("on"))	{
-				Plugin141_CommandOn();
+				Fp141_CommandOn();
 			}
 
 			if (command == F("rgb"))	{
 				CRGB rgb 			= CRGB(event->Par1, event->Par2, event->Par3);
-				plugin141_cur_color = Plugin141_RgbToHSV(rgb);
-				Plugin141_SetCurrentColor(plugin141_cur_color);
-				Plugin141_OutputCurrentColor();
+				v_p141_cur_color	= Fp141_RgbToHSV(rgb);
+				Fp141_SetCurrentColor(v_p141_cur_color);
+				Fp141_OutputCurrentColor();
 			}
 
 			if (command == F("hsv"))	{
-				plugin141_cur_color = CHSV (event->Par1, event->Par2, event->Par3);
-				Plugin141_SetCurrentColor(plugin141_cur_color);
-				Plugin141_OutputCurrentColor();
+				v_p141_cur_color	= CHSV (event->Par1, event->Par2, event->Par3);
+				Fp141_SetCurrentColor(v_p141_cur_color);
+				Fp141_OutputCurrentColor();
 			}
 
 			if (command == F("hue"))	{
-				plugin141_cur_color.h = event->Par1 ;	 //Hue
-				Plugin141_SetCurrentColor(plugin141_cur_color);
-				Plugin141_OutputCurrentColor();
+				v_p141_cur_color.h	= event->Par1 ;	 //Hue
+				Fp141_SetCurrentColor(v_p141_cur_color);
+				Fp141_OutputCurrentColor();
 			}
 
 			if (command == F("sat"))	{
-				plugin141_cur_color.s = event->Par1 ;	 //Saturation
-				Plugin141_SetCurrentColor(plugin141_cur_color);
-				Plugin141_OutputCurrentColor();
+				v_p141_cur_color.s 	= event->Par1 ;	 //Saturation
+				Fp141_SetCurrentColor(v_p141_cur_color);
+				Fp141_OutputCurrentColor();
 			}
 
 			if (command == F("val") || command == F("dim"))	{
-				plugin141_cur_color.v = event->Par1 ;	 //Value/Brightness
-				Plugin141_SetCurrentColor(plugin141_cur_color);
-				Plugin141_OutputCurrentColor();
+				v_p141_cur_color.v 	= event->Par1 ;	 //Value/Brightness
+				Fp141_SetCurrentColor(v_p141_cur_color);
+				Fp141_OutputCurrentColor();
 			}
 
 			if (command == F("speed"))	{
-				plugin141_cur_anim_speed = event->Par1 ;
+				v_p141_cur_anim_speed = event->Par1 ;
 			}
 
 			if (command == F("hexrgb"))	{
 				String color = parseString(string, 2);
-				plugin141_cur_color = Plugin141_RgbToHSV(_charToRgb( color.c_str() ));
-				Plugin141_SetCurrentColor(plugin141_cur_color);
-				Plugin141_OutputCurrentColor();
+				v_p141_cur_color = Fp141_RgbToHSV(Fp141_CharToRgb( color.c_str() ));
+				Fp141_SetCurrentColor(v_p141_cur_color);
+				Fp141_OutputCurrentColor();
 				String log = F(PLUGIN_141_LOGPREFIX); log += F("HEXRGB="); log += color; addLog(LOG_LEVEL_DEBUG, log);
 			}
 
 			if (command == F("hexhsv"))	{
-				String color = parseString(string, 2);
-				plugin141_cur_color = _charToHsv( color.c_str() );
-				Plugin141_SetCurrentColor(plugin141_cur_color);
-				Plugin141_OutputCurrentColor();
+				String color		= parseString(string, 2);
+				v_p141_cur_color	= Fp141_CharToHsv( color.c_str() );
+				Fp141_SetCurrentColor(v_p141_cur_color);
+				Fp141_OutputCurrentColor();
 				String log = F(PLUGIN_141_LOGPREFIX); log += F("HEXHSV="); log += color; addLog(LOG_LEVEL_DEBUG, log);
 			}
 
@@ -492,13 +492,13 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 				byte mode = event->Par1;
 				
 				if(mode == 0){
-					Plugin141_CommandOff();
+					Fp141_CommandOff();
 				}
 				else if(mode == 1){
-					Plugin141_CommandOn();
+					Fp141_CommandOn();
 				}
 				else if(mode > 1 && mode < PLUGIN_141_MODES_COUNT ){
-					Plugin141_processAnimation(mode, true, false, event->Par2, event->Par3, event->Par4, event->Par5);
+					Fp141_processAnimation(mode, true, false, event->Par2, event->Par3, event->Par4, event->Par5);
 				}
 			}
 
@@ -510,10 +510,10 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 		{
 			//String log = F(PLUGIN_141_LOGPREFIX); log += F("PLUGIN_READ !!!!"); addLog(LOG_LEVEL_INFO, log);
 
-			UserVar[event->BaseVarIndex + 0] = (int) plugin141_cur_color.h;
-			UserVar[event->BaseVarIndex + 1] = (int) plugin141_cur_color.s;
-			UserVar[event->BaseVarIndex + 2] = (int) plugin141_cur_color.v;
-			UserVar[event->BaseVarIndex + 3] = (int) plugin141_cur_anim_mode;
+			UserVar[event->BaseVarIndex + 0] = (int) v_p141_cur_color.h;
+			UserVar[event->BaseVarIndex + 1] = (int) v_p141_cur_color.s;
+			UserVar[event->BaseVarIndex + 2] = (int) v_p141_cur_color.v;
+			UserVar[event->BaseVarIndex + 3] = (int) v_p141_cur_anim_mode;
 			success = true;
 			break;
 		}
@@ -521,7 +521,7 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 		//case PLUGIN_TEN_PER_SECOND:
 		case PLUGIN_FIFTY_PER_SECOND:
 		{
-			Plugin141_Loop();
+			Fp141_Loop();
 			success = true;
 			break;
 		}
@@ -531,48 +531,48 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 }
 
 // ---------------------------------------------------------------------------------------
-void Plugin141_confirmFlash(){
+void Fp141_confirmFlash(){
 }
 
 // ---------------------------------------------------------------------------------------
-void Plugin141_Loop(){
-	Plugin141_processAnimation(plugin141_cur_anim_mode, false, false, 0, 0, 0, 0);
+void Fp141_Loop(){
+	Fp141_processAnimation(v_p141_cur_anim_mode, false, false, 0, 0, 0, 0);
 }
 
 // ---------------------------------------------------------------------------------------
-void Plugin141_processAnimation(byte mode, boolean init, boolean is_button, int speed, int p3, int p4, int p5 ){
+void Fp141_processAnimation(byte mode, boolean init, boolean is_button, int speed, int p3, int p4, int p5 ){
 	String log = F(PLUGIN_141_LOGPREFIX);
 
 	if(init){
-		Plugin141_SetCurrentMode(mode);
+		Fp141_SetCurrentMode(mode);
 
-		if(plugin141_cur_anim_mode == mode && is_button){
-			Plugin141_confirmFlash();
+		if(v_p141_cur_anim_mode == mode && is_button){
+			Fp141_confirmFlash();
 			log += F("Stop Animation "); log += mode; addLog(LOG_LEVEL_INFO, log);
-			Plugin141_CommandOff();
+			Fp141_CommandOff();
 			return;
 		}
 /*
 		else if(mode == 0){
 			log += F("Stop Animation "); log += mode; addLog(LOG_LEVEL_INFO, log);
-			Plugin141_CommandOff();
+			Fp141_CommandOff();
 			return;
 		}
 */
 		else{
 			if(is_button){
-				Plugin141_confirmFlash();
+				Fp141_confirmFlash();
 			}
 			log = F(PLUGIN_141_LOGPREFIX); log += F("Start Animation "); log += mode; addLog(LOG_LEVEL_INFO, log);
 		}
 	}
 
 
-	if     (mode==2){Plugin141_AnimFlash(init, speed);}
-	else if(mode==3){Plugin141_AnimStrobe(init, speed);}
-	else if(mode==4){Plugin141_AnimFade(init, speed);}
-	else if(mode==5){Plugin141_AnimSmooth(init, speed);}
-	else if(mode==6){Plugin141_AnimParty(init, speed);}
+	if     (mode==2)	{Fp141_AnimFlash	(init, speed);}
+	else if(mode==3)	{Fp141_AnimStrobe	(init, speed);}
+	else if(mode==4)	{Fp141_AnimFade		(init, speed);}
+	else if(mode==5)	{Fp141_AnimSmooth	(init, speed);}
+	else if(mode==6)	{Fp141_AnimParty	(init, speed);}
 	else{
 		//invalid mode
 	}
@@ -583,154 +583,154 @@ void Plugin141_processAnimation(byte mode, boolean init, boolean is_button, int 
 
 // ---------------------------------------------------------------------------------------
 // anim1 : flash
-void Plugin141_AnimFlash(boolean init, byte speed){
+void Fp141_AnimFlash(boolean init, byte speed){
 	if(init){
-		plugin141_cur_anim_speed	= speed ? speed : PLUGIN_141_ANIM_FLASH_SPEED;
-		plugin141_cur_anim_step		= 1;
+		v_p141_cur_anim_speed	= speed ? speed : PLUGIN_141_ANIM_FLASH_SPEED;
+		v_p141_cur_anim_step		= 1;
 	}
 	unsigned long now= millis();
-	if(plugin141_cur_anim_step ==1 && now > (plugin141_anim_last_update + plugin141_cur_anim_speed) ){
-		plugin141_cur_anim_step		= 0;
-		plugin141_anim_last_update	= now;
-		Plugin141_OutputCurrentColor();
+	if(v_p141_cur_anim_step ==1 && now > (v_p141_anim_last_update + v_p141_cur_anim_speed) ){
+		v_p141_cur_anim_step	= 0;
+		v_p141_anim_last_update	= now;
+		Fp141_OutputCurrentColor();
 	}
-	else if(plugin141_cur_anim_step ==0 && now > (plugin141_anim_last_update + PLUGIN_141_ANIM_FLASH_PAUSE) ){
-		plugin141_cur_anim_step		= 1;
-		plugin141_anim_last_update	= now;
-		Plugin141_OutputHSV(CHSV {0,0,0});
+	else if(v_p141_cur_anim_step ==0 && now > (v_p141_anim_last_update + PLUGIN_141_ANIM_FLASH_PAUSE) ){
+		v_p141_cur_anim_step	= 1;
+		v_p141_anim_last_update	= now;
+		Fp141_OutputHSV(CHSV {0,0,0});
 	}
 }
 
 // ---------------------------------------------------------------------------------------
 // anim2 : strobe
-void Plugin141_AnimStrobe(boolean init, byte speed){
+void Fp141_AnimStrobe(boolean init, byte speed){
 	if(init){
-		plugin141_cur_anim_speed	= speed ? speed : PLUGIN_141_ANIM_STROBE_SPEED;
-		plugin141_cur_anim_step		= 1;
+		v_p141_cur_anim_speed	= speed ? speed : PLUGIN_141_ANIM_STROBE_SPEED;
+		v_p141_cur_anim_step	= 1;
 	}
 	unsigned long now= millis();
-	if(plugin141_cur_anim_step==1 && now > (plugin141_anim_last_update + PLUGIN_141_ANIM_STROBE_PAUSE) ){
-		plugin141_cur_anim_step		= 0;
-		plugin141_anim_last_update	= now;
-		Plugin141_OutputCurrentColor();
+	if(v_p141_cur_anim_step==1 && now > (v_p141_anim_last_update + PLUGIN_141_ANIM_STROBE_PAUSE) ){
+		v_p141_cur_anim_step	= 0;
+		v_p141_anim_last_update	= now;
+		Fp141_OutputCurrentColor();
 	}
-	else if(plugin141_cur_anim_step==0 && now > (plugin141_anim_last_update + plugin141_cur_anim_speed) ){
-		plugin141_cur_anim_step		= 1;
-		plugin141_anim_last_update	= now;
-		Plugin141_OutputHSV(CHSV {0,0,0});
+	else if(v_p141_cur_anim_step==0 && now > (v_p141_anim_last_update + v_p141_cur_anim_speed) ){
+		v_p141_cur_anim_step	= 1;
+		v_p141_anim_last_update	= now;
+		Fp141_OutputHSV(CHSV {0,0,0});
 	}
 }
 
 // ---------------------------------------------------------------------------------------
 // anim3 : fade
-void Plugin141_AnimFade(boolean init, byte speed){
+void Fp141_AnimFade(boolean init, byte speed){
 	if(init){
-		plugin141_cur_anim_speed	= speed ? speed : PLUGIN_141_ANIM_FADE_SPEED;
-		plugin141_cur_anim_step		= plugin141_cur_color.v;
+		v_p141_cur_anim_speed	= speed ? speed : PLUGIN_141_ANIM_FADE_SPEED;
+		v_p141_cur_anim_step	= v_p141_cur_color.v;
 	}
 
 	unsigned long now= millis();
-	if( now > (plugin141_anim_last_update + plugin141_cur_anim_speed) ){
+	if( now > (v_p141_anim_last_update + v_p141_cur_anim_speed) ){
 
-		Plugin141_OutputHSV( CHSV(plugin141_cur_color.h, plugin141_cur_color.s, dim8_lin(plugin141_cur_anim_step)) );
-		if(plugin141_cur_anim_dir){
-			if(plugin141_cur_anim_step == 255){
-				plugin141_cur_anim_dir=false;
+		Fp141_OutputHSV( CHSV(v_p141_cur_color.h, v_p141_cur_color.s, dim8_lin(v_p141_cur_anim_step)) );
+		if(v_p141_cur_anim_dir){
+			if(v_p141_cur_anim_step == 255){
+				v_p141_cur_anim_dir=false;
 			}
 			else{
-				plugin141_cur_anim_step++;
+				v_p141_cur_anim_step++;
 			}
 		}
 		else{
-			if(plugin141_cur_anim_step == 1){
-				plugin141_cur_anim_dir=true;
+			if(v_p141_cur_anim_step == 1){
+				v_p141_cur_anim_dir=true;
 			}
 			else{
-				plugin141_cur_anim_step--;
+				v_p141_cur_anim_step--;
 			}
 		}
-		plugin141_anim_last_update = now;
+		v_p141_anim_last_update = now;
 	}
 
 }
 
 // ---------------------------------------------------------------------------------------
 // anim4 : smooth (raimbow)
-void Plugin141_AnimSmooth(boolean init, byte speed){
+void Fp141_AnimSmooth(boolean init, byte speed){
 	if(init){
-		plugin141_cur_anim_speed	= speed ? speed : PLUGIN_141_ANIM_SMOOTH_SPEED;
-		plugin141_cur_anim_step		= 0;
-		plugin141_cur_anim_color	= plugin141_cur_color;
-		plugin141_cur_anim_color.s	= 255;
-		plugin141_cur_anim_color.v	= 255;
+		v_p141_cur_anim_speed	= speed ? speed : PLUGIN_141_ANIM_SMOOTH_SPEED;
+		v_p141_cur_anim_step	= 0;
+		v_p141_cur_anim_color	= v_p141_cur_color;
+		v_p141_cur_anim_color.s	= 255;
+		v_p141_cur_anim_color.v	= 255;
 	}
 
 	unsigned long now= millis();
-	if( now > (plugin141_anim_last_update + plugin141_cur_anim_speed) ){
-		plugin141_cur_anim_color.h = plugin141_cur_anim_step;
-		Plugin141_OutputHSV(plugin141_cur_anim_color);
-		plugin141_cur_anim_step++;
-		if(plugin141_cur_anim_step > 255){
-			plugin141_cur_anim_step=0;
+	if( now > (v_p141_anim_last_update + v_p141_cur_anim_speed) ){
+		v_p141_cur_anim_color.h = v_p141_cur_anim_step;
+		Fp141_OutputHSV(v_p141_cur_anim_color);
+		v_p141_cur_anim_step++;
+		if(v_p141_cur_anim_step > 255){
+			v_p141_cur_anim_step=0;
 		}
-		plugin141_anim_last_update = now;
+		v_p141_anim_last_update = now;
 	}
 }
 
 // ---------------------------------------------------------------------------------------
 // anim5 : party
-void Plugin141_AnimParty(boolean init, byte speed){
+void Fp141_AnimParty(boolean init, byte speed){
 	if(init){
-		plugin141_cur_anim_speed	= speed ? speed : PLUGIN_141_ANIM_PARTY_SPEED;
-		plugin141_cur_anim_step		= 0;
-		plugin141_cur_anim_color	= plugin141_cur_color;
-		plugin141_cur_anim_color.s	= 255;
-		plugin141_cur_anim_color.v	= 255;
+		v_p141_cur_anim_speed	= speed ? speed : PLUGIN_141_ANIM_PARTY_SPEED;
+		v_p141_cur_anim_step	= 0;
+		v_p141_cur_anim_color	= v_p141_cur_color;
+		v_p141_cur_anim_color.s	= 255;
+		v_p141_cur_anim_color.v	= 255;
 	}
 	unsigned long now= millis();
-	if(plugin141_cur_anim_step == 1 && now > (plugin141_anim_last_update + plugin141_cur_anim_speed) ){ 
-		plugin141_cur_anim_color.h	= random(0,255); 
-		Plugin141_OutputHSV(plugin141_cur_anim_color);
-		plugin141_cur_anim_step		= 0;
-		plugin141_anim_last_update	= now;
+	if(v_p141_cur_anim_step == 1 && now > (v_p141_anim_last_update + v_p141_cur_anim_speed) ){ 
+		v_p141_cur_anim_color.h	= random(0,255); 
+		Fp141_OutputHSV(v_p141_cur_anim_color);
+		v_p141_cur_anim_step	= 0;
+		v_p141_anim_last_update	= now;
 	}
-	else if(plugin141_cur_anim_step==0 && now > (plugin141_anim_last_update + plugin141_cur_anim_speed + 15) ){
-		Plugin141_OutputHSV(CHSV {0,0,0});
-		plugin141_cur_anim_step		= 1;
-		plugin141_anim_last_update	= now;
+	else if(v_p141_cur_anim_step==0 && now > (v_p141_anim_last_update + v_p141_cur_anim_speed + 15) ){
+		Fp141_OutputHSV(CHSV {0,0,0});
+		v_p141_cur_anim_step	= 1;
+		v_p141_anim_last_update	= now;
 	}
 }
 
 
 // ---------------------------------------------------------------------------------------
-void Plugin141_CommandOn(){
-	plugin141_cur_color.v	= 255;
-	Plugin141_SetCurrentMode(1);
-	Plugin141_SetCurrentColor(plugin141_cur_color);
-	Plugin141_OutputCurrentColor();
+void Fp141_CommandOn(){
+	v_p141_cur_color.v	= 255;
+	Fp141_SetCurrentMode(1);
+	Fp141_SetCurrentColor(v_p141_cur_color);
+	Fp141_OutputCurrentColor();
 }
 
 // ---------------------------------------------------------------------------------------
-void Plugin141_CommandOff(){
-	plugin141_cur_color.v 	= 0;
-	Plugin141_SetCurrentMode(0);
-	Plugin141_SetCurrentColor(plugin141_cur_color);
-	Plugin141_OutputCurrentColor();
+void Fp141_CommandOff(){
+	v_p141_cur_color.v 	= 0;
+	Fp141_SetCurrentMode(0);
+	Fp141_SetCurrentColor(v_p141_cur_color);
+	Fp141_OutputCurrentColor();
 }
 
 // ---------------------------------------------------------------------------------------
-void Plugin141_OutputRGB( const CRGB& rgb){
-	if(plugin141_cur_strip_type < PLUGIN_141_FIRST_STRIP_TYPE_PIX ){
-		analogWrite(plugin141_pins[0], plugin141_pin_inverse ? (PWMRANGE - rgb.r)  : rgb.r);
-		analogWrite(plugin141_pins[1], plugin141_pin_inverse ? (PWMRANGE - rgb.g)  : rgb.g);
-		analogWrite(plugin141_pins[2], plugin141_pin_inverse ? (PWMRANGE - rgb.b)  : rgb.b);
+void Fp141_OutputRGB( const CRGB& rgb){
+	if(v_p141_cur_strip_type < PLUGIN_141_FIRST_STRIP_TYPE_PIX ){
+		analogWrite(v_p141_pins[0], v_p141_pin_inverse ? (PWMRANGE - rgb.r)  : rgb.r);
+		analogWrite(v_p141_pins[1], v_p141_pin_inverse ? (PWMRANGE - rgb.g)  : rgb.g);
+		analogWrite(v_p141_pins[2], v_p141_pin_inverse ? (PWMRANGE - rgb.b)  : rgb.b);
 	}
 	else{
 		// pixels mode
 	}
 
 	//log only when NOT in anim mode
-	if(plugin141_cur_anim_mode < PLUGIN_141_FIRST_ANIM_MODE ){
+	if(v_p141_cur_anim_mode < PLUGIN_141_FIRST_ANIM_MODE ){
 		String log = F(PLUGIN_141_LOGPREFIX);
 		log += F("RGB = ");
 		log += rgb.r;	log += F(",");
@@ -741,9 +741,9 @@ void Plugin141_OutputRGB( const CRGB& rgb){
 }
 
 // ---------------------------------------------------------------------------------------
-void Plugin141_OutputHSV(CHSV hsv){
+void Fp141_OutputHSV(CHSV hsv){
 	//log only when NOT in anim mode
-	if(plugin141_cur_anim_mode < 2){
+	if(v_p141_cur_anim_mode < 2){
 		String log = F(PLUGIN_141_LOGPREFIX);
 		log += F("HSV = ");
 		log += hsv.h;	log += F(",");
@@ -751,38 +751,38 @@ void Plugin141_OutputHSV(CHSV hsv){
 		log += hsv.v;
 		addLog(LOG_LEVEL_DEBUG, log);
 	}
-	Plugin141_OutputRGB( CHSV(hsv) );
+	Fp141_OutputRGB( CHSV(hsv) );
 }
 
 // ---------------------------------------------------------------------------------------
-void Plugin141_OutputCurrentColor(){
-	Plugin141_OutputHSV( plugin141_cur_color );
+void Fp141_OutputCurrentColor(){
+	Fp141_OutputHSV( v_p141_cur_color );
 }
 
 
 // ---------------------------------------------------------------------------------------
-CHSV Plugin141_RgbToHSV(CRGB rgb){
+CHSV Fp141_RgbToHSV(CRGB rgb){
      return rgb2hsv_approximate(rgb);
 }
 
 // ---------------------------------------------------------------------------------------
-void Plugin141_SetCurrentColor(CHSV hsv){
-	plugin141_cur_color 	= hsv;
-	plugin141_cur_anim_color = hsv;
+void Fp141_SetCurrentColor(CHSV hsv){
+	v_p141_cur_color		= hsv;
+	v_p141_cur_anim_color	= hsv;
 	
-	//UserVar[event->BaseVarIndex + 0]= plugin141_cur_color.h;
-	//UserVar[event->BaseVarIndex + 1]= plugin141_cur_color.s;
-	//UserVar[event->BaseVarIndex + 2]= plugin141_cur_color.v;	
+	//UserVar[event->BaseVarIndex + 0]= v_p141_cur_color.h;
+	//UserVar[event->BaseVarIndex + 1]= v_p141_cur_color.s;
+	//UserVar[event->BaseVarIndex + 2]= v_p141_cur_color.v;	
 }
 
 // ---------------------------------------------------------------------------------------
-void Plugin141_SetCurrentMode(byte mode){
-	plugin141_cur_anim_mode 		= mode;
-	//UserVar[event->BaseVarIndex + 3]= mode;	
+void Fp141_SetCurrentMode(byte mode){
+	v_p141_cur_anim_mode 				= mode;
+	//UserVar[event->BaseVarIndex + 3]	= mode;	
 }
 
 // ---------------------------------------------------------------------------------------
-CRGB _charToRgb(const char * rgb) {
+CRGB Fp141_CharToRgb(const char * rgb) {
 
     char * p = (char *) rgb;
 
@@ -790,11 +790,11 @@ CRGB _charToRgb(const char * rgb) {
     if (p[0] == '#') {
            ++p;
  	}
-    return _longToRgb( strtoul(p, NULL, 16) );
+    return Fp141_LongToRgb( strtoul(p, NULL, 16) );
 }
 
 // ---------------------------------------------------------------------------------------
-CHSV _charToHsv(const char * rgb) {
+CHSV Fp141_CharToHsv(const char * rgb) {
 
     char * p = (char *) rgb;
 
@@ -802,11 +802,11 @@ CHSV _charToHsv(const char * rgb) {
     if (p[0] == '#') {
            ++p;
  	}
-    return _longToHsv( strtoul(p, NULL, 16) );
+    return Fp141_LongToHsv( strtoul(p, NULL, 16) );
 }
 
 // ---------------------------------------------------------------------------------------
-CRGB _longToRgb(unsigned long rgb){
+CRGB Fp141_LongToRgb(unsigned long rgb){
 	CRGB out;
 	out.r = rgb >> 16;
 	out.g = rgb >> 8 & 0xFF;
@@ -815,7 +815,7 @@ CRGB _longToRgb(unsigned long rgb){
 }
 
 // ---------------------------------------------------------------------------------------
-CHSV _longToHsv(unsigned long hsv){
+CHSV Fp141_LongToHsv(unsigned long hsv){
 	CHSV out;
 	out.h = hsv >> 16;
 	out.s = hsv >> 8 & 0xFF;
@@ -825,12 +825,12 @@ CHSV _longToHsv(unsigned long hsv){
 
 /*
 // ---------------------------------------------------------------------------------------
-unsigned long _rgbToLong(CRGB in){
+unsigned long Fp141_rgbToLong(CRGB in){
 	return (((long)in.r & 0xFF) << 16) + (((long)in.g & 0xFF) << 8) + ((long)in.b & 0xFF);
 }
 
 // ---------------------------------------------------------------------------------------
-unsigned long _hsvToLong(CHSV in){
+unsigned long Fp141_hsvToLong(CHSV in){
 	return (((long)in.h & 0xFF) << 16) + (((long)in.s & 0xFF) << 8) + ((long)in.v & 0xFF);
 }
 */
