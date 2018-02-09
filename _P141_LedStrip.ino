@@ -47,7 +47,7 @@ https://github.com/ddtlabs/ESPEasy-Plugin-Lights/blob/master/_P123_LIGHTS.ino
 //#include <IRremoteESP8266.h>
 
 
-static int		plugin141_pins[4]		= {-1,-1,-1,-1};
+static int		plugin141_pins[6]		= {-1,-1, -1,-1, -1,-1};
 static int		plugin141_pin_inverse	= false;
 
 #define PLUGIN_141
@@ -55,10 +55,13 @@ static int		plugin141_pin_inverse	= false;
 #define PLUGIN_NAME_141			"Output - LedStrip"
 
 #define PLUGIN_141_MAX_PINS		16
-#define PLUGIN_141_CONF_0		"pin_r"
-#define PLUGIN_141_CONF_1		"pin_g"
-#define PLUGIN_141_CONF_2		"pin_b"
-#define PLUGIN_141_CONF_3		"pin_w1"
+#define PLUGIN_141_CONF_0		"strip_type"
+#define PLUGIN_141_CONF_1		"strip_pin1"
+#define PLUGIN_141_CONF_2		"strip_pin2"
+#define PLUGIN_141_CONF_3		"strip_pin3"
+#define PLUGIN_141_CONF_4		"strip_pin4"
+#define PLUGIN_141_CONF_5		"strip_pin5"
+#define PLUGIN_141_CONF_6		"strip_pin_ir"
 
 #define PLUGIN_141_VALUENAME_0	"Hue"
 #define PLUGIN_141_VALUENAME_1	"Sat"
@@ -78,37 +81,40 @@ static int		plugin141_pin_inverse	= false;
 
 
 // #### Defined ##########################################################################
-    #define LIGHT_IR_PIN        4    // IR LED
+#define LIGHT_IR_PIN        4    // IR LED
 
-        #define PLUGIN_141_IR_BUT_0  0xFF906F // Brightness +
-        #define PLUGIN_141_IR_BUT_1  0xFFB847 // Brightness -
-        #define PLUGIN_141_IR_BUT_2  0xFFF807 // OFF
-        #define PLUGIN_141_IR_BUT_3  0xFFB04F // ON
+#ifndef PLUGIN_141_CUSTOM_BUT
+	#define PLUGIN_141_IR_BUT_0  0xFF906F // Brightness +
+	#define PLUGIN_141_IR_BUT_1  0xFFB847 // Brightness -
+	#define PLUGIN_141_IR_BUT_2  0xFFF807 // OFF
+	#define PLUGIN_141_IR_BUT_3  0xFFB04F // ON
 
-        #define PLUGIN_141_IR_BUT_4  0xFF9867 // RED
-        #define PLUGIN_141_IR_BUT_5  0xFFD827 // GREEN
-        #define PLUGIN_141_IR_BUT_6  0xFF8877 // BLUE
-        #define PLUGIN_141_IR_BUT_7  0xFFA857 // WHITE
+	#define PLUGIN_141_IR_BUT_4  0xFF9867 // RED
+	#define PLUGIN_141_IR_BUT_5  0xFFD827 // GREEN
+	#define PLUGIN_141_IR_BUT_6  0xFF8877 // BLUE
+	#define PLUGIN_141_IR_BUT_7  0xFFA857 // WHITE
 
-        #define PLUGIN_141_IR_BUT_8  0xFFE817 // "Red" 1
-        #define PLUGIN_141_IR_BUT_9  0xFF48B7 // "Green" 1
-        #define PLUGIN_141_IR_BUT_10 0xFF6897 // "Blue" 1
-        #define PLUGIN_141_IR_BUT_11 0xFFB24D // FLASH Mode
+	#define PLUGIN_141_IR_BUT_8  0xFFE817 // "Red" 1
+	#define PLUGIN_141_IR_BUT_9  0xFF48B7 // "Green" 1
+	#define PLUGIN_141_IR_BUT_10 0xFF6897 // "Blue" 1
+	#define PLUGIN_141_IR_BUT_11 0xFFB24D // FLASH Mode
 
-        #define PLUGIN_141_IR_BUT_12 0xFF02FD // "Red" 2
-        #define PLUGIN_141_IR_BUT_13 0xFF32CD // "Green" 2
-        #define PLUGIN_141_IR_BUT_14 0xFF20DF // "Blue" 2
-        #define PLUGIN_141_IR_BUT_15 0xFF00FF // STROBE Mode
+	#define PLUGIN_141_IR_BUT_12 0xFF02FD // "Red" 2
+	#define PLUGIN_141_IR_BUT_13 0xFF32CD // "Green" 2
+	#define PLUGIN_141_IR_BUT_14 0xFF20DF // "Blue" 2
+	#define PLUGIN_141_IR_BUT_15 0xFF00FF // STROBE Mode
 
-        #define PLUGIN_141_IR_BUT_16 0xFF50AF // "Red" 3
-        #define PLUGIN_141_IR_BUT_17 0xFF7887 // "Green" 3
-        #define PLUGIN_141_IR_BUT_18 0xFF708F // "Blue" 3
-        #define PLUGIN_141_IR_BUT_19 0xFF58A7 // FADE Mode
+	#define PLUGIN_141_IR_BUT_16 0xFF50AF // "Red" 3
+	#define PLUGIN_141_IR_BUT_17 0xFF7887 // "Green" 3
+	#define PLUGIN_141_IR_BUT_18 0xFF708F // "Blue" 3
+	#define PLUGIN_141_IR_BUT_19 0xFF58A7 // FADE Mode
 
-        #define PLUGIN_141_IR_BUT_20 0xFF38C7 // "Red" 4
-        #define PLUGIN_141_IR_BUT_21 0xFF28D7 // "Green" 4
-        #define PLUGIN_141_IR_BUT_22 0xFFF00F // "Blue" 4
-        #define PLUGIN_141_IR_BUT_23 0xFF30CF // SMOOTH Mode
+	#define PLUGIN_141_IR_BUT_20 0xFF38C7 // "Red" 4
+	#define PLUGIN_141_IR_BUT_21 0xFF28D7 // "Green" 4
+	#define PLUGIN_141_IR_BUT_22 0xFFF00F // "Blue" 4
+	#define PLUGIN_141_IR_BUT_23 0xFF30CF // SMOOTH Mode
+#endif
+#define PLUGIN_141_BUTTONS_COUNT 24
 
 
 #define PLUGIN_141_MODES_COUNT (2 + 5)
@@ -122,7 +128,6 @@ static int		plugin141_pin_inverse	= false;
 #define PLUGIN_141_ANIM4_SPEED 700		// smooth speed
 #define PLUGIN_141_ANIM5_SPEED 200		// party speed
 
-#define PLUGIN_141_BUTTONS_COUNT 24
 
 // #### Variables ########################################################################
 unsigned long plugin141_but_codes[]={		// IR remote buttons codes
@@ -238,19 +243,113 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 		case PLUGIN_WEBFORM_LOAD:
 		{
 
-			string += F("<TR><TD>GPIO:<TD>");
+			// type selector .............................
+			String options[17];
+			int optionValues[17];
 
-			string += F("<TR><TD>1st GPIO (R):<TD>");
-			addPinSelect(false, string, PLUGIN_141_CONF_0, Settings.TaskDevicePluginConfig[event->TaskIndex][0]);
+			byte i=0;
+
+			options[i] 			= F("-- Basic -----------------------");
+			optionValues[i++]	= 0;
+
+			options[i] 			= F("RGB");
+			optionValues[i++]	= 1;
+
+			options[i] 			= F("RGB + IR");
+			optionValues[i++]	= 2;
+
+			options[i]			= F("RGBW");
+			optionValues[i++]	= 3;
+
+			options[i]			= F("RGBW + IR");
+			optionValues[i++]	= 4;
+
+			options[i]			= F("RGBWW");
+			optionValues[i++]	= 5;
+
+			options[i]			= F("RGBWW + IR");
+			optionValues[i++]	= 6;
+
+			options[i] 			= F("-- Pixels : 1 pin  ------------");
+			optionValues[i++]	= 0;
+
+			options[i]			= F("NEOPIXEL");
+			optionValues[i++]	= 11;
+
+			options[i]			= F("TM1809 / TM1812");
+			optionValues[i++]	= 12;
+
+			options[i]			= F("WS2811");
+			optionValues[i++]	= 13;
+
+			options[i]			= F("WS2812 / WS2812B / WS2852");
+			optionValues[i++]	= 14;
+
+			options[i] 			= F("-- Pixels : 2 pins (SPI) -------");
+			optionValues[i++]	= 0;
+
+			options[i]			= F("SPI: APA102/DOTSTAR");
+			optionValues[i++]	= 31;
+
+			options[i]			= F("SPI: LPD8806");
+			optionValues[i++]	= 32;
+
+			options[i]			= F("SPI: P9813");
+			optionValues[i++]	= 33;
+
+			options[i]			= F("SPI: WS2801");
+			optionValues[i++]	= 34;
+
+
+			byte type = Settings.TaskDevicePluginConfig[event->TaskIndex][0];
+			addFormSelector(string, F("LedStrip Type"), PLUGIN_141_CONF_0, i , options, optionValues, NULL ,type, true );
+
+
+			// show options depending on type selected ..........
+			//led Strip
+			if( type> 0 && type <= 10 ){
+				addRowLabel(string, "GPIO Red");
+				addPinSelect(false, string, PLUGIN_141_CONF_1, Settings.TaskDevicePluginConfig[event->TaskIndex][1]);
 			
-			string += F("<TR><TD>2nd GPIO (G):<TD>");
-			addPinSelect(false, string, PLUGIN_141_CONF_1, Settings.TaskDevicePluginConfig[event->TaskIndex][1]);
+				addRowLabel(string, "GPIO Green");
+				addPinSelect(false, string, PLUGIN_141_CONF_2, Settings.TaskDevicePluginConfig[event->TaskIndex][2]);
 
-			string += F("<TR><TD>3rd GPIO (B):<TD>");
-			addPinSelect(false, string, PLUGIN_141_CONF_2, Settings.TaskDevicePluginConfig[event->TaskIndex][2]);
+				addRowLabel(string, "GPIO Blue");
+				addPinSelect(false, string, PLUGIN_141_CONF_3, Settings.TaskDevicePluginConfig[event->TaskIndex][3]);
 
-			string += F("<TR><TD>4th GPIO (W) optional:<TD>");
-			addPinSelect(false, string, PLUGIN_141_CONF_3, Settings.TaskDevicePluginConfig[event->TaskIndex][3]);
+				// RGBW
+				if( type ==3 || type == 4 ){
+					addRowLabel(string, "GPIO White 1");
+					addPinSelect(false, string, PLUGIN_141_CONF_4, Settings.TaskDevicePluginConfig[event->TaskIndex][4]);
+				}
+				
+				// RGBW
+				if( type ==5 || type == 6 ){
+					addRowLabel(string, "GPIO White 2");
+					addPinSelect(false, string, PLUGIN_141_CONF_5, Settings.TaskDevicePluginConfig[event->TaskIndex][5]);
+				}
+				
+				// has IR				
+				if( type ==2 || type == 4 || type == 6 ){
+					addRowLabel(string, "GPIO InfraRed");
+					addPinSelect(false, string, PLUGIN_141_CONF_6, Settings.TaskDevicePluginConfig[event->TaskIndex][6]);
+				}
+				addFormSeparator(string);
+				string += F("<TR><TD>H801 pins:</TD><TD>15, 13, 12, 14, 4 - normal<TD>");			
+				string += F("<TR><TD>MagicHome v1 pins:</TD><TD> 14, 5, 12, 13, IR=? - Invers<TD>");			
+				string += F("<TR><TD>MagicHome v2 pins:</TD><TD> 5, 12, 13, 15, IR=4 - Invers<TD>");			
+			}
+			else if( type > 10){
+				string += F("<TR><TD><b style='color:red'>NOT yet implemented</b><TD>");			
+				
+				if (type < 31){
+					addRowLabel(string, "GPIO Data");
+					addPinSelect(false, string, PLUGIN_141_CONF_1, Settings.TaskDevicePluginConfig[event->TaskIndex][1]);			
+				}
+				else if (type > 30){
+					string += F("<TR><TD>Use hardware SPI GPIOs<TD>");
+				}
+			}
 
 			success = true;
 			break;
@@ -262,11 +361,14 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
         	Settings.TaskDevicePluginConfig[event->TaskIndex][1] = getFormItemInt(F(PLUGIN_141_CONF_1));
         	Settings.TaskDevicePluginConfig[event->TaskIndex][2] = getFormItemInt(F(PLUGIN_141_CONF_2));
         	Settings.TaskDevicePluginConfig[event->TaskIndex][3] = getFormItemInt(F(PLUGIN_141_CONF_3));
+        	Settings.TaskDevicePluginConfig[event->TaskIndex][4] = getFormItemInt(F(PLUGIN_141_CONF_4));
+	        Settings.TaskDevicePluginConfig[event->TaskIndex][5] = getFormItemInt(F(PLUGIN_141_CONF_5));
+	        Settings.TaskDevicePluginConfig[event->TaskIndex][6] = getFormItemInt(F(PLUGIN_141_CONF_6));
 
 			// reset invalid pins
-			for (byte i=0; i<4; i++){
+			for (byte i=1; i <=6; i++){
 				if (Settings.TaskDevicePluginConfig[event->TaskIndex][i] >= PLUGIN_141_MAX_PINS){
-					Settings.TaskDevicePluginConfig[event->TaskIndex][i] = -1;
+					//Settings.TaskDevicePluginConfig[event->TaskIndex][i] = -1;
 				}
 			}
 
