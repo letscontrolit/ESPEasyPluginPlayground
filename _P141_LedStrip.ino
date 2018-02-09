@@ -5,33 +5,32 @@ https://github.com/ddtlabs/ESPEasy-Plugin-Lights/blob/master/_P123_LIGHTS.ino
 //#######################################################################################################
 //#################################### Plugin 141: LedStrip ############################################
 //#######################################################################################################
-	Origal Work by by Jochen Krapf (jk@nerd2nerd.org)
+
+	Copyright Francois Dechery 2017 - https://github.com/soif
+
 
 	List of commands:
-	(1) RGB,<red 0-255>,<green 0-255>,<blue 0-255>
-	(2) HSV,<hue 0-255>,<saturation 0-255>,<value/brightness 0-255>
-	(3) HUE,<hue 0-360>
-	(4) SAT,<saturation 0-100>
-	(5) VAL,<value/brightness 0-100>
-	(6) DIMM,<value/brightness 0-100>
-	(7) ON
-	(8) OFF
-	(9) CYCLE,<time 1-999>	time for full color hue circle; 0 to return to normal mode
+	* RGB,<red 0-255>,<green 0-255>,<blue 0-255>
+	* HSV,<hue 0-255>,<saturation 0-255>,<value/brightness 0-255>
+	* HUE,<hue 0-360>
+	* SAT,<saturation 0-100>
+	* VAL,<value/brightness 0-100>
+	* DIM,<value/brightness 0-100>
+	* ON
+	* OFF
+	* CYCLE,<time 1-999>	time for full color hue circle; 0 to return to normal mode
 
 	Usage:
-	(1): Set RGB Color to LED (eg. RGB,255,255,255)
+	(1): Set RGB Color to LED (eg. /control?cmd=RGB,255,255,255)
 
-	// #include <*.h>	- no external lib required
 
 	--- HUACANXING H801 ---------------------------------
 	RGBWW GPIO	: 15, 13, 12, 14, 4, NOT Inversed (REBOOT)
 	Led   GPIO	: 5, Inversed
 
+
 */
 
-//#pragma SPARK_NO_PREPROCESSOR
-//not required for FastLED since "application.h" gets included there already
-//but SPARK_NO_PREPROCESSOR usually requires to add this include
 //#define FASTLED_FORCE_SOFTWARE_SPI
 //#define FASTLED_ESP8266_RAW_PIN_ORDER
 #include <FastLED.h>
@@ -40,13 +39,7 @@ https://github.com/ddtlabs/ESPEasy-Plugin-Lights/blob/master/_P123_LIGHTS.ino
 #include <IRremoteESP8266.h>
 
 
-static float	plugin141_hsv_prev[3]	= {0,0,0};
-static float	plugin141_hsv_dest[3]	= {0,0,0};
-static float	plugin141_hsv_act[3]	= {0,0,0};
-static long		plugin141_ms_fade_begin	= 0;
-static long		plugin141_ms_fade_end	= 0;
 
-static float	plugin141_cycle			= 0;
 static int		plugin141_pins[4]		= {-1,-1,-1,-1};
 static int		plugin141_pin_inverse	= false;
 
@@ -109,6 +102,9 @@ static int		plugin141_pin_inverse	= false;
         #define IR_BUTTON_21 0xFF28D7 // "Green" 4
         #define IR_BUTTON_22 0xFFF00F // "Blue" 4
         #define IR_BUTTON_23 0xFF30CF // SMOOTH Mode
+
+
+#define ANIM_MODE_COUNT (2 + 5)
 
 
 #define ANIM_SPEED_STEP 20
@@ -301,16 +297,12 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 			*/
 			addLog(LOG_LEVEL_INFO, log);
 
-			//Plugin141_Output(plugin141_hsv_dest);
-
 			success = true;
 			break;
 		}
 
 		case PLUGIN_WRITE:
 		{
-			bool has_new_value = false;
-
 			String command = parseString(string, 1);
 
 			if (command == F("rgb"))	{
@@ -318,76 +310,58 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 				CHSV hsv = _rgbToHsv(rgb);
 				_setCurrentColor(hsv);
 				_setLedsHSV(hsv);
-				
-				has_new_value = true;
 			}
 
 			if (command == F("hsv"))	{
 				CHSV hsv = CHSV ( (int) event->Par1 , (int) event->Par2 , (int) event->Par3   );
-				//_cur_color.h= (int) event->Par1 ;
-				//_cur_color.s= (int) event->Par2 ;
-				//_cur_color.v= (int) event->Par3 ;
 				_setCurrentColor(hsv);
 				_setLedsHSV(hsv);
-
-				has_new_value = true;
 			}
 
 			if (command == F("hue"))	{
 				_cur_color.h = event->Par1 ;	 //Hue
 				_setCurrentColor(_cur_color);
 				_setLedsHSV(_cur_color);
-
-				has_new_value = true;
 			}
 
 			if (command == F("sat"))	{
 				_cur_color.s = event->Par1 ;	 //Saturation
 				_setCurrentColor(_cur_color);
 				_setLedsHSV(_cur_color);
-
-				has_new_value = true;
 			}
 
-			if (command == F("val") || command == F("dimm"))	{
+			if (command == F("val") || command == F("dim"))	{
 				_cur_color.v = event->Par1 ;	 //Value/Brightness
 				_setCurrentColor(_cur_color);
 				_setLedsHSV(_cur_color);
-
-				has_new_value = true;
 			}
 
 			if (command == F("off"))	{
-				_cur_color.v = 0;
-				_setCurrentColor(_cur_color);
-				_setCurrentMode(0);
-				_setLedsHSV(_cur_color);
-
-				has_new_value = true;
+				_CommandOff();
 			}
 
 			if (command == F("on"))	{
-				_cur_color.v;
-				_setCurrentColor(_cur_color);
-				_setCurrentMode(1);
-				_setLedsHSV(_cur_color);
-
-				has_new_value = true;
+				_CommandOn();
 			}
 
-			if (command == F("cycle"))	{
-				plugin141_cycle = event->Par1;		//seconds for a full color hue circle
-				if (plugin141_cycle > 0){
-					plugin141_cycle = (1.0 / 50.0) / plugin141_cycle;		//50Hz based increment value
+
+			if (command == F("mode"))	{
+				int mode = (int) event->Par1;
+				
+				if(mode == 0){
+					_CommandOff();
 				}
-				success = true;
+				else if(mode == 1){
+					_CommandOff();
+				}
+				else if(mode > 1 && mode <= ANIM_MODE_COUNT ){
+					int speed = (int) event->Par2;
+					_setCurrentMode(mode);
+				}
 			}
 
-			if (has_new_value)	{
+			success = true;
 
-				plugin141_cycle = 0;		//ends cycle loop
-				success = true;
-			}
 			break;
 		}
 
@@ -408,37 +382,6 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 		//case PLUGIN_TEN_PER_SECOND:
 		case PLUGIN_FIFTY_PER_SECOND:
 		{
-			// cyclic colors
-			if (plugin141_cycle > 0) {
-				plugin141_hsv_dest[0] += plugin141_cycle;
-				Plugin141_hsvCopy(plugin141_hsv_dest, plugin141_hsv_prev);
-				Plugin141_hsvCopy(plugin141_hsv_dest, plugin141_hsv_act);
-				Plugin141_Output(plugin141_hsv_dest);
-			}
-			//fading required?
-			else if (plugin141_ms_fade_end != 0) {
-				long millisAct = millis();
-
-				//destination reached?
-				if (millisAct >= plugin141_ms_fade_end) {
-					plugin141_ms_fade_begin = 0;
-					plugin141_ms_fade_end = 0;
-					Plugin141_hsvCopy(plugin141_hsv_dest, plugin141_hsv_prev);
-					Plugin141_hsvCopy(plugin141_hsv_dest, plugin141_hsv_act);
-				}
-				//just fading
-				else {
-					float fade = float(millisAct-plugin141_ms_fade_begin) / float(plugin141_ms_fade_end-plugin141_ms_fade_begin);
-					fade = Plugin141_ValueClamp(fade);
-					fade = Plugin141_ValueSmoothFadingOut(fade);
-
-					for (byte i=0; i<3; i++){
-						plugin141_hsv_act[i] = Plugin141_Mix(plugin141_hsv_prev[i], plugin141_hsv_dest[i], fade);
-					}
-				}
-
-				Plugin141_Output(plugin141_hsv_act);
-			}
 			success = true;
 			break;
 		}
@@ -446,6 +389,24 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 
 	return success;
 }
+
+// ---------------------------------------------------------------------------------------
+void _CommandOn(){
+	_cur_color.v=255;
+	_setCurrentColor(_cur_color);
+	_setCurrentMode(1);
+	_setLedsHSV(_cur_color);
+}
+
+// ---------------------------------------------------------------------------------------
+void _CommandOff(){
+	_cur_color.v = 0;
+	_setCurrentColor(_cur_color);
+	_setCurrentMode(0);
+	_setLedsHSV(_cur_color);
+}
+
+
 
 // ---------------------------------------------------------------------------------------
 void Plugin141_setLedsRGB( const CRGB& rgb)
@@ -458,7 +419,6 @@ void Plugin141_setLedsRGB( const CRGB& rgb)
 	else if(PLUGIN_141_STRIP_TYPE > 0){
 
 	}
-
 
 	if(_cur_anim_mode < 2){
 		String log = F(PLUGIN_141_LOGPREFIX);
@@ -505,201 +465,3 @@ void _setCurrentMode(byte mode){
 	_cur_anim_mode 		= mode;
 	//UserVar[event->BaseVarIndex + 3]= mode;	
 }
-
-
-
-
-
-
-
-
-
-
-
-
-/* ################################################################################### */
-
-
-
-
-
-// ---------------------------------------------------------------------------------------
-void Plugin141_Output(float* hsvIn) {
-	float hsvw[4];
-	float rgbw[4];
-
-	String log = F("LedStrip: RGBW ");
-
-	Plugin141_hsvCopy(hsvIn, hsvw);
-	Plugin141_hsvClamp(hsvw);
-
-	if (plugin141_pins[3] >= 0) {	//has white channel?
-		hsvw[3] = (1.0 - hsvw[1]) * hsvw[2];	 // w = (1-s)*v
-		hsvw[2] *= hsvw[1];		// v = s*v
-	}
-	else{
-		hsvw[3] = 0.0;	 // w = 0
-	}
-
-	//convert to RGB color space
-	Plugin141_hsv2rgb(hsvw, rgbw);
-	rgbw[3] = hsvw[3];
-
-	//reduce power for Plugin141_Mix colors
-	float cv = sqrt(rgbw[0]*rgbw[0] + rgbw[1]*rgbw[1] + rgbw[2]*rgbw[2]);
-	if (cv > 0.0)	{
-		cv = hsvw[2] / cv;
-		cv = Plugin141_Mix(1.0, cv, 0.42);
-		for (byte i=0; i<3; i++){
-			rgbw[i] *= cv;
-		}
-	}
-
-	int actRGBW[4];
-	static int lastRGBW[4] = {-1,-1,-1,-1};
-
-	//converting and corrections for each RGBW value
-	for (byte i=0; i<4; i++) {
-		int pin = plugin141_pins[i];
-		//log += pin;
-		//log += F("=");
-
-		if (pin >= 0) {	//pin assigned for RGBW value
-			rgbw[i] *= rgbw[i];		//simple gamma correction
-
-			actRGBW[i] = rgbw[i] * (PWMRANGE-2*PLUGIN_141_PWM_OFFSET) + PLUGIN_141_PWM_OFFSET + 0.5;
-			//if (actRGBW[i] > PWMRANGE)
-			//	actRGBW[i] = PWMRANGE;
-
-			log += String(actRGBW[i], DEC);
-			log += F(" ");
-		}
-		else	{
-			log += F("- ");
-		}
-	}
-
-	if (PLUGIN_141_PWM_OFFSET != 0 && actRGBW[0] == PLUGIN_141_PWM_OFFSET && actRGBW[1] == PLUGIN_141_PWM_OFFSET && actRGBW[2] == PLUGIN_141_PWM_OFFSET){
-		actRGBW[0] = actRGBW[1] = actRGBW[2] = 0;
-	}
-
-	//output to PWM
-	for (byte i=0; i<4; i++)	{
-		int pin = plugin141_pins[i];
-		if (pin >= 0)	{	//pin assigned for RGBW value
-			if (lastRGBW[i] != actRGBW[i])	{	 //has changed since last output?
-				lastRGBW[i] = actRGBW[i];
-
-				if (plugin141_pin_inverse) {	//low active or common annode LED?
-					actRGBW[i] = PWMRANGE - actRGBW[i];
-				}
-
-				analogWrite(pin, actRGBW[i]);
-				setPinState(PLUGIN_ID_141, pin, PIN_MODE_PWM, actRGBW[i]);
-
-				log += F("~");
-			}
-			else{
-				log += F(".");
-			}
-		}
-	}
-
-	addLog(LOG_LEVEL_DEBUG, log);
-}
-
-// HSV->RGB conversion based on GLSL version
-// expects hsv channels defined in 0.0 .. 1.0 interval
-float Plugin141_Fract(float x) {
-	return x - int(x);
-}
-
-float Plugin141_Mix(float a, float b, float t) {
-	return a + (b - a) * t;
-}
-
-float Plugin141_Step(float e, float x) {
-	return x < e ? 0.0 : 1.0;
-}
-
-float* Plugin141_hsv2rgb(const float* hsv, float* rgb)	{
-	rgb[0] = hsv[2] * Plugin141_Mix(1.0, constrain(abs(Plugin141_Fract(hsv[0] + 1.0) * 6.0 - 3.0) - 1.0, 0.0, 1.0), hsv[1]);
-	rgb[1] = hsv[2] * Plugin141_Mix(1.0, constrain(abs(Plugin141_Fract(hsv[0] + 0.6666666) * 6.0 - 3.0) - 1.0, 0.0, 1.0), hsv[1]);
-	rgb[2] = hsv[2] * Plugin141_Mix(1.0, constrain(abs(Plugin141_Fract(hsv[0] + 0.3333333) * 6.0 - 3.0) - 1.0, 0.0, 1.0), hsv[1]);
-	return rgb;
-}
-
-float* Plugin141_rgb2hsv(const float* rgb, float* hsv)	{
-	float s = Plugin141_Step(rgb[2], rgb[1]);
-	float px = Plugin141_Mix(rgb[2], rgb[1], s);
-	float py = Plugin141_Mix(rgb[1], rgb[2], s);
-	float pz = Plugin141_Mix(-1.0, 0.0, s);
-	float pw = Plugin141_Mix(0.6666666, -0.3333333, s);
-	s = Plugin141_Step(px, rgb[0]);
-	float qx = Plugin141_Mix(px, rgb[0], s);
-	float qz = Plugin141_Mix(pw, pz, s);
-	float qw = Plugin141_Mix(rgb[0], px, s);
-	float d = qx - std::min(qw, py);
-	hsv[0] = abs(qz + (qw - py) / (6.0 * d + 1e-10));
-	hsv[1] = d / (qx + 1e-10);
-	hsv[2] = qx;
-	return hsv;
-}
-
-//see http://codeitdown.com/hsl-hsb-hsv-color/
-float* Plugin141_hsl2hsv(const float* hsl, float* hsv){
-	float B = ( 2.0*hsl[2] + hsl[1] * (1.0-(2.0*hsl[2]-1.0)) ) / 2.0;		// B = ( 2L+Shsl(1-|2L-1|) ) / 2
-	float S = (B!=0) ? 2.0*(B-hsl[2]) / B : 0.0;	 // S = 2(B-L) / B
-	hsv[0] = hsl[0];
-	hsv[1] = S;
-	hsv[2] = B;
-	return hsv;
-}
-
-float* Plugin141_hsvCopy(const float* hsvSrc, float* hsvDst)	{
-	for (byte i=0; i<3; i++){
-		hsvDst[i] = hsvSrc[i];
-	}
-	return hsvDst;
-}
-
-float* Plugin141_hsvClamp(float* hsv)	{
-	while (hsv[0] > 1.0) {
-		hsv[0] -= 1.0;
-	}
-	while (hsv[0] < 0.0) {
-		hsv[0] += 1.0;
-	}
-
-	for (byte i=1; i<3; i++) {
-		if (hsv[i] < 0.0) {
-			hsv[i] = 0.0;
-		}
-		if (hsv[i] > 1.0) {
-			hsv[i] = 1.0;
-		}
-	}
-	return hsv;
-}
-
-float Plugin141_ValueClamp(float v) {
-	if (v < 0.0) {
-		v = 0.0;
-	}
-	if (v > 1.0) {
-		v = 1.0;
-	}
-	return v;
-}
-
-float Plugin141_ValueSmoothFadingOut(float v) {
-	v = Plugin141_ValueClamp(v);
-	v = 1.0-v;	 //smooth fading out
-	v *= v;
-	v = 1.0-v;
-	return v;
-}
-
-
-
-
