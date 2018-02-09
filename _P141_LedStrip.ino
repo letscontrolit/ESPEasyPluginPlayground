@@ -18,10 +18,6 @@ https://github.com/ddtlabs/ESPEasy-Plugin-Lights/blob/master/_P123_LIGHTS.ino
 	* DIM,<value/brightness 0-100>
 	* ON
 	* OFF
-	* CYCLE,<time 1-999>	time for full color hue circle; 0 to return to normal mode
-
-	Usage:
-	(1): Set RGB Color to LED (eg. /control?cmd=RGB,255,255,255)
 
 
 	--- HUACANXING H801 ---------------------------------
@@ -183,7 +179,6 @@ boolean 		_cur_anim_dir	  		= true;
 unsigned long	_cur_anim_speed 		= 1000;
 unsigned long	_anim_last_update 		= millis();
 unsigned long	_last_ir_button			= 0;
-unsigned long	_last_status_led_time	= 0;
 
 IRrecv _ir_recv(LIGHT_IR_PIN); 		//IRrecv _ir_recv(IR_PIN, IR_LED_PIN); dont work. Why ?
 decode_results _ir_results;
@@ -307,33 +302,33 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 
 			if (command == F("rgb"))	{
 				CRGB rgb = CRGB( (int) event->Par1 , (int) event->Par2 , (int) event->Par3 );
-				CHSV hsv = _rgbToHsv(rgb);
-				_setCurrentColor(hsv);
-				_setLedsHSV(hsv);
+				CHSV hsv = Plugin141_RgbToHSV(rgb);
+				Plugin141_SetCurrentColor(hsv);
+				Plugin141_OutputHSV(hsv);
 			}
 
 			if (command == F("hsv"))	{
 				CHSV hsv = CHSV ( (int) event->Par1 , (int) event->Par2 , (int) event->Par3   );
-				_setCurrentColor(hsv);
-				_setLedsHSV(hsv);
+				Plugin141_SetCurrentColor(hsv);
+				Plugin141_OutputHSV(hsv);
 			}
 
 			if (command == F("hue"))	{
 				_cur_color.h = event->Par1 ;	 //Hue
-				_setCurrentColor(_cur_color);
-				_setLedsHSV(_cur_color);
+				Plugin141_SetCurrentColor(_cur_color);
+				Plugin141_OutputHSV(_cur_color);
 			}
 
 			if (command == F("sat"))	{
 				_cur_color.s = event->Par1 ;	 //Saturation
-				_setCurrentColor(_cur_color);
-				_setLedsHSV(_cur_color);
+				Plugin141_SetCurrentColor(_cur_color);
+				Plugin141_OutputHSV(_cur_color);
 			}
 
 			if (command == F("val") || command == F("dim"))	{
 				_cur_color.v = event->Par1 ;	 //Value/Brightness
-				_setCurrentColor(_cur_color);
-				_setLedsHSV(_cur_color);
+				Plugin141_SetCurrentColor(_cur_color);
+				Plugin141_OutputHSV(_cur_color);
 			}
 
 			if (command == F("off"))	{
@@ -354,9 +349,9 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 				else if(mode == 1){
 					_CommandOff();
 				}
-				else if(mode > 1 && mode <= ANIM_MODE_COUNT ){
+				else if(mode > 1 && mode < ANIM_MODE_COUNT ){
 					int speed = (int) event->Par2;
-					_setCurrentMode(mode);
+					Plugin141_SetCurrentMode(mode);
 				}
 			}
 
@@ -393,23 +388,23 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 // ---------------------------------------------------------------------------------------
 void _CommandOn(){
 	_cur_color.v=255;
-	_setCurrentColor(_cur_color);
-	_setCurrentMode(1);
-	_setLedsHSV(_cur_color);
+	Plugin141_SetCurrentColor(_cur_color);
+	Plugin141_SetCurrentMode(1);
+	Plugin141_OutputHSV(_cur_color);
 }
 
 // ---------------------------------------------------------------------------------------
 void _CommandOff(){
 	_cur_color.v = 0;
-	_setCurrentColor(_cur_color);
-	_setCurrentMode(0);
-	_setLedsHSV(_cur_color);
+	Plugin141_SetCurrentColor(_cur_color);
+	Plugin141_SetCurrentMode(0);
+	Plugin141_OutputHSV(_cur_color);
 }
 
 
 
 // ---------------------------------------------------------------------------------------
-void Plugin141_setLedsRGB( const CRGB& rgb)
+void Plugin141_OutputRGB( const CRGB& rgb)
 {
 	if(PLUGIN_141_STRIP_TYPE == 0 ){
 		analogWrite(plugin141_pins[0], plugin141_pin_inverse ? (PWMRANGE - rgb.r)  : rgb.r);
@@ -431,7 +426,7 @@ void Plugin141_setLedsRGB( const CRGB& rgb)
 }
 
 // ---------------------------------------------------------------------------------------
-void _setLedsHSV(CHSV hsv){
+void Plugin141_OutputHSV(CHSV hsv){
 	if(_cur_anim_mode < 2){
 		String log = F(PLUGIN_141_LOGPREFIX);
 		log += F("HSV = ");
@@ -440,16 +435,16 @@ void _setLedsHSV(CHSV hsv){
 		log += hsv.v;
 		addLog(LOG_LEVEL_DEBUG, log);
 	}
-	Plugin141_setLedsRGB( CHSV(hsv) );
+	Plugin141_OutputRGB( CHSV(hsv) );
 }
 // ---------------------------------------------------------------------------------------
-CHSV _rgbToHsv(CRGB rgb){
+CHSV Plugin141_RgbToHSV(CRGB rgb){
      return rgb2hsv_approximate(rgb);
 }
 
 
 // ---------------------------------------------------------------------------------------
-void _setCurrentColor(CHSV hsv){
+void Plugin141_SetCurrentColor(CHSV hsv){
 	_cur_color 		= hsv;
 	_cur_anim_color = hsv;
 	
@@ -461,7 +456,7 @@ void _setCurrentColor(CHSV hsv){
 }
 
 // ---------------------------------------------------------------------------------------
-void _setCurrentMode(byte mode){
+void Plugin141_SetCurrentMode(byte mode){
 	_cur_anim_mode 		= mode;
 	//UserVar[event->BaseVarIndex + 3]= mode;	
 }
