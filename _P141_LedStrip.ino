@@ -20,7 +20,7 @@ https://github.com/ddtlabs/ESPEasy-Plugin-Lights/blob/master/_P123_LIGHTS.ino
 	* DIM,<value/brightness 0-100>
 	* HEXRGB,<RGB HEX COLOR > ie FF0000 for red
 	* HEXHSV,<HSV HEX COLOR > ie 00FFFF for red
-	* SPEED,<0-10000>
+	* SPEED,<0-65535> Fast to slow
 	* MODE,<mode 0-6>,<Speed 1-255>	time for full color hue circle;
 		Available  Modes:
 		- 0 : same as OFF
@@ -428,7 +428,6 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 		{
 			String command = parseString(string, 1);
 
-
 			if (command == F("off"))	{
 				Plugin141_CommandOff();
 			}
@@ -474,7 +473,6 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 
 			if (command == F("hexrgb"))	{
 				String color = parseString(string, 2);
-				//color.toUpperCase();
 				plugin141_cur_color = Plugin141_RgbToHSV(_charToRgb( color.c_str() ));
 				Plugin141_SetCurrentColor(plugin141_cur_color);
 				Plugin141_OutputCurrentColor();
@@ -483,12 +481,12 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 
 			if (command == F("hexhsv"))	{
 				String color = parseString(string, 2);
-				//color.toUpperCase();
 				plugin141_cur_color = _charToHsv( color.c_str() );
 				Plugin141_SetCurrentColor(plugin141_cur_color);
 				Plugin141_OutputCurrentColor();
 				String log = F(PLUGIN_141_LOGPREFIX); log += F("HEXHSV="); log += color; addLog(LOG_LEVEL_DEBUG, log);
 			}
+
 
 			if (command == F("mode"))	{
 				byte mode = event->Par1;
@@ -577,7 +575,6 @@ void Plugin141_processAnimation(byte mode, boolean init, boolean is_button, int 
 	else if(mode==6){Plugin141_AnimParty(init, speed);}
 	else{
 		//invalid mode
-		Plugin141_CommandOff();
 	}
 
 }
@@ -783,10 +780,6 @@ void Plugin141_SetCurrentMode(byte mode){
 	plugin141_cur_anim_mode 		= mode;
 	//UserVar[event->BaseVarIndex + 3]= mode;	
 }
-
-
-
-
 
 // ---------------------------------------------------------------------------------------
 CRGB _charToRgb(const char * rgb) {
