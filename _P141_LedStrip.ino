@@ -9,12 +9,12 @@ https://github.com/ddtlabs/ESPEasy-Plugin-Lights/blob/master/_P123_LIGHTS.ino
 
 	List of commands:
 	(1) RGB,<red 0-255>,<green 0-255>,<blue 0-255>
-	(2) HSV,<hue 0-360>,<saturation 0-100>,<value/brightness 0-100>
-	(3) HSL,<hue 0-360>,<saturation 0-100>,<lightness 0-100>
-	(4) HUE,<hue 0-360>
-	(5) SAT,<saturation 0-100>
-	(6) VAL,<value/brightness 0-100>
-	(7) DIMM,<value/brightness 0-100>
+	(2) HSV,<hue 0-255>,<saturation 0-255>,<value/brightness 0-255>
+	(3) HUE,<hue 0-360>
+	(4) SAT,<saturation 0-100>
+	(5) VAL,<value/brightness 0-100>
+	(6) DIMM,<value/brightness 0-100>
+	(7) ON
 	(8) OFF
 	(9) CYCLE,<time 1-999>	time for full color hue circle; 0 to return to normal mode
 
@@ -28,6 +28,17 @@ https://github.com/ddtlabs/ESPEasy-Plugin-Lights/blob/master/_P123_LIGHTS.ino
 	Led   GPIO	: 5, Inversed
 
 */
+
+//#pragma SPARK_NO_PREPROCESSOR
+//not required for FastLED since "application.h" gets included there already
+//but SPARK_NO_PREPROCESSOR usually requires to add this include
+//#define FASTLED_FORCE_SOFTWARE_SPI
+//#define FASTLED_ESP8266_RAW_PIN_ORDER
+#include <FastLED.h>
+//FASTLED_USING_NAMESPACE ;
+
+#include <IRremoteESP8266.h>
+
 
 static float	plugin141_hsv_prev[3]	= {0,0,0};
 static float	plugin141_hsv_dest[3]	= {0,0,0};
@@ -52,23 +63,145 @@ static int		plugin141_pin_inverse	= false;
 #define PLUGIN_141_VALUENAME_0	"Hue"
 #define PLUGIN_141_VALUENAME_1	"Sat"
 #define PLUGIN_141_VALUENAME_2	"Val"
-#define PLUGIN_141_VALUENAME_3	"State"
+#define PLUGIN_141_VALUENAME_3	"Mode"
 
 #define PLUGIN_141_MS_FADE_TIME	1500
 
-#define PLUGIN_141_PWM_OFFSET 	0		
+#define PLUGIN_141_PWM_OFFSET 	0
 // ESP-PWM has flickering problems with values <6 and >1017. If problem is fixed in ESP libs the define can be set to 0 (or code removed)
 // see https://github.com/esp8266/Arduino/issues/836		https://github.com/SmingHub/Sming/issues/70		https://github.com/espruino/Espruino/issues/914
 
 
-boolean Plugin_141 (byte function, struct EventStruct *event, String& string) 
+#define PLUGIN_141_STRIP_TYPE	0
+#define PLUGIN_141_LOGPREFIX	"LedStrip1: "
+
+
+
+// #### Defined ##########################################################################
+    #define LIGHT_IR_PIN        4    // IR LED
+
+        #define IR_BUTTON_0  0xFF906F // Brightness +
+        #define IR_BUTTON_1  0xFFB847 // Brightness -
+        #define IR_BUTTON_2  0xFFF807 // OFF
+        #define IR_BUTTON_3  0xFFB04F // ON
+
+        #define IR_BUTTON_4  0xFF9867 // RED
+        #define IR_BUTTON_5  0xFFD827 // GREEN
+        #define IR_BUTTON_6  0xFF8877 // BLUE
+        #define IR_BUTTON_7  0xFFA857 // WHITE
+
+        #define IR_BUTTON_8  0xFFE817 // "Red" 1
+        #define IR_BUTTON_9  0xFF48B7 // "Green" 1
+        #define IR_BUTTON_10 0xFF6897 // "Blue" 1
+        #define IR_BUTTON_11 0xFFB24D // FLASH Mode
+
+        #define IR_BUTTON_12 0xFF02FD // "Red" 2
+        #define IR_BUTTON_13 0xFF32CD // "Green" 2
+        #define IR_BUTTON_14 0xFF20DF // "Blue" 2
+        #define IR_BUTTON_15 0xFF00FF // STROBE Mode
+
+        #define IR_BUTTON_16 0xFF50AF // "Red" 3
+        #define IR_BUTTON_17 0xFF7887 // "Green" 3
+        #define IR_BUTTON_18 0xFF708F // "Blue" 3
+        #define IR_BUTTON_19 0xFF58A7 // FADE Mode
+
+        #define IR_BUTTON_20 0xFF38C7 // "Red" 4
+        #define IR_BUTTON_21 0xFF28D7 // "Green" 4
+        #define IR_BUTTON_22 0xFFF00F // "Blue" 4
+        #define IR_BUTTON_23 0xFF30CF // SMOOTH Mode
+
+
+#define ANIM_SPEED_STEP 20
+#define ANIM1_SPEED 350			// flash ON Variable
+#define ANIM1_PAUSE 200			// flash OFF fixed
+#define ANIM2_SPEED 550			// strobe OFF variable
+#define ANIM2_PAUSE 150			// storbe ON fixed
+#define ANIM3_SPEED 100			// fade speed
+#define ANIM4_SPEED 700			// smooth speed
+#define ANIM5_SPEED 200			// party speed
+
+#define BUTTONS_COUNT 24
+
+// #### Variables ########################################################################
+unsigned long r_but_codes[]={		// IR remote buttons codes
+	IR_BUTTON_0  , //	Brightness +
+	IR_BUTTON_1  , //	Brightness -
+	IR_BUTTON_2  , //	OFF
+	IR_BUTTON_3  , //	ON
+	IR_BUTTON_4  , //	Red
+	IR_BUTTON_5  , //	Green
+	IR_BUTTON_6  , //	Blue
+	IR_BUTTON_7  , //	White
+	IR_BUTTON_8  , //	R1
+	IR_BUTTON_9  , //	G1
+	IR_BUTTON_10 , //	B1
+	IR_BUTTON_11 , //	Flash
+	IR_BUTTON_12 , //	R2
+	IR_BUTTON_13 , //	G2
+	IR_BUTTON_14 , //	B2
+	IR_BUTTON_15 , //	Strobe
+	IR_BUTTON_16 , //	R3
+	IR_BUTTON_17 , //	G3
+	IR_BUTTON_18 , //	B3
+	IR_BUTTON_19 , //	Fade
+	IR_BUTTON_20 , //	R4
+	IR_BUTTON_21 , //	G4
+	IR_BUTTON_22 , //	B4
+	IR_BUTTON_23	//	Smooth
+};
+
+unsigned long r_but_colors[]={	// IR remote buttons colors
+	0,			//	Brightness +
+	0,			//	Brightness -
+	0,			//	OFF
+	0,			//	ON
+	0xFF0000,	//	Red
+	0x00FF00,	//	Green
+	0x0000FF,	//	Blue
+	0xFFFFFF,	//	White
+	0xD13A01,	//	R1
+	0x00E644,	//	G1
+	0x0040A7,	//	B1
+	0,			//	Flash
+	0xE96F2A,	//	R2
+	0x00BEBF,	//	G2
+	0x56406F,	//	B2
+	0,			//	Strobe
+	0xEE9819,	//	R3
+	0x00799A,	//	G3
+	0x944E80,	//	B3
+	0,			//	Fade
+	0xFFFF00,	//	R4
+	0x0060A1,	//	G4
+	0xEF45AD,	//	B4
+	0			//	Smooth
+};
+
+// variables declarations ###############################################################
+CHSV 			_cur_color				= CHSV(0,255,255);
+CHSV 			_cur_anim_color			= CHSV(0,0,0);
+byte 			_cur_status  			= 0 ;
+byte 			_cur_anim_mode  		= 0 ;
+byte 			_cur_anim_step  		= 0;
+boolean 		_cur_anim_dir	  		= true;
+unsigned long	_cur_anim_speed 		= 1000;
+unsigned long	_anim_last_update 		= millis();
+unsigned long	_last_ir_button			= 0;
+unsigned long	_last_status_led_time	= 0;
+
+IRrecv _ir_recv(LIGHT_IR_PIN); 		//IRrecv _ir_recv(IR_PIN, IR_LED_PIN); dont work. Why ?
+decode_results _ir_results;
+
+
+
+boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 {
 
 	boolean success = false;
 
 	switch (function) {
 
-		case PLUGIN_DEVICE_ADD: 
+		case PLUGIN_DEVICE_ADD:
 		{
 			Device[++deviceCount].Number		= PLUGIN_ID_141;
 			Device[deviceCount].Type			= DEVICE_TYPE_DUMMY;						// Nothing else really fit the bill ...
@@ -85,13 +218,13 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 			break;
 		}
 
-		case PLUGIN_GET_DEVICENAME: 
+		case PLUGIN_GET_DEVICENAME:
 		{
 			string = F(PLUGIN_NAME_141);
 			break;
 		}
 
-		case PLUGIN_GET_DEVICEVALUENAMES: 
+		case PLUGIN_GET_DEVICEVALUENAMES:
 		{
 			strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_141_VALUENAME_0));
 			strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[1], PSTR(PLUGIN_141_VALUENAME_1));
@@ -100,18 +233,20 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 			break;
 		}
 
-		case PLUGIN_WEBFORM_LOAD: 
+		case PLUGIN_WEBFORM_LOAD:
 		{
-			// char tmpString[128]; // Unused ???
 
 			string += F("<TR><TD>GPIO:<TD>");
 
 			string += F("<TR><TD>1st GPIO (R):<TD>");
 			addPinSelect(false, string, PLUGIN_141_CONF_0, Settings.TaskDevicePluginConfig[event->TaskIndex][0]);
+			
 			string += F("<TR><TD>2nd GPIO (G):<TD>");
 			addPinSelect(false, string, PLUGIN_141_CONF_1, Settings.TaskDevicePluginConfig[event->TaskIndex][1]);
+
 			string += F("<TR><TD>3rd GPIO (B):<TD>");
 			addPinSelect(false, string, PLUGIN_141_CONF_2, Settings.TaskDevicePluginConfig[event->TaskIndex][2]);
+
 			string += F("<TR><TD>4th GPIO (W) optional:<TD>");
 			addPinSelect(false, string, PLUGIN_141_CONF_3, Settings.TaskDevicePluginConfig[event->TaskIndex][3]);
 
@@ -119,13 +254,13 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 			break;
 		}
 
-		case PLUGIN_WEBFORM_SAVE:	
+		case PLUGIN_WEBFORM_SAVE:
 		{
         	Settings.TaskDevicePluginConfig[event->TaskIndex][0] = getFormItemInt(F(PLUGIN_141_CONF_0));
         	Settings.TaskDevicePluginConfig[event->TaskIndex][1] = getFormItemInt(F(PLUGIN_141_CONF_1));
         	Settings.TaskDevicePluginConfig[event->TaskIndex][2] = getFormItemInt(F(PLUGIN_141_CONF_2));
         	Settings.TaskDevicePluginConfig[event->TaskIndex][3] = getFormItemInt(F(PLUGIN_141_CONF_3));
-			
+
 			// reset invalid pins
 			for (byte i=0; i<4; i++){
 				if (Settings.TaskDevicePluginConfig[event->TaskIndex][i] >= PLUGIN_141_MAX_PINS){
@@ -137,13 +272,16 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 			break;
 		}
 
-		case PLUGIN_INIT:	
+		case PLUGIN_INIT:
 		{
 			analogWriteFreq(400);
 
 			// assign pins
-			String log = F("LedStrip: Pins ");
-			for (byte i=0; i<4; i++)	{
+			
+			String log = F(PLUGIN_141_LOGPREFIX);
+			log += F("Pins ");
+			
+			for (byte i=0; i<3; i++)	{
 				int pin = Settings.TaskDevicePluginConfig[event->TaskIndex][i];
 				plugin141_pins[i] = pin;
 				if (pin >= 0){
@@ -152,7 +290,7 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 				log += pin;
 				log += F(" ");
 			}
-
+			/*
 			plugin141_pin_inverse = Settings.TaskDevicePin1Inversed[event->TaskIndex];
 			if(plugin141_pin_inverse){
 				log += F("INVERT");
@@ -160,9 +298,10 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 			else{
 				log += F("NORM");
 			}
+			*/
 			addLog(LOG_LEVEL_INFO, log);
 
-			Plugin141_Output(plugin141_hsv_dest);
+			//Plugin141_Output(plugin141_hsv_dest);
 
 			success = true;
 			break;
@@ -175,48 +314,64 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 			String command = parseString(string, 1);
 
 			if (command == F("rgb"))	{
-				float rgb[3];
-				rgb[0] = event->Par1 / 255.0;		//R
-				rgb[1] = event->Par2 / 255.0;		//G
-				rgb[2] = event->Par3 / 255.0;		//B
-				Plugin141_hsvClamp(rgb);
-				Plugin141_rgb2hsv(rgb, plugin141_hsv_dest);
+				CRGB rgb = CRGB( (int) event->Par1 , (int) event->Par2 , (int) event->Par3 );
+				CHSV hsv = _rgbToHsv(rgb);
+				_setCurrentColor(hsv);
+				_setLedsHSV(hsv);
+				
 				has_new_value = true;
 			}
 
 			if (command == F("hsv"))	{
-				plugin141_hsv_dest[0] = event->Par1 / 360.0;	 //Hue
-				plugin141_hsv_dest[1] = event->Par2 / 100.0;	 //Saturation
-				plugin141_hsv_dest[2] = event->Par3 / 100.0;	 //Value/Brightness
-				has_new_value = true;
-			}
+				CHSV hsv = CHSV ( (int) event->Par1 , (int) event->Par2 , (int) event->Par3   );
+				//_cur_color.h= (int) event->Par1 ;
+				//_cur_color.s= (int) event->Par2 ;
+				//_cur_color.v= (int) event->Par3 ;
+				_setCurrentColor(hsv);
+				_setLedsHSV(hsv);
 
-			if (command == F("hsl"))	{
-				float hsl[3];
-				hsl[0] = event->Par1 / 360.0;		//Hue
-				hsl[1] = event->Par2 / 100.0;		//Saturation
-				hsl[2] = event->Par3 / 100.0;		//Lightness
-				Plugin141_hsl2hsv(hsl, plugin141_hsv_dest);
 				has_new_value = true;
 			}
 
 			if (command == F("hue"))	{
-				plugin141_hsv_dest[0] = event->Par1 / 360.0;	 //Hue
+				_cur_color.h = event->Par1 ;	 //Hue
+				_setCurrentColor(_cur_color);
+				_setLedsHSV(_cur_color);
+
 				has_new_value = true;
 			}
 
 			if (command == F("sat"))	{
-				plugin141_hsv_dest[1] = event->Par1 / 100.0;	 //Saturation
+				_cur_color.s = event->Par1 ;	 //Saturation
+				_setCurrentColor(_cur_color);
+				_setLedsHSV(_cur_color);
+
 				has_new_value = true;
 			}
 
 			if (command == F("val") || command == F("dimm"))	{
-				plugin141_hsv_dest[2] = event->Par1 / 100.0;	 //Value/Brightness
+				_cur_color.v = event->Par1 ;	 //Value/Brightness
+				_setCurrentColor(_cur_color);
+				_setLedsHSV(_cur_color);
+
 				has_new_value = true;
 			}
 
 			if (command == F("off"))	{
-				plugin141_hsv_dest[2] = 0.0;	 //Value/Brightness
+				_cur_color.v = 0;
+				_setCurrentColor(_cur_color);
+				_setCurrentMode(0);
+				_setLedsHSV(_cur_color);
+
+				has_new_value = true;
+			}
+
+			if (command == F("on"))	{
+				_cur_color.v;
+				_setCurrentColor(_cur_color);
+				_setCurrentMode(1);
+				_setLedsHSV(_cur_color);
+
 				has_new_value = true;
 			}
 
@@ -229,32 +384,6 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 			}
 
 			if (has_new_value)	{
-				Plugin141_hsvClamp(plugin141_hsv_dest);
-				Plugin141_hsvClamp(plugin141_hsv_prev);
-
-				if (plugin141_ms_fade_begin!=0) {	//still fading?
-					for (byte i=0; i<3; i++) {
-						plugin141_hsv_prev[i] = plugin141_hsv_act[i];
-					}
-				}	
-
-				//get the shortest way around the color circle
-				if ((plugin141_hsv_dest[0]-plugin141_hsv_prev[0]) > 0.5) {
-					plugin141_hsv_prev[0] += 1.0;
-				}
-				if ((plugin141_hsv_dest[0]-plugin141_hsv_prev[0]) < -0.5) {
-					plugin141_hsv_prev[0] -= 1.0;
-				}
-
-				plugin141_ms_fade_begin = millis();
-				plugin141_ms_fade_end = plugin141_ms_fade_begin + PLUGIN_141_MS_FADE_TIME;
-
-				String log = F("LedStrip: hsv ");
-				for (byte i=0; i<3; i++) {
-					log += toString(plugin141_hsv_dest[i], 3);
-					log += F(" ");
-				}
-				addLog(LOG_LEVEL_INFO, log);
 
 				plugin141_cycle = 0;		//ends cycle loop
 				success = true;
@@ -262,17 +391,22 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 			break;
 		}
 
-		case PLUGIN_READ:	
+		case PLUGIN_READ:
 		{
-			UserVar[event->BaseVarIndex + 0] = plugin141_hsv_dest[0] * 360.0;
-			UserVar[event->BaseVarIndex + 1] = plugin141_hsv_dest[1] * 100.0;
-			UserVar[event->BaseVarIndex + 2] = plugin141_hsv_dest[2] * 100.0;
+			String log = F(PLUGIN_141_LOGPREFIX);
+			log += F("PLUGIN_READ !!!!");
+			addLog(LOG_LEVEL_INFO, log);
+
+			UserVar[event->BaseVarIndex + 0] = (int) _cur_color.h;
+			UserVar[event->BaseVarIndex + 1] = (int) _cur_color.s;
+			UserVar[event->BaseVarIndex + 2] = (int) _cur_color.v;
+			UserVar[event->BaseVarIndex + 3] = (int) _cur_anim_mode;
 			success = true;
 			break;
 		}
 
 		//case PLUGIN_TEN_PER_SECOND:
-		case PLUGIN_FIFTY_PER_SECOND:	
+		case PLUGIN_FIFTY_PER_SECOND:
 		{
 			// cyclic colors
 			if (plugin141_cycle > 0) {
@@ -282,18 +416,18 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 				Plugin141_Output(plugin141_hsv_dest);
 			}
 			//fading required?
-			else if (plugin141_ms_fade_end != 0) {		
+			else if (plugin141_ms_fade_end != 0) {
 				long millisAct = millis();
 
 				//destination reached?
-				if (millisAct >= plugin141_ms_fade_end) {	
+				if (millisAct >= plugin141_ms_fade_end) {
 					plugin141_ms_fade_begin = 0;
 					plugin141_ms_fade_end = 0;
 					Plugin141_hsvCopy(plugin141_hsv_dest, plugin141_hsv_prev);
 					Plugin141_hsvCopy(plugin141_hsv_dest, plugin141_hsv_act);
 				}
 				//just fading
-				else {	
+				else {
 					float fade = float(millisAct-plugin141_ms_fade_begin) / float(plugin141_ms_fade_end-plugin141_ms_fade_begin);
 					fade = Plugin141_ValueClamp(fade);
 					fade = Plugin141_ValueSmoothFadingOut(fade);
@@ -313,6 +447,83 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 	return success;
 }
 
+// ---------------------------------------------------------------------------------------
+void Plugin141_setLedsRGB( const CRGB& rgb)
+{
+	if(PLUGIN_141_STRIP_TYPE == 0 ){
+		analogWrite(plugin141_pins[0], plugin141_pin_inverse ? (PWMRANGE - rgb.r)  : rgb.r);
+		analogWrite(plugin141_pins[1], plugin141_pin_inverse ? (PWMRANGE - rgb.g)  : rgb.g);
+		analogWrite(plugin141_pins[2], plugin141_pin_inverse ? (PWMRANGE - rgb.b)  : rgb.b);
+	}
+	else if(PLUGIN_141_STRIP_TYPE > 0){
+
+	}
+
+
+	if(_cur_anim_mode < 2){
+		String log = F(PLUGIN_141_LOGPREFIX);
+		log += F("RGB = ");
+		log += rgb.r;	log += F(",");
+		log += rgb.g;	log += F(",");
+		log += rgb.b;
+		addLog(LOG_LEVEL_DEBUG, log);
+	}
+}
+
+// ---------------------------------------------------------------------------------------
+void _setLedsHSV(CHSV hsv){
+	if(_cur_anim_mode < 2){
+		String log = F(PLUGIN_141_LOGPREFIX);
+		log += F("HSV = ");
+		log += hsv.h;	log += F(",");
+		log += hsv.s;	log += F(",");
+		log += hsv.v;
+		addLog(LOG_LEVEL_DEBUG, log);
+	}
+	Plugin141_setLedsRGB( CHSV(hsv) );
+}
+// ---------------------------------------------------------------------------------------
+CHSV _rgbToHsv(CRGB rgb){
+     return rgb2hsv_approximate(rgb);
+}
+
+
+// ---------------------------------------------------------------------------------------
+void _setCurrentColor(CHSV hsv){
+	_cur_color 		= hsv;
+	_cur_anim_color = hsv;
+	
+	// save to web
+	//UserVar[event->BaseVarIndex + 0]= _cur_color.h;
+	//UserVar[event->BaseVarIndex + 1]= _cur_color.s;
+	//UserVar[event->BaseVarIndex + 2]= _cur_color.v;
+	
+}
+
+// ---------------------------------------------------------------------------------------
+void _setCurrentMode(byte mode){
+	_cur_anim_mode 		= mode;
+	//UserVar[event->BaseVarIndex + 3]= mode;	
+}
+
+
+
+
+
+
+
+
+
+
+
+
+/* ################################################################################### */
+
+
+
+
+
+// ---------------------------------------------------------------------------------------
 void Plugin141_Output(float* hsvIn) {
 	float hsvw[4];
 	float rgbw[4];
@@ -352,7 +563,7 @@ void Plugin141_Output(float* hsvIn) {
 		int pin = plugin141_pins[i];
 		//log += pin;
 		//log += F("=");
-		
+
 		if (pin >= 0) {	//pin assigned for RGBW value
 			rgbw[i] *= rgbw[i];		//simple gamma correction
 
@@ -389,7 +600,7 @@ void Plugin141_Output(float* hsvIn) {
 				log += F("~");
 			}
 			else{
-				log += F(".");				
+				log += F(".");
 			}
 		}
 	}
@@ -399,16 +610,16 @@ void Plugin141_Output(float* hsvIn) {
 
 // HSV->RGB conversion based on GLSL version
 // expects hsv channels defined in 0.0 .. 1.0 interval
-float Plugin141_Fract(float x) { 
-	return x - int(x); 
+float Plugin141_Fract(float x) {
+	return x - int(x);
 }
 
-float Plugin141_Mix(float a, float b, float t) { 
-	return a + (b - a) * t; 
+float Plugin141_Mix(float a, float b, float t) {
+	return a + (b - a) * t;
 }
 
-float Plugin141_Step(float e, float x) { 
-	return x < e ? 0.0 : 1.0; 
+float Plugin141_Step(float e, float x) {
+	return x < e ? 0.0 : 1.0;
 }
 
 float* Plugin141_hsv2rgb(const float* hsv, float* rgb)	{
@@ -457,12 +668,12 @@ float* Plugin141_hsvClamp(float* hsv)	{
 		hsv[0] -= 1.0;
 	}
 	while (hsv[0] < 0.0) {
-		hsv[0] += 1.0;		
+		hsv[0] += 1.0;
 	}
 
 	for (byte i=1; i<3; i++) {
 		if (hsv[i] < 0.0) {
-			hsv[i] = 0.0;			
+			hsv[i] = 0.0;
 		}
 		if (hsv[i] > 1.0) {
 			hsv[i] = 1.0;
@@ -488,3 +699,7 @@ float Plugin141_ValueSmoothFadingOut(float v) {
 	v = 1.0-v;
 	return v;
 }
+
+
+
+
