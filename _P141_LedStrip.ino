@@ -9,9 +9,8 @@ Features :
 	- RGB or HSV commands
 	- Various Animations mode
 	- [TODO] Supports Infra-Red Remotes
-	- Smooth Dimming (thanks to FastLED lib)
+	- Smooth Diming (thanks to FastLED lib)
 	- Rainbow color map (thanks to FastLED lib)
-	- Gamma Correction (thanks to FastLED lib)
 
 Installation :
 	- Add the FastLED library in the 'src/lib/' folder from https://github.com/FastLED/FastLED/tree/3.1.8
