@@ -513,6 +513,12 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 					Fp141_ProcessAnimation(mode, true, false, event->Par2, event->Par3, event->Par4, event->Par5);
 				}
 			}
+			
+			//store current value
+			UserVar[event->BaseVarIndex + 0] = (int) v_p141_cur_color.h;
+			UserVar[event->BaseVarIndex + 1] = (int) v_p141_cur_color.s;
+			UserVar[event->BaseVarIndex + 2] = (int) v_p141_cur_color.v;
+			UserVar[event->BaseVarIndex + 3] = (int) v_p141_cur_anim_mode;
 
 			success = true;
 			break;
@@ -521,10 +527,7 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 		case PLUGIN_READ:
 		{
 			//String log = F(PLUGIN_141_LOGPREFIX); log += F("PLUGIN_READ !!!!"); addLog(LOG_LEVEL_INFO, log);
-			UserVar[event->BaseVarIndex + 0] = (int) v_p141_cur_color.h;
-			UserVar[event->BaseVarIndex + 1] = (int) v_p141_cur_color.s;
-			UserVar[event->BaseVarIndex + 2] = (int) v_p141_cur_color.v;
-			UserVar[event->BaseVarIndex + 3] = (int) v_p141_cur_anim_mode;
+
 			success = true;
 			break;
 		}
@@ -763,16 +766,11 @@ CHSV Fp141_RgbToHSV(CRGB rgb){
 void Fp141_SetCurrentColor(CHSV hsv){
 	v_p141_cur_color		= hsv;
 	v_p141_cur_anim_color	= hsv;
-	
-	//UserVar[event->BaseVarIndex + 0]= v_p141_cur_color.h;
-	//UserVar[event->BaseVarIndex + 1]= v_p141_cur_color.s;
-	//UserVar[event->BaseVarIndex + 2]= v_p141_cur_color.v;	
 }
 
 // ---------------------------------------------------------------------------------------
 void Fp141_SetCurrentMode(byte mode){
 	v_p141_cur_anim_mode 				= mode;
-	//UserVar[event->BaseVarIndex + 3]	= mode;	
 }
 
 // ---------------------------------------------------------------------------------------
