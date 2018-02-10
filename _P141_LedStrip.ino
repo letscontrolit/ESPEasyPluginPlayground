@@ -9,6 +9,9 @@ Features :
 	- RGB or HSV commands
 	- Various Animations mode
 	- [TODO] Supports Infra-Red Remotes
+	- Smooth Dimming (thanks to FastLED lib)
+	- Rainbow color map (thanks to FastLED lib)
+	- Gamma Correction (thanks to FastLED lib)
 
 Installation :
 	- Add the FastLED library in the 'src/lib/' folder from https://github.com/FastLED/FastLED/tree/3.1.8
@@ -29,13 +32,13 @@ List of commands :
 	- SPEED,<0-65535> Fast to slow
 	- MODE,<mode 0-6>,<Speed 1-255>	time for full color hue circle;
 		Available  Modes:
-		* 0 : OFF
-		* 1 : ON
-		* 2 : Flash
-		* 3 : Strobe
-		* 4 : Fade
-		* 5 : Smooth
-		* 6 : Party 
+			* 0 : OFF
+			* 1 : ON
+			* 2 : Flash
+			* 3 : Strobe
+			* 4 : Fade
+			* 5 : Smooth
+			* 6 : Party 
 
 Command Examples :
 	-  /control?cmd=ON					Turn Leds On
@@ -44,6 +47,15 @@ Command Examples :
 	-  /control?cmd=HSV,0,255,255		Set Leds to Red
 	-  /control?cmd=Mode,2				Animate Leds in "Flash" mode
 	-  /control?cmd=Mode,5,400			Animate Leds in "Smooth" mode, with a speed of 400
+
+Recommended Hardware :
+	Works out of the box on theses cheap hackable chinese devices :
+	- Huacanxing H801
+		Product: https://www.google.fr/search?q=Huacanxing+H801&tbm=isch 
+		Flash  : http://tinkerman.cat/closer-look-h801-led-wifi-controller/	
+	- Magic Home	
+		Product: https://www.google.fr/search?q=magic+home+led+controller&tbm=isch 
+		Flash  : https://github.com/xoseperez/espurna/wiki/Hardware#magic-home-led-controller
 
 ------------------------------------------------------------------------------------------
 	Copyright Francois Dechery 2017 - https://github.com/soif/
@@ -335,13 +347,13 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 				addPinSelect(false, string, PLUGIN_141_CONF_3, Settings.TaskDevicePluginConfig[event->TaskIndex][3]);
 
 				// RGBW
-				if( type ==3 || type == 4 ){
+				if( type >=3 ){
 					addRowLabel(string, "GPIO White 1");
 					addPinSelect(false, string, PLUGIN_141_CONF_4, Settings.TaskDevicePluginConfig[event->TaskIndex][4]);
 				}
 				
-				// RGBW
-				if( type ==5 || type == 6 ){
+				// RGBWW
+				if( type >=5 ){
 					addRowLabel(string, "GPIO White 2");
 					addPinSelect(false, string, PLUGIN_141_CONF_5, Settings.TaskDevicePluginConfig[event->TaskIndex][5]);
 				}
@@ -353,9 +365,9 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 				}
 
 				addFormSeparator(string);
-				string += F("<TR><TD>H801 pins:</TD><TD>15, 13, 12, 14, 4 - normal<TD>");			
-				string += F("<TR><TD>MagicHome v1 pins:</TD><TD> 14, 5, 12, 13, IR=? - Invers<TD>");			
-				string += F("<TR><TD>MagicHome v2 pins:</TD><TD> 5, 12, 13, 15, IR=4 - Invers<TD>");			
+				string += F("<TR><TD>Huacanxing H801 pins:</TD><TD>15, 13, 12, 14, 4 - normal<TD>");			
+				string += F("<TR><TD>Magic Home v1.0 pins:</TD><TD>14,  5, 12, 13, IR=? - Invers<TD>");			
+				string += F("<TR><TD>Magic Home v2.0 pins:</TD><TD> 5, 12, 13, 15, IR=4 - Invers<TD>");			
 			}
 			else if( type >= PLUGIN_141_FIRST_TYPE_PIX ){
 				string += F("<TR><TD><b style='color:red'>NOT yet implemented</b><TD>");			
