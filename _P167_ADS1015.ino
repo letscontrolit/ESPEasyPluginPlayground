@@ -167,6 +167,9 @@ boolean Plugin_167(byte function, struct EventStruct *event, String& string)
       {
 
         int16_t value = 0;
+        int16_t value2 = 0;
+        int16_t value3 = 0;
+        int16_t valueref = 0;
 
         String log = F("ADS1015 : ");
         if (Plugin_167_muxes[4] > 0) { // only start if at least one analog pin selected
@@ -188,38 +191,153 @@ boolean Plugin_167(byte function, struct EventStruct *event, String& string)
           } else { // multiple channels selected
 
             if (Plugin_167_muxes[1] == 1) { // mux1 in list
-              value = Plugin_167_ads.readADC_SingleEnded(1);  // fetch AIN1 as reference
-              UserVar[event->BaseVarIndex + 1] = (float)value;
+              valueref = Plugin_167_ads.readADC_SingleEnded(1);  // fetch AIN1 as reference
+              log += F(" A1=");
+              log += valueref;
               if (Plugin_167_muxes[0] == 1) {
-                UserVar[event->BaseVarIndex] = UserVar[event->BaseVarIndex + 1] + Plugin_167_ads.readADC_Differential_0_1();
+                value = Plugin_167_ads.readADC_Differential_0_1(); // calc diff
+                log += F(" A0-A1=");
+                log += value;
+                value2 = Plugin_167_ads.readADC_SingleEnded(0);    // fetch AIN0
+                log += F(" A0=");
+                log += value2;
+                if (valueref == 0) {    // if reference corrupt avoid
+                  if (value2 != 0) {
+                    valueref = value2 - value; // recalc from AIN0
+                  } else {
+                    valueref = UserVar[event->BaseVarIndex + 1]; // worst case=use prev
+                  }
+                } else {
+                  if ((value2 != 0) && (valueref != value2) && (valueref > 0) && (abs(valueref - value2 + value) < (valueref / 5)) ) { // if ain1 and ain0 is valid, calc avg
+                    valueref = (float)((valueref + value2 - value) / 2);
+                  }
+                }
+                if (abs(valueref - value2 + value) < (valueref / 5)) {
+                  UserVar[event->BaseVarIndex] = valueref + value;
+                } else {
+                  UserVar[event->BaseVarIndex] = value2;
+                }
+                log += F(" A1=");
+                log += valueref;
+                log += F(" A0=");
+                log += UserVar[event->BaseVarIndex];
               }
               if (Plugin_167_muxes[3] == 1) {
-                UserVar[event->BaseVarIndex + 3] = UserVar[event->BaseVarIndex + 1] - Plugin_167_ads.readADC_Differential_1_3();
+                value = Plugin_167_ads.readADC_Differential_1_3(); // calc diff
+                log += F(" A1-A3=");
+                log += value;
+                value3 = Plugin_167_ads.readADC_SingleEnded(3);    // fetch AIN3
+                log += F(" A3=");
+                log += value3;
+
+                if (valueref == 0) {    // if reference corrupt avoid
+                  if (value3 != 0) {
+                    valueref = value3 + value; // recalc from AIN3
+                  } else {
+                    valueref = UserVar[event->BaseVarIndex + 1]; // worst case=use prev
+                  }
+                } else {
+                  if ((value3 != 0) && (valueref != value3) && (valueref > 0) && (abs(valueref - value3 - value) < (valueref / 5)) ) { // if ain1 and ain3 is valid, calc avg
+                    valueref = (float)((valueref + value3 + value) / 2);
+                  }
+                }
+                if (abs(valueref - value3 - value) < (valueref / 5)) {
+                  UserVar[event->BaseVarIndex + 3] = valueref - value;
+                } else {
+                  UserVar[event->BaseVarIndex + 3] = value3;
+                }
+                log += F(" A1=");
+                log += valueref;
+                log += F(" A3=");
+                log += UserVar[event->BaseVarIndex + 3];
               }
               if (Plugin_167_muxes[2] == 1) {
                 value = Plugin_167_ads.readADC_SingleEnded(2);
                 UserVar[event->BaseVarIndex + 2] = (float)value;
+                log += F(" A2=");
+                log += UserVar[event->BaseVarIndex + 2];
               }
+              UserVar[event->BaseVarIndex + 1] = (float)valueref;
               value = Plugin_167_ads.readADC_SingleEnded(1);  // fetch AIN1 to memory - last reading sometime arrives in the next read cycle as result for any channel
             } else { // mux1 not in list
 
               if (Plugin_167_muxes[3] == 1) { // mux3 in list
-                value = Plugin_167_ads.readADC_SingleEnded(3);  // fetch AIN3 as reference
-                UserVar[event->BaseVarIndex + 3] = (float)value;
+                valueref = Plugin_167_ads.readADC_SingleEnded(3);  // fetch AIN3 as reference
+                log += F(" A3=");
+                log += valueref;
                 if (Plugin_167_muxes[0] == 1) {
-                  UserVar[event->BaseVarIndex] = UserVar[event->BaseVarIndex + 3] + Plugin_167_ads.readADC_Differential_0_3();
+                  value = Plugin_167_ads.readADC_Differential_0_3(); // calc diff
+                  value2 = Plugin_167_ads.readADC_SingleEnded(0);    // fetch AIN0
+                  log += F(" A0-A3=");
+                  log += value;
+                  log += F(" A0=");
+                  log += value2;
+
+                  if (valueref == 0) {    // if reference corrupt avoid
+                    if (value2 != 0) {
+                      valueref = value2 - value; // recalc from AIN0
+                    } else {
+                      valueref = UserVar[event->BaseVarIndex + 3]; // worst case=use prev
+                    }
+                  } else {
+                    if ((value2 != 0) && (valueref != value2) && (valueref > 0) && (abs(valueref - value2 + value) < (valueref / 5)) ) { // if ain3 and ain0 is valid, calc avg
+                      valueref = (float)((valueref + value2 - value) / 2);
+                    }
+                  }
+                  if (abs(valueref - value2 + value) < (valueref / 5)) {
+                    UserVar[event->BaseVarIndex] = valueref + value;
+                  } else {
+                    UserVar[event->BaseVarIndex] = value2;
+                  }
+                  log += F(" A3=");
+                  log += valueref;
+                  log += F(" A0=");
+                  log += UserVar[event->BaseVarIndex];
                 }
                 if (Plugin_167_muxes[2] == 1) {
-                  UserVar[event->BaseVarIndex + 2] = UserVar[event->BaseVarIndex + 3] + Plugin_167_ads.readADC_Differential_2_3();
+                  value = Plugin_167_ads.readADC_Differential_2_3(); // calc diff
+                  value2 = Plugin_167_ads.readADC_SingleEnded(2);    // fetch AIN2
+                  log += F(" A2-A3=");
+                  log += value;
+                  log += F(" A2=");
+                  log += value2;
+
+                  if (valueref == 0) {    // if reference corrupt avoid
+                    if (value2 != 0) {
+                      valueref = value2 - value; // recalc from AIN2
+                    } else {
+                      valueref = UserVar[event->BaseVarIndex + 3]; // worst case=use prev
+                    }
+                  } else {
+                    if ((value2 != 0) && (valueref != value2) && (valueref > 0) && (abs(valueref - value2 + value) < (valueref / 5)) ) { // if ain3 and ain2 is valid, calc avg
+                      valueref = (float)((valueref + value2 - value) / 2);
+                    }
+                  }
+
+                  if (abs(valueref - value2 + value) < (valueref / 5)) {
+                    UserVar[event->BaseVarIndex + 2] = valueref + value;
+                  } else {
+                    UserVar[event->BaseVarIndex + 2] = value2;
+                  }
+                  log += F(" A3=");
+                  log += valueref;
+                  log += F(" A2=");
+                  log += UserVar[event->BaseVarIndex + 2];
+
                 }
+                UserVar[event->BaseVarIndex + 3] = (float)valueref;
                 value = Plugin_167_ads.readADC_SingleEnded(3);  // fetch AIN3 to memory
               } else { // end of mux3
 
                 if (Plugin_167_muxes[0] == 1) { // mux0 in list
                   value = Plugin_167_ads.readADC_SingleEnded(0);  // fetch AIN0 as reference
                   UserVar[event->BaseVarIndex] = (float)value;
+                  log += F(" A0=");
+                  log += value;
                   value = Plugin_167_ads.readADC_SingleEnded(2);
                   UserVar[event->BaseVarIndex + 2] = (float)value;
+                  log += F(" A2=");
+                  log += value;
                   value = Plugin_167_ads.readADC_SingleEnded(0);  // fetch AIN0 to memory
                 }
               } // end of not mux3
@@ -227,7 +345,7 @@ boolean Plugin_167(byte function, struct EventStruct *event, String& string)
           }
         }
 
-        addLog(LOG_LEVEL_DEBUG, log);
+        addLog(LOG_LEVEL_INFO, log);
         success = true;
         break;
       }
