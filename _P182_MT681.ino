@@ -1,15 +1,15 @@
 //#######################################################################################################
-//################ Plugin 98:ISKRA  MT681 smart meter									################### 
+//################ Plugin 182:ISKRA  MT681 smart meter									################### 
 //#######################################################################################################
 
-#ifdef PLUGIN_BUILD_TESTING
+//#ifdef PLUGIN_BUILD_TESTING
 
 #define PLUGIN_182
 #define PLUGIN_ID_182         182
 #define PLUGIN_NAME_182       "MT681 [TESTING]"
-#define PLUGIN_VALUENAME1_182 "PowerBuy"
-#define PLUGIN_VALUENAME2_182 "PowerSell"
-#define PLUGIN_VALUENAME3_182 "CurrentPower"
+#define PLUGIN_VALUENAME1_182 "StromEinspeisung"
+#define PLUGIN_VALUENAME2_182 "StromBezug"
+#define PLUGIN_VALUENAME3_182 "WirkleistungTotal"
 #include "Wire.h"
 
 //==============================================
@@ -35,7 +35,7 @@ public:
 	unsigned int readSML();
 	double currentPower; // aktuelle Wirkleistung. negativ=Einspeisung
 	double SellCounterTotal; // EinspeisezÃ¤hler 281
-	double BuyCounterTotal; // BezugszÃ¤hler 181   
+	double BuyCounterTotal; // BezugszÃ¤hler 181  void emptyBuffers();
 	void emptyBuffers();
 private:
 	unsigned char FrameStart[8] = { 0x1b, 0x1b, 0x1b, 0x1b, 0x01, 0x01, 0x01, 0x01 };
@@ -217,7 +217,15 @@ unsigned int  MT681::checkCRC(unsigned int frameEnd) {
 }
 
 void MT681::emptyBuffers() {
-	while (Serial.available())  Serial.read();
+  delay(1);
+  uint32_t timeout=millis();
+	while (Serial.available()) {
+	  Serial.read();
+    if (timeOutReached(timeout+200)) {
+      delay(1); 
+      timeout=millis();
+    }
+	}
 	bufferPtr = 0; // empty RX Software buffer
 	RState = WAITFORBEGIN;
 	addLog(LOG_LEVEL_DEBUG, "eB");
@@ -228,6 +236,7 @@ void MT681::emptyBuffers() {
 unsigned int MT681::readSML() {
 	//Serial.print("*"); 
 	//Serial.println(Serial.available());
+  uint32_t timeout=millis(); 
 	if (!Serial.available()) return(0);  // nothing to receive
 	if (Serial.available() > 990) {      // hardware buffer overflow -
 		Serial.println("!");
@@ -237,6 +246,10 @@ unsigned int MT681::readSML() {
 
 
 	while (Serial.available()) {
+    if (timeOutReached(timeout+200)){  // feed wdt
+      timeout=millis(); 
+      delay(1);
+    }
 		buffer[bufferPtr++] = Serial.read();
 		switch (RState) {
 		case WAITFORBEGIN:
@@ -293,7 +306,7 @@ unsigned int MT681::readSML() {
 #endif
 
 MT681*  Plugin_182_MT681 = NULL;
-
+ 
 
 //==============================================
 // PLUGIN
@@ -301,12 +314,12 @@ MT681*  Plugin_182_MT681 = NULL;
 
 boolean Plugin_182(byte function, struct EventStruct *event, String& string) {
 	boolean success = false;
-
+// uint32_t MT681startDelay=0;
 	switch (function)
 	{
 	case PLUGIN_TEN_PER_SECOND:
 	{
-		Plugin_182_MT681->readSML();
+ 		Plugin_182_MT681->readSML();
 		break;
 	}
 
@@ -346,26 +359,34 @@ boolean Plugin_182(byte function, struct EventStruct *event, String& string) {
 
 	case PLUGIN_WEBFORM_LOAD:
 	{
+    addFormCheckBox(string, F("swap serial"), F("plugin_182_swapSerial"), Settings.TaskDevicePluginConfig[event->TaskIndex][0]);
+    if (Settings.UseSerial) addHtmlError(F("please disable Enable Serial Port in tools/advanced"));
 		success = true;
 		break;
 	}
 
 	case PLUGIN_WEBFORM_SAVE:
 	{
+    Settings.TaskDevicePluginConfig[event->TaskIndex][0] = isFormItemChecked(F("plugin_182_swapSerial"));
 		success = true;
 		break;
 	}
 
 	case PLUGIN_INIT:
 	{
-		if (!Settings.UseSerial)
+  LoadTaskSettings(event->TaskIndex);
+	if (!Settings.UseSerial)
 		{
 
 #ifndef ARDUINO_ESP8266_RELEASE_2_3_0
-			Serial.setRxBufferSize(750);
+     Serial.setRxBufferSize(750);
 #endif
-			Serial.flush();
-			Serial.begin(9600, SERIAL_8N1, (SerialMode)SERIAL_RX_ONLY);
+ 
+     Serial.begin(9600, SERIAL_8N1, (SerialMode)SERIAL_RX_ONLY);
+     swapSerial(Settings.TaskDevicePluginConfig[event->TaskIndex][0]);
+     String tmp =  ExtraTaskSettings.TaskDeviceName;
+     tmp = "/"+tmp;
+     WebServer.on(tmp, handle_phtm);
 		}
 		if (Plugin_182_MT681)
 			delete Plugin_182_MT681;
@@ -391,6 +412,26 @@ boolean Plugin_182(byte function, struct EventStruct *event, String& string) {
 	return success;
 }
 
-#endif // testing
+void handle_phtm(void){
+  TXBuffer.startStream();
+  TXBuffer+=F("<html><head><script>function setColor(){  var currentPower =");
+  TXBuffer+=(int16_t)Plugin_182_MT681->currentPower;//[MT681#WirkleistungTotal]
+  TXBuffer+=F(";  if (currentPower >0){");
+  TXBuffer+=F("  document.getElementById(\"value\").style.color=\"red\";  }  document.getElementById(\"value\").innerHTML=currentPower;}</script>");
+  TXBuffer+=F("<title>Leistung</title><meta http-equiv=\"refresh\" content=\"1; \"></head><body bgcolor=\"#000000\" onload=\"setColor()\">");
+  TXBuffer+=F("<div id=\"value\" style=\"font-size:20em; font-family:Arial; color:green\"></div>\"</body></html>");
+  TXBuffer.endStream();
+}
 
+//#endif // testing
+
+boolean serialIsSwapped=false; 
+void swapSerial(boolean state)
+{
+    Serial.flush();
+    if (state != serialIsSwapped) 
+      Serial.swap();
+
+    serialIsSwapped = state;
+}
 
