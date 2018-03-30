@@ -7,9 +7,9 @@
 #define PLUGIN_182
 #define PLUGIN_ID_182         182
 #define PLUGIN_NAME_182       "MT681 [TESTING]"
-#define PLUGIN_VALUENAME1_182 "StromEinspeisung"
-#define PLUGIN_VALUENAME2_182 "StromBezug"
-#define PLUGIN_VALUENAME3_182 "WirkleistungTotal"
+#define PLUGIN_VALUENAME1_182 "StromEinspeisung" // sold energy
+#define PLUGIN_VALUENAME2_182 "StromBezug"       // bought energy
+#define PLUGIN_VALUENAME3_182 "WirkleistungTotal" // current power
 #include "Wire.h"
 
 //==============================================
@@ -35,7 +35,7 @@ public:
 	unsigned int readSML();
 	double currentPower; // aktuelle Wirkleistung. negativ=Einspeisung
 	double SellCounterTotal; // EinspeisezÃ¤hler 281
-	double BuyCounterTotal; // BezugszÃ¤hler 181  void emptyBuffers();
+	double BuyCounterTotal; // BezugszÃ¤hler 181   
 	void emptyBuffers();
 private:
 	unsigned char FrameStart[8] = { 0x1b, 0x1b, 0x1b, 0x1b, 0x01, 0x01, 0x01, 0x01 };
