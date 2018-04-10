@@ -19,7 +19,36 @@
 
 
 
+//to not scare the cat of sudden motor movements
+//attack and sustain in mS
+void ramped_pulse(byte pin, unsigned long attack, unsigned long sustain)
+{
 
+    //attack
+    unsigned long start_time=millis();
+    while (millis()-start_time < attack)
+    {
+      analogWrite(pin, ((millis()-start_time) * PWMRANGE /attack ) );
+      yield();
+    }
+
+    //sustain
+    analogWrite(pin, PWMRANGE);
+    // digitalWrite(pin, HIGH);
+    delay(sustain);
+
+    //releaase
+    start_time=millis();
+    while (millis()-start_time < attack)
+    {
+      analogWrite(pin, PWMRANGE-(((millis()-start_time) * PWMRANGE / attack) ));
+      yield();
+    }
+
+    //make sure its really off
+    analogWrite(pin, 0);
+    // digitalWrite(pin, LOW);
+}
 
 boolean Plugin_203(byte function, struct EventStruct *event, String& string)
 {
@@ -82,6 +111,7 @@ boolean Plugin_203(byte function, struct EventStruct *event, String& string)
       pinMode(Settings.TaskDevicePin1[event->TaskIndex],OUTPUT);
       pinMode(Settings.TaskDevicePin2[event->TaskIndex],OUTPUT);
       pinMode(Settings.TaskDevicePin3[event->TaskIndex],OUTPUT);
+      // analogWriteFreq(30000);
       digitalWrite(Settings.TaskDevicePin1[event->TaskIndex], LOW); //disable
       success = true;
       break;
@@ -99,24 +129,27 @@ boolean Plugin_203(byte function, struct EventStruct *event, String& string)
         for(int i=0; i<event->Par1; i++)
         {
           //forward
-          digitalWrite(Settings.TaskDevicePin1[event->TaskIndex], HIGH); //enable
+          // digitalWrite(Settings.TaskDevicePin1[event->TaskIndex], HIGH); //enable
           digitalWrite(Settings.TaskDevicePin2[event->TaskIndex], HIGH);
           digitalWrite(Settings.TaskDevicePin3[event->TaskIndex], LOW);
-          delay(CONFIG(0));
+
+          ramped_pulse(Settings.TaskDevicePin1[event->TaskIndex], 1000, CONFIG(0));
+          // delay(CONFIG(0));
 
           //pause
-          digitalWrite(Settings.TaskDevicePin1[event->TaskIndex], LOW); //disable
-          delay(100);
+          // digitalWrite(Settings.TaskDevicePin1[event->TaskIndex], LOW); //disable
+          // delay(100);
 
           //reverse
-          digitalWrite(Settings.TaskDevicePin1[event->TaskIndex], HIGH); //enable
+          // digitalWrite(Settings.TaskDevicePin1[event->TaskIndex], HIGH); //enable
           digitalWrite(Settings.TaskDevicePin2[event->TaskIndex], LOW);
           digitalWrite(Settings.TaskDevicePin3[event->TaskIndex], HIGH);
-          delay(CONFIG(1));
+          ramped_pulse(Settings.TaskDevicePin1[event->TaskIndex], 1000, CONFIG(1));
+          // delay(CONFIG(1));
 
           //pause
-          digitalWrite(Settings.TaskDevicePin1[event->TaskIndex], LOW); //disable
-          delay(100);
+          // digitalWrite(Settings.TaskDevicePin1[event->TaskIndex], LOW); //disable
+          // delay(100);
 
         }
 
