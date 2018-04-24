@@ -6,7 +6,7 @@
  * Copyright 2017
  * Written by Rossen Tchobanski (rosko@rosko.net)
  * BSD license, all text above must be included in any redistribution
- * 
+ *
  * Release notes:
    Adafruit_BME680 Library v1.0.5 required (https://github.com/adafruit/Adafruit_BME680/tree/1.0.5)
 /******************************************************************************/
@@ -14,7 +14,7 @@
 
 //#ifdef PLUGIN_BUILD_DEV
 //#ifdef PLUGIN_BUILD_TESTING
- 
+
 #include <Wire.h>
 #include <SPI.h>
 #include <Adafruit_Sensor.h>
@@ -90,11 +90,11 @@ boolean Plugin_119(byte function, struct EventStruct *event, String& string)
         options[1] = F("0x77 - alternate settings (SDO HIGH)");
         */
         int optionValues[2] = { 0x77, 0x76 };
-        addFormSelectorI2C(string, F("plugin_119_BME680_i2c"), 2, optionValues, choice);
-        addFormNote(string, F("SDO Low=0x76, High=0x77"));
+        addFormSelectorI2C(F("plugin_119_BME680_i2c"), 2, optionValues, choice);
+        addFormNote(F("SDO Low=0x76, High=0x77"));
 
-        addFormNumericBox(string, F("Altitude"), F("plugin_119_BME680_elev"), Settings.TaskDevicePluginConfig[event->TaskIndex][1]);
-        addUnit(string, F("m"));
+        addFormNumericBox(F("Altitude"), F("plugin_119_BME680_elev"), Settings.TaskDevicePluginConfig[event->TaskIndex][1]);
+        addUnit(F("m"));
 
         success = true;
         break;
@@ -110,13 +110,13 @@ boolean Plugin_119(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_READ:
       {
-        
+
 
 
         if (!Plugin_119_init)
         {
             addLog(LOG_LEVEL_INFO, F("BME680  : init"));
-          
+
             Plugin_119_init = bme.begin();
 
             // Set up oversampling and filter initialization
@@ -124,7 +124,7 @@ boolean Plugin_119(byte function, struct EventStruct *event, String& string)
             bme.setHumidityOversampling(BME680_OS_2X);
             bme.setPressureOversampling(BME680_OS_4X);
             bme.setIIRFilterSize(BME680_FILTER_SIZE_3);
-            bme.setGasHeater(320, 150); // 320*C for 150 ms        
+            bme.setGasHeater(320, 150); // 320*C for 150 ms
 
             success = true;
             break;
@@ -142,7 +142,7 @@ boolean Plugin_119(byte function, struct EventStruct *event, String& string)
             UserVar[event->BaseVarIndex + 1] = bme.humidity;
             UserVar[event->BaseVarIndex + 2] = bme.pressure / 100.0;
             UserVar[event->BaseVarIndex + 3] = bme.gas_resistance / 1000.0;
-            
+
         }
 
         success = true;
@@ -154,5 +154,3 @@ boolean Plugin_119(byte function, struct EventStruct *event, String& string)
 }
 
 //#endif
-
-
