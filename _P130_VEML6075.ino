@@ -1,3 +1,4 @@
+#ifdef USES_P130
 //#######################################################################################################
 //########################### Plugin 130 VEML6075 I2C UVA/UVB Sensor      ###############################
 //#######################################################################################################
@@ -5,7 +6,6 @@
 //#######################################################################################################
 
 
-#ifdef PLUGIN_BUILD_TESTING
 
 
 #define PLUGIN_130
@@ -98,8 +98,8 @@ boolean Plugin_130(byte function, struct EventStruct *event, String& string)
       {
         byte choice = Settings.TaskDevicePluginConfig[event->TaskIndex][0];
         int optionValues[2] = { 0x10, 0x11 };
-        addFormSelectorI2C(string, F("plugin_130_veml6075_i2c"), 2, optionValues, choice);
-        addFormNote(string, F("SDO Low=0x10, High=0x11"));
+        addFormSelectorI2C(F("plugin_130_veml6075_i2c"), 2, optionValues, choice);
+        addFormNote(F("SDO Low=0x10, High=0x11"));
 
         byte choiceMode2 = Settings.TaskDevicePluginConfig[event->TaskIndex][1];
         String optionsMode2[5];
@@ -114,7 +114,7 @@ boolean Plugin_130(byte function, struct EventStruct *event, String& string)
         optionValuesMode2[2] = IT_200;
         optionValuesMode2[3] = IT_400;
         optionValuesMode2[4] = IT_800;
-        addFormSelector(string, F("Integration Time"), F("plugin_130_veml6075_it"), 5, optionsMode2, optionValuesMode2, choiceMode2);
+        addFormSelector(F("Integration Time"), F("plugin_130_veml6075_it"), 5, optionsMode2, optionValuesMode2, choiceMode2);
 
         byte choiceMode3 = Settings.TaskDevicePluginConfig[event->TaskIndex][2];
         String optionsMode3[2];
@@ -123,7 +123,7 @@ boolean Plugin_130(byte function, struct EventStruct *event, String& string)
         int optionValuesMode3[2];
         optionValuesMode3[0] = 0;
         optionValuesMode3[1] = 1;
-        addFormSelector(string, F("Dynamic Setting"), F("plugin_130_veml6075_hd"), 2, optionsMode3, optionValuesMode3, choiceMode3);
+        addFormSelector(F("Dynamic Setting"), F("plugin_130_veml6075_hd"), 2, optionsMode3, optionValuesMode3, choiceMode3);
 
         
 
