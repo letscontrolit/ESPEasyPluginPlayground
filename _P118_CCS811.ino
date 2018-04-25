@@ -1,3 +1,4 @@
+#ifdef USES_P118
 //#######################################################################################################
 //########################### Plugin 118: CCS811 Air Quality TVOC/eCO2 Sensor ###########################
 //#######################################################################################################
@@ -203,45 +204,46 @@ boolean Plugin_118(byte function, struct EventStruct * event, String & string)
             byte choice = Settings.TaskDevicePluginConfig[event->TaskIndex][0];
             String options[2] = {F("0x5A (ADDR pin is LOW)"), F("0x5B (ADDR pin is HIGH)")};
             int optionValues[2] = {0x5A, 0x5B};
-            addFormSelector(string, F("I2C Address"), F("plugin_118_i2c_address"), 2, options, optionValues, choice);
+            addFormSelector(F("I2C Address"), F("plugin_118_i2c_address"), 2, options, optionValues, choice);
 
             // read frequency
             int frequencyChoice = (int) Settings.TaskDevicePluginConfigLong[event->TaskIndex][0];
             String frequencyOptions[3] = {F("1 second"), F("10 seconds"), F("60 seconds")};
             int frequencyValues[3] = {1, 2, 3};
-            addFormSelector(string, F("Take reading every"), F("plugin_118_read_frequency"), 3, frequencyOptions, frequencyValues, frequencyChoice);
+            addFormSelector(F("Take reading every"), F("plugin_118_read_frequency"), 3, frequencyOptions, frequencyValues, frequencyChoice);
 
-            addFormSeparator(string);
+            addFormSeparator(2);
             // mode
-            addFormCheckBox(string, F("Enable temp/humid compensation"), F("plugin_118_enable_compensation"), Settings.TaskDevicePluginConfig[event->TaskIndex][1]);
-            addFormNote(string, F("If this is enabled, the Temperature and Humidity values below need to be configured."));
+            addFormCheckBox(F("Enable temp/humid compensation"), F("plugin_118_enable_compensation"), Settings.TaskDevicePluginConfig[event->TaskIndex][1]);
+            addFormNote(F("If this is enabled, the Temperature and Humidity values below need to be configured."));
 
             // temperature
-            string += F("<TR><TD>Temperature:<TD>");
-            addTaskSelect(string, F("plugin_118_temperature_task"), Settings.TaskDevicePluginConfig[event->TaskIndex][2]);
+            addHtml(F("<TR><TD>Temperature:<TD>"));
+            addTaskSelect(F("plugin_118_temperature_task"), Settings.TaskDevicePluginConfig[event->TaskIndex][2]);
             LoadTaskSettings(Settings.TaskDevicePluginConfig[event->TaskIndex][2]); // we need to load the values from another task for selection!
-            string += F("<TR><TD>Temperature Value:<TD>");
-            addTaskValueSelect(string, F("plugin_118_temperature_value"), Settings.TaskDevicePluginConfig[event->TaskIndex][3], Settings.TaskDevicePluginConfig[event->TaskIndex][2]);
+            addHtml(F("<TR><TD>Temperature Value:<TD>"));
+            addTaskValueSelect(F("plugin_118_temperature_value"), Settings.TaskDevicePluginConfig[event->TaskIndex][3], Settings.TaskDevicePluginConfig[event->TaskIndex][2]);
 
             // temperature scale
             int temperatureScale = Settings.TaskDevicePluginConfig[event->TaskIndex][6];
-            string += F("<TR><TD>Temperature Scale:<TD>"); // checked
-            string += F("<input type='radio' id='plugin_118_temperature_c' name='plugin_118_temperature_scale' value='0'");
-            string += (temperatureScale == 0) ? F(" checked>") : F(">");
-            string += F("<label for='plugin_118_temperature_c'> &deg;C</label> &nbsp; ");
-            string += F("<input type='radio' id='plugin_118_temperature_f' name='plugin_118_temperature_scale' value='1'");
-            string += (temperatureScale == 1) ? F(" checked>") : F(">");
-            string += F("<label for='plugin_118_temperature_f'> &deg;F</label><br>");
+            addHtml(F("<TR><TD>Temperature Scale:<TD>")); // checked
+            addHtml(F("<input type='radio' id='plugin_118_temperature_c' name='plugin_118_temperature_scale' value='0'"));
+            addHtml((temperatureScale == 0) ? F(" checked>") : F(">"));
+            addHtml(F("<label for='plugin_118_temperature_c'> &deg;C</label> &nbsp; "));
+            addHtml(F("<input type='radio' id='plugin_118_temperature_f' name='plugin_118_temperature_scale' value='1'"));
+            addHtml((temperatureScale == 1) ? F(" checked>") : F(">"));
+            addHtml(F("<label for='plugin_118_temperature_f'> &deg;F</label><br>"));
 
             // humidity
-            string += F("<TR><TD>Humidity:<TD>");
-            addTaskSelect(string, F("plugin_118_humidity_task"), Settings.TaskDevicePluginConfig[event->TaskIndex][4]);
+            addHtml(F("<TR><TD>Humidity:<TD>"));
+            addTaskSelect(F("plugin_118_humidity_task"), Settings.TaskDevicePluginConfig[event->TaskIndex][4]);
             LoadTaskSettings(Settings.TaskDevicePluginConfig[event->TaskIndex][4]); // we need to load the values from another task for selection!
-            string += F("<TR><TD>Humidity Value:<TD>");
-            addTaskValueSelect(string, F("plugin_118_humidity_value"), Settings.TaskDevicePluginConfig[event->TaskIndex][5], Settings.TaskDevicePluginConfig[event->TaskIndex][4]);
+            addHtml(F("<TR><TD>Humidity Value:<TD>"));
+            addTaskValueSelect(F("plugin_118_humidity_value"), Settings.TaskDevicePluginConfig[event->TaskIndex][5], Settings.TaskDevicePluginConfig[event->TaskIndex][4]);
 
             LoadTaskSettings(event->TaskIndex); // we need to restore our original taskvalues!
-            addFormSeparator(string);
+//            addFormSeparator(string);
+            addFormSeparator(2);
 
             success = true;
             break;
@@ -1007,3 +1009,4 @@ String CCS811::getSensorError()
         }
     }
 }
+#endif

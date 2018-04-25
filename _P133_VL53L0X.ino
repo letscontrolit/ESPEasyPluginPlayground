@@ -1,3 +1,4 @@
+#ifdef USES_P133
 //#######################################################################################################
 //########################### Plugin 133 VL53L0X I2C Ranging LIDAR      #################################
 //#######################################################################################################
@@ -7,7 +8,6 @@
 
 // needs VL53L0X library from pololu https://github.com/pololu/vl53l0x-arduino
 
-#ifdef PLUGIN_BUILD_TESTING
 
 
 #define PLUGIN_133
@@ -64,8 +64,8 @@ boolean Plugin_133(byte function, struct EventStruct *event, String& string)
       {
         byte choice = Settings.TaskDevicePluginConfig[event->TaskIndex][0];
         int optionValues[2] = { 0x29, 0x30 };
-        addFormSelectorI2C(string, F("plugin_133_vl53l0x_i2c"), 2, optionValues, choice);
-        addFormNote(string, F("SDO Low=0x29, High=0x30"));
+        addFormSelectorI2C(F("plugin_133_vl53l0x_i2c"), 2, optionValues, choice);
+        addFormNote(F("SDO Low=0x29, High=0x30"));
 
         unsigned int choiceMode2 = Settings.TaskDevicePluginConfig[event->TaskIndex][1];
         String optionsMode2[3];
@@ -76,7 +76,7 @@ boolean Plugin_133(byte function, struct EventStruct *event, String& string)
         optionValuesMode2[0] = 80;
         optionValuesMode2[1] = 20;
         optionValuesMode2[2] = 320;
-        addFormSelector(string, F("Timing"), F("plugin_133_vl53l0x_timing"), 3, optionsMode2, optionValuesMode2, choiceMode2);
+        addFormSelector(F("Timing"), F("plugin_133_vl53l0x_timing"), 3, optionsMode2, optionValuesMode2, choiceMode2);
 
         boolean choiceMode3 = Settings.TaskDevicePluginConfig[event->TaskIndex][2];
         String optionsMode3[2];
@@ -85,7 +85,7 @@ boolean Plugin_133(byte function, struct EventStruct *event, String& string)
         int optionValuesMode3[2];
         optionValuesMode3[0] = 0;
         optionValuesMode3[1] = 1;
-        addFormSelector(string, F("Range"), F("plugin_133_vl53l0x_range"), 2, optionsMode3, optionValuesMode3, choiceMode3);
+        addFormSelector(F("Range"), F("plugin_133_vl53l0x_range"), 2, optionsMode3, optionValuesMode3, choiceMode3);
 
         success = true;
         break;
