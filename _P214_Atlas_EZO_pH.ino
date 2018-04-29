@@ -7,8 +7,8 @@
 
 #define PLUGIN_214
 #define PLUGIN_ID_214 214
-#define PLUGIN_NAME_214       "Environment - Atlas Scientific Ph EZO"
-#define PLUGIN_VALUENAME1_214 "Ph"
+#define PLUGIN_NAME_214       "Environment - Atlas Scientific pH EZO"
+#define PLUGIN_VALUENAME1_214 "pH"
 
 boolean Plugin_214_init = false;
 
@@ -48,16 +48,16 @@ boolean Plugin_214(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_WEBFORM_LOAD:
       {
-        #define ATLASEZO_I2C_NB_OPTIONS 4
+        #define _P214_ATLASEZO_I2C_NB_OPTIONS 4
         byte I2Cchoice = Settings.TaskDevicePluginConfig[event->TaskIndex][0];
-        int optionValues[ATLASEZO_I2C_NB_OPTIONS] = { 0x63, 0x64, 0x65, 0x66 };
-        addFormSelectorI2C(string, F("plugin_214_i2c"), ATLASEZO_I2C_NB_OPTIONS, optionValues, I2Cchoice);
+        int optionValues[_P214_ATLASEZO_I2C_NB_OPTIONS] = { 0x63, 0x64, 0x65, 0x66 };
+        addFormSelectorI2C(string, F("plugin_214_i2c"), _P214_ATLASEZO_I2C_NB_OPTIONS, optionValues, I2Cchoice);
 
         addFormSubHeader(string, F("General"));
 
         char sensordata[32];
         bool status;
-        status = send_I2C_command(Settings.TaskDevicePluginConfig[event->TaskIndex][0],"i",sensordata);
+        status = _P214_send_I2C_command(Settings.TaskDevicePluginConfig[event->TaskIndex][0],"i",sensordata);
 
         if (status) {
           String boardInfo(sensordata);
@@ -88,7 +88,7 @@ boolean Plugin_214(byte function, struct EventStruct *event, String& string)
         addFormSubHeader(string, F("Calibration"));
 
         int nb_calibration_points = -1;
-        status = send_I2C_command(Settings.TaskDevicePluginConfig[event->TaskIndex][0], "Cal,?",sensordata);
+        status = _P214_send_I2C_command(Settings.TaskDevicePluginConfig[event->TaskIndex][0], "Cal,?",sensordata);
 
         if (status){
           if (strncmp(sensordata,"?Cal,",5)){
@@ -136,7 +136,7 @@ boolean Plugin_214(byte function, struct EventStruct *event, String& string)
           char sensordata[32];
           char cmd[8] = "Slope,?";
           bool status;
-          status = send_I2C_command(Settings.TaskDevicePluginConfig[event->TaskIndex][0],cmd,sensordata);
+          status = _P214_send_I2C_command(Settings.TaskDevicePluginConfig[event->TaskIndex][0],cmd,sensordata);
 
           if (status){
             String slopeAnswer("Answer to 'Slope' command : ");
@@ -172,9 +172,9 @@ boolean Plugin_214(byte function, struct EventStruct *event, String& string)
 
         char sensordata[32];
         if (isFormItemChecked(F("Plugin_214_status_led"))) {
-          send_I2C_command(Settings.TaskDevicePluginConfig[event->TaskIndex][0],"L,1",sensordata);
+          _P214_send_I2C_command(Settings.TaskDevicePluginConfig[event->TaskIndex][0],"L,1",sensordata);
         } else {
-          send_I2C_command(Settings.TaskDevicePluginConfig[event->TaskIndex][0],"L,0",sensordata);
+          _P214_send_I2C_command(Settings.TaskDevicePluginConfig[event->TaskIndex][0],"L,0",sensordata);
         }
         Settings.TaskDevicePluginConfig[event->TaskIndex][1] = isFormItemChecked(F("Plugin_214_status_led"));
 
@@ -200,7 +200,7 @@ boolean Plugin_214(byte function, struct EventStruct *event, String& string)
         }
         if (triggerCalibrate){
           char sensordata[32];
-          send_I2C_command(Settings.TaskDevicePluginConfig[event->TaskIndex][0],cmd.c_str(),sensordata);
+          _P214_send_I2C_command(Settings.TaskDevicePluginConfig[event->TaskIndex][0],cmd.c_str(),sensordata);
         }
 
         char deviceTemperatureTemplate[40];
@@ -238,10 +238,10 @@ boolean Plugin_214(byte function, struct EventStruct *event, String& string)
           break;
         }
 
-        status = send_I2C_command(Settings.TaskDevicePluginConfig[event->TaskIndex][0],setTemperature.c_str(),sensordata);
+        status = _P214_send_I2C_command(Settings.TaskDevicePluginConfig[event->TaskIndex][0],setTemperature.c_str(),sensordata);
 
         //ok, now we can read the pH value
-        status = send_I2C_command(Settings.TaskDevicePluginConfig[event->TaskIndex][0],"r",sensordata);
+        status = _P214_send_I2C_command(Settings.TaskDevicePluginConfig[event->TaskIndex][0],"r",sensordata);
 
         if (status){
           String sensorString(sensordata);
@@ -252,7 +252,7 @@ boolean Plugin_214(byte function, struct EventStruct *event, String& string)
         }
 
         //go to sleep
-        //status = send_I2C_command(Settings.TaskDevicePluginConfig[event->TaskIndex][0],"Sleep",sensordata);
+        //status = _P214_send_I2C_command(Settings.TaskDevicePluginConfig[event->TaskIndex][0],"Sleep",sensordata);
 
         success = true;
         break;
@@ -293,7 +293,7 @@ boolean Plugin_214(byte function, struct EventStruct *event, String& string)
 // The other containing an allocatted char array for answer
 // Returns true on success, false otherwise
 
-bool send_I2C_command(uint8_t I2Caddress,const char * cmd, char* sensordata) {
+bool _P214_send_I2C_command(uint8_t I2Caddress,const char * cmd, char* sensordata) {
     uint16_t sensor_bytes_received = 0;
 
     byte error;
