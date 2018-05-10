@@ -94,7 +94,7 @@ boolean Plugin_166(byte function, struct EventStruct *event, String& string)
         {
           if (UserVar[event->BaseVarIndex + 3] == 1) { // stop AP mode if started
            if (WifiIsAP(WiFi.getMode())) {
-            setWifiState(WifiDisableAP); // WifiAPMode(false);
+            setAP(false); // setWifiState(WifiDisableAP); // WifiAPMode(false);
            }
           }
           byte _wstate = 1;
@@ -211,7 +211,7 @@ void setmodemsleep(byte state) {
     WiFi.persistent( false ); // do not use flash memory
 //    WifiConnect(2);        // use ESPEasy Wifi.ino to reconnect
     wifiSetup = false;     // restore WifiCheck()
-    tryConnectWiFi();
+    tryConnectWiFi(); // WiFiConnectRelaxed();
     String event = F("System#ModemSleep=0");
     rulesProcessing(event);
     Plugin_166_modemsleepstatus = 0;
