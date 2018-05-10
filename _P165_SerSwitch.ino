@@ -1,4 +1,4 @@
-//############################# Plugin 165: Serial MCU controlled switch v1.8 ###########################
+//############################# Plugin 165: Serial MCU controlled switch v1.9 ###########################
 //
 //  Designed for TUYA/YEWELINK Wifi Touch Light switch with ESP8266 + PIC16F1829 MCU,
 //  the similar Sonoff Dual MCU controlled Wifi relay and LCTECH WIFI RELAY is also supported.
@@ -495,7 +495,8 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
             log += F(":");
             log += rcmd;
             addLog(LOG_LEVEL_INFO, log);
-
+            log = F("\nOk");
+            SendStatus(event->Source, log);
           }
         }
         break;
