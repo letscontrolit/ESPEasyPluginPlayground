@@ -91,9 +91,9 @@ boolean Plugin_134(byte function, struct EventStruct *event, String& string)
         break;
       }
 
+/* currently not needed!              
    case PLUGIN_TEN_PER_SECOND:
       {
-/* currently not needed!              
 
         long cf_frequency = 0;
          
@@ -111,15 +111,17 @@ boolean Plugin_134(byte function, struct EventStruct *event, String& string)
  //           EnergyUpdateToday();
           }
         }
-*/
         success = true;
         break;
       }
+*/
 
    case PLUGIN_READ:
       {
         // We do not actually read as this is already done by reading the serial output
         // Instead we just send the last known state stored in Uservar
+        addLog(LOG_LEVEL_DEBUG_DEV, F("CSE: plugin read"));
+//        sendData(event);
         success = true;
         break;
       }
@@ -144,7 +146,7 @@ boolean Plugin_134(byte function, struct EventStruct *event, String& string)
           if (cse_receive_flag) {
             serial_in_buffer[serial_in_byte_counter++] = serial_in_byte;
             if (24 == serial_in_byte_counter) {
-              addLog(LOG_LEVEL_DEBUG, F("CSE: packet received"));
+              addLog(LOG_LEVEL_DEBUG_DEV, F("CSE: packet received"));
               CseReceived();
               cse_receive_flag = 0;
               break;
@@ -152,7 +154,7 @@ boolean Plugin_134(byte function, struct EventStruct *event, String& string)
           } else {
             if (0x5A == serial_in_byte) {             // 0x5A - Packet header 2
               cse_receive_flag = 1;
-              addLog(LOG_LEVEL_DEBUG, F("CSE: Header received"));
+              addLog(LOG_LEVEL_DEBUG_DEV, F("CSE: Header received"));
             } else {
               serial_in_byte_counter = 0;
             }
@@ -226,19 +228,19 @@ void CseReceived()
 
   log = F("CSE: adjustement ");
   log += adjustement;
-  addLog(LOG_LEVEL_DEBUG, log);
+  addLog(LOG_LEVEL_DEBUG_DEV, log);
   log = F("CSE: voltage_cycle ");
   log += voltage_cycle;
-  addLog(LOG_LEVEL_DEBUG, log);
+  addLog(LOG_LEVEL_DEBUG_DEV, log);
   log = F("CSE: current_cycle ");
   log += current_cycle;
-  addLog(LOG_LEVEL_DEBUG, log);
+  addLog(LOG_LEVEL_DEBUG_DEV, log);
   log = F("CSE: power_cycle ");
   log += power_cycle;
-  addLog(LOG_LEVEL_DEBUG, log);
+  addLog(LOG_LEVEL_DEBUG_DEV, log);
   log = F("CSE: cf_pulses ");
   log += cf_pulses;
-  addLog(LOG_LEVEL_DEBUG, log);
+  addLog(LOG_LEVEL_DEBUG_DEV, log);
 
 //  if (energy_power_on) {  // Powered on
 
@@ -278,16 +280,16 @@ void CseReceived()
 
   log = F("CSE voltage: ");
   log += energy_voltage;
-  addLog(LOG_LEVEL_INFO, log);
+  addLog(LOG_LEVEL_DEBUG, log);
   log = F("CSE power: ");
   log += energy_power;
-  addLog(LOG_LEVEL_INFO, log);
+  addLog(LOG_LEVEL_DEBUG, log);
   log = F("CSE current: ");
   log += energy_current;
-  addLog(LOG_LEVEL_INFO, log);
+  addLog(LOG_LEVEL_DEBUG, log);
   log = F("CSE piulses: ");
   log += cf_pulses;
-  addLog(LOG_LEVEL_INFO, log);
+  addLog(LOG_LEVEL_DEBUG, log);
 
 }
 
