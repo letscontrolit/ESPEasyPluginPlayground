@@ -86,7 +86,11 @@ boolean Plugin_134(byte function, struct EventStruct *event, String& string)
     case PLUGIN_INIT:
       {
         Plugin_134_init = true;
-        Serial.begin(4800);
+        Settings.UseSerial=true; // Enable Serial port
+        Settings.SerialLogLevel=0; // disable logging on serial port (used for CSE7766 communication)
+        Settings.BaudRate=4800; // set BaudRate for CSE7766
+        Serial.flush();
+        Serial.begin(Settings.BaudRate);
         success = true;
         break;
       }
