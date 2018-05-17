@@ -1,4 +1,4 @@
-//############################# Plugin 165: Serial MCU controlled switch v1.8 ###########################
+//############################# Plugin 165: Serial MCU controlled switch v1.9 ###########################
 //
 //  Designed for TUYA/YEWELINK Wifi Touch Light switch with ESP8266 + PIC16F1829 MCU,
 //  the similar Sonoff Dual MCU controlled Wifi relay and LCTECH WIFI RELAY is also supported.
@@ -78,46 +78,18 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
         options[0] = F("Yewelink/TUYA");
         options[1] = F("Sonoff Dual");
         options[2] = F("LC TECH");
-        int optionValues[3];
-        optionValues[0] = SER_SWITCH_YEWE;
-        optionValues[1] = SER_SWITCH_SONOFFDUAL;
-        optionValues[2] = SER_SWITCH_LCTECH;
-        string += F("<TR><TD>Switch Type:<TD><select name='plugin_165_type'>");
-        for (byte x = 0; x < 3; x++)
-        {
-          string += F("<option value='");
-          string += optionValues[x];
-          string += "'";
-          if (choice == optionValues[x])
-            string += F(" selected");
-          string += ">";
-          string += options[x];
-          string += F("</option>");
-        }
-        string += F("</select>");
+        int optionValues[3] = { SER_SWITCH_YEWE, SER_SWITCH_SONOFFDUAL, SER_SWITCH_LCTECH };
+        addFormSelector(F("Switch Type"), F("plugin_165_type"), 3, options, optionValues, choice);
 
         if (Settings.TaskDevicePluginConfig[event->TaskIndex][0] == SER_SWITCH_YEWE)
         {
-
           choice = Settings.TaskDevicePluginConfig[event->TaskIndex][1];
-          byte buttonOptions[3];
-          buttonOptions[0] = 1;
-          buttonOptions[1] = 2;
-          buttonOptions[2] = 3;
-          string += F("<TR><TD>Number of relays:<TD><select name='plugin_165_button'>");
-          for (byte x = 0; x < 3; x++)
-          {
-            string += F("<option value='");
-            string += buttonOptions[x];
-            string += "'";
-            if (choice == buttonOptions[x])
-              string += F(" selected");
-            string += ">";
-            string += buttonOptions[x];
-            string += F("</option>");
-          }
-          string += F("</select>");
-
+          String buttonOptions[3];
+          buttonOptions[0] = F("1");
+          buttonOptions[1] = F("2");
+          buttonOptions[2] = F("3");
+          int buttonoptionValues[3] = { 1, 2, 3 };
+          addFormSelector(F("Number of relays"), F("plugin_165_button"), 3, buttonOptions, buttonoptionValues, choice);
         }
 
         if (Settings.TaskDevicePluginConfig[event->TaskIndex][0] == SER_SWITCH_SONOFFDUAL)
@@ -127,41 +99,18 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
           modeoptions[0] = F("Normal");
           modeoptions[1] = F("Exclude/Blinds mode");
           modeoptions[2] = F("Simultaneous mode");
-          string += F("<TR><TD>Relay working mode:<TD><select name='plugin_165_mode'>");
-          for (byte x = 0; x < 3; x++)
-          {
-            string += F("<option value='");
-            string += x;
-            string += "'";
-            if (choice == x)
-              string += F(" selected");
-            string += ">";
-            string += modeoptions[x];
-            string += F("</option>");
-          }
-          string += F("</select>");
-
+          int modeoptionValues[3] = { 0, 1, 2 };
+          addFormSelector(F("Relay working mode"), F("plugin_165_mode"), 3, modeoptions, modeoptionValues, choice);
         }
 
         if (Settings.TaskDevicePluginConfig[event->TaskIndex][0] == SER_SWITCH_LCTECH)
         {
           choice = Settings.TaskDevicePluginConfig[event->TaskIndex][1];
-          byte buttonOptions[2];
-          buttonOptions[0] = 1;
-          buttonOptions[1] = 2;
-          string += F("<TR><TD>Number of relays:<TD><select name='plugin_165_button'>");
-          for (byte x = 0; x < 2; x++)
-          {
-            string += F("<option value='");
-            string += buttonOptions[x];
-            string += "'";
-            if (choice == buttonOptions[x])
-              string += F(" selected");
-            string += ">";
-            string += buttonOptions[x];
-            string += F("</option>");
-          }
-          string += F("</select>");
+          String buttonOptions[2];
+          buttonOptions[0] = F("1");
+          buttonOptions[1] = F("2");
+          int buttonoptionValues[2] = { 1, 2 };
+          addFormSelector(F("Number of relays"), F("plugin_165_button"), 2, buttonOptions, buttonoptionValues, choice);
 
           choice = Settings.TaskDevicePluginConfig[event->TaskIndex][2];
           String speedOptions[8];
@@ -173,25 +122,9 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
           speedOptions[5] = F("4800");
           speedOptions[6] = F("38400");
           speedOptions[7] = F("57600");
-          string += F("<TR><TD>Serial speed:<TD><select name='plugin_165_speed'>");
-          for (byte x = 0; x < 8; x++)
-          {
-            string += F("<option value='");
-            string += x;
-            string += "'";
-            if (choice == x)
-              string += F(" selected");
-            string += ">";
-            string += speedOptions[x];
-            string += F("</option>");
-          }
-          string += F("</select>");
+          addFormSelector(F("Serial speed"), F("plugin_165_speed"), 8, speedOptions, NULL, choice);
 
-          string += F("<TR><TD>Use command doubling:<TD>");
-          if (Settings.TaskDevicePluginConfig[event->TaskIndex][3])
-            string += F("<input type=checkbox name=plugin_165_dbl checked>");
-          else
-            string += F("<input type=checkbox name=plugin_165_dbl>");
+          addFormCheckBox(F("Use command doubling"), F("plugin_165_dbl"), Settings.TaskDevicePluginConfig[event->TaskIndex][3]);
         }
 
         success = true;
@@ -201,27 +134,20 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
     case PLUGIN_WEBFORM_SAVE:
       {
 
-        String plugin1 = WebServer.arg("plugin_165_type");
-        Settings.TaskDevicePluginConfig[event->TaskIndex][0] = plugin1.toInt();
-
+        Settings.TaskDevicePluginConfig[event->TaskIndex][0] = getFormItemInt(F("plugin_165_type"));
         if (Settings.TaskDevicePluginConfig[event->TaskIndex][0] == SER_SWITCH_YEWE)
         {
-          String plugin2 = WebServer.arg("plugin_165_button");
-          Settings.TaskDevicePluginConfig[event->TaskIndex][1] = plugin2.toInt();
+          Settings.TaskDevicePluginConfig[event->TaskIndex][1] = getFormItemInt(F("plugin_165_button"));
         }
         if (Settings.TaskDevicePluginConfig[event->TaskIndex][0] == SER_SWITCH_SONOFFDUAL)
         {
-          String plugin2 = WebServer.arg("plugin_165_mode");
-          Settings.TaskDevicePluginConfig[event->TaskIndex][1] = plugin2.toInt();
+          Settings.TaskDevicePluginConfig[event->TaskIndex][1] = getFormItemInt(F("plugin_165_mode"));
         }
         if (Settings.TaskDevicePluginConfig[event->TaskIndex][0] == SER_SWITCH_LCTECH)
         {
-          String plugin2 = WebServer.arg("plugin_165_button");
-          Settings.TaskDevicePluginConfig[event->TaskIndex][1] = plugin2.toInt();
-          String plugin3 = WebServer.arg("plugin_165_speed");
-          Settings.TaskDevicePluginConfig[event->TaskIndex][2] = plugin3.toInt();
-          String plugin4 = WebServer.arg("plugin_165_dbl");
-          Settings.TaskDevicePluginConfig[event->TaskIndex][3] = (plugin4 == "on");
+          Settings.TaskDevicePluginConfig[event->TaskIndex][1] = getFormItemInt(F("plugin_165_button"));
+          Settings.TaskDevicePluginConfig[event->TaskIndex][2] = getFormItemInt(F("plugin_165_speed"));
+          Settings.TaskDevicePluginConfig[event->TaskIndex][3] = isFormItemChecked(F("plugin_165_dbl"));
           Plugin_165_cmddbl = Settings.TaskDevicePluginConfig[event->TaskIndex][3];
         }
 
@@ -569,7 +495,8 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
             log += F(":");
             log += rcmd;
             addLog(LOG_LEVEL_INFO, log);
-
+            log = F("\nOk");
+            SendStatus(event->Source, log);
           }
         }
         break;
