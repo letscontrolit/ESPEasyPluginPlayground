@@ -152,11 +152,11 @@ boolean Plugin_130(byte function, struct EventStruct *event, String& string)
           Plugin_130_init[veml6075_i2caddr] = Plugin_130_init_sensor(); // Check id device is present
         }
 
-          String log = F("VEML6075  : veml6075_i2caddr: 0x");
+          String log = F("VEML6075: veml6075_i2caddr: 0x");
           log += String(veml6075_i2caddr,HEX);
           addLog(LOG_LEVEL_DEBUG, log);
-          log = F("VEML6075  : plugin(veml6075_i2caddr): 0x");
-          log += String(Plugin_130_init[veml6075_i2caddr],HEX);
+          log = F("VEML6075: plugin(veml6075_i2caddr): ");
+          log += String(Plugin_130_init[veml6075_i2caddr]?"true":"false");
           addLog(LOG_LEVEL_DEBUG, log);
 
         if (Plugin_130_init[veml6075_i2caddr])
@@ -173,7 +173,7 @@ boolean Plugin_130(byte function, struct EventStruct *event, String& string)
 
 //float UVASensitivity = 0.93/((float) (IT + 1)); // UVA light sensitivity increases with integration time
 //float UVBSensitivity = 2.10/((float) (IT + 1)); // UVB light sensitivity increases with integration time
-          log = F("VEML6075  : IT raw: 0x");
+          log = F("VEML6075: IT raw: 0x");
           log += String((IT + 1),HEX);
           addLog(LOG_LEVEL_DEBUG, log);
 
@@ -209,7 +209,7 @@ boolean Plugin_130(byte function, struct EventStruct *event, String& string)
 //**************************************************************************/
 // Check VEML6075 presence and initialize
 //**************************************************************************/
-boolean Plugin_130_init_sensor() {
+bool Plugin_130_init_sensor() {
   //veml6075_i2caddr = a?a:0x10;
   //I2C bool wire_status = false;
   //uint16_t deviceID = Plugin_130_getVEML6075ID(veml6075_i2caddr);
@@ -217,7 +217,7 @@ boolean Plugin_130_init_sensor() {
   uint8_t deviceID = I2C_read8_reg(veml6075_i2caddr, VEML6075_UV_ID);
 
 
-  String log = F("VEML6075  : ID: 0x");
+  String log = F("VEML6075: ID: 0x");
   log += String(deviceID, HEX);
   log += F(" / checked Address: 0x");
   log += String(veml6075_i2caddr, HEX);
@@ -226,11 +226,25 @@ boolean Plugin_130_init_sensor() {
   addLog(LOG_LEVEL_DEBUG, log);
 
   if (deviceID != 0x26) {
+      log = F("VEML6075: wrong deviceID: ");
+      log += String(deviceID, HEX);
+      addLog(LOG_LEVEL_ERROR, log);
       return false;
   } else {
-      I2C_write8_reg(veml6075_i2caddr, VEML6075_UV_CONF, (IT << 4)|(HD << 3));
+      log = F("VEML6075: found deviceID: 0x");
+      log += String(deviceID, HEX);
+      if (!I2C_write8_reg(veml6075_i2caddr, VEML6075_UV_CONF, (IT << 4)|(HD << 3))) { // Bit 3 must be 0, bit 0 is 0 for run and 1 for shutdown, LS Byte
+        log = F("VEML6075: setup failed!!");
+        log += F(" / CONF: ");
+        log += String((IT << 4)|(HD << 3), BIN);
+        addLog(LOG_LEVEL_ERROR, log);
+        return false;
+      } else {
+      log = F("VEML6075: sensor initialised ");
+      addLog(LOG_LEVEL_INFO, log);
       delay(150);
       return true;
+      }
   }
 }
 
