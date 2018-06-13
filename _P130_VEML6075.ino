@@ -52,8 +52,6 @@ bool HD = 0;
 
 
 uint8_t veml6075_i2caddr;
-int32_t veml6075_sensorID;
-int32_t veml6075_t_fine;
 
 uint8_t Plugin_130_read8(byte reg, bool * is_ok = NULL); // Declaration
 
@@ -144,26 +142,29 @@ boolean Plugin_130(byte function, struct EventStruct *event, String& string)
     case PLUGIN_READ:
       {
               
-        int idx = Settings.TaskDevicePluginConfig[event->TaskIndex][0] ;
-        Plugin_130_init[idx] &= Plugin_130_check(Settings.TaskDevicePluginConfig[event->TaskIndex][0]); // Check id device is present
-        
+        //int idx = Settings.TaskDevicePluginConfig[event->TaskIndex][0] ;
+        veml6075_i2caddr = Settings.TaskDevicePluginConfig[event->TaskIndex][0];
+
         IT = Settings.TaskDevicePluginConfig[event->TaskIndex][1]; // set Integration Time
 
-        if (!Plugin_130_init[idx])
+        if (!Plugin_130_init[veml6075_i2caddr])
         {
-          Plugin_130_init[idx] = Plugin_130_begin(Settings.TaskDevicePluginConfig[event->TaskIndex][0]);
+          Plugin_130_init[veml6075_i2caddr] = Plugin_130_init_sensor(); // Check id device is present
         }
 
-          String log = F("VEML6075  : idx: 0x");
-          log += String(idx,HEX);
+          String log = F("VEML6075: veml6075_i2caddr: 0x");
+          log += String(veml6075_i2caddr,HEX);
           addLog(LOG_LEVEL_DEBUG, log);
-          log = F("VEML6075  : plugin(idx): 0x");
-          log += String(Plugin_130_init[idx],HEX);
+          log = F("VEML6075: plugin(veml6075_i2caddr): ");
+          log += String(Plugin_130_init[veml6075_i2caddr]?"true":"false");
           addLog(LOG_LEVEL_DEBUG, log);
 
-        if (Plugin_130_init[idx])
+        if (Plugin_130_init[veml6075_i2caddr])
         {
-          Plugin_130_getUVdata(Settings.TaskDevicePluginConfig[event->TaskIndex][0], UVData);
+          for (int j = 0; j < 5; j++)
+            {
+              UVData[j] = I2C_read16_LE_reg(Settings.TaskDevicePluginConfig[event->TaskIndex][0], VEML6075_UVA_DATA + j);
+            }
 
           // Calculate the UV Index, valid in open air not behind glass!
           UVAComp = (UVData[0] - UVData[1]) - ACoef*(UVData[3] - UVData[1]) - BCoef*(UVData[4] - UVData[1]);
@@ -172,7 +173,7 @@ boolean Plugin_130(byte function, struct EventStruct *event, String& string)
 
 //float UVASensitivity = 0.93/((float) (IT + 1)); // UVA light sensitivity increases with integration time
 //float UVBSensitivity = 2.10/((float) (IT + 1)); // UVB light sensitivity increases with integration time
-          log = F("VEML6075  : IT raw: 0x");
+          log = F("VEML6075: IT raw: 0x");
           log += String((IT + 1),HEX);
           addLog(LOG_LEVEL_DEBUG, log);
 
@@ -206,93 +207,42 @@ boolean Plugin_130(byte function, struct EventStruct *event, String& string)
 }
 
 //**************************************************************************/
-// Check VEML6075 presence
+// Check VEML6075 presence and initialize
 //**************************************************************************/
-bool Plugin_130_check(int a) {
-  veml6075_i2caddr = a?a:0x10;
-  bool wire_status = false;
-  uint16_t deviceID = Plugin_130_getVEML6075ID(a);
+bool Plugin_130_init_sensor() {
+  uint16_t deviceID = I2C_readS16_LE_reg(veml6075_i2caddr, VEML6075_UV_ID);  
 
-  String log = F("VEML6075  : ID: 0x");
+  String log = F("VEML6075: ID: 0x");
   log += String(deviceID, HEX);
+  log += F(" / checked Address: 0x");
+  log += String(veml6075_i2caddr, HEX);
+  log += F(" / 0x");
+  log += String(VEML6075_UV_ID, HEX);
   addLog(LOG_LEVEL_DEBUG, log);
 
   if (deviceID != 0x26) {
+      log = F("VEML6075: wrong deviceID: ");
+      log += String(deviceID, HEX);
+      addLog(LOG_LEVEL_ERROR, log);
       return false;
   } else {
+      log = F("VEML6075: found deviceID: 0x");
+      log += String(deviceID, HEX);
+      if (!I2C_write16_LE_reg(veml6075_i2caddr, VEML6075_UV_CONF, (IT << 4)|(HD << 3))) { // Bit 3 must be 0, bit 0 is 0 for run and 1 for shutdown, LS Byte
+        log = F("VEML6075: setup failed!!");
+        log += F(" / CONF: ");
+        log += String((uint16_t)(IT << 4)|(HD << 3), BIN);
+        addLog(LOG_LEVEL_ERROR, log);
+        return false;
+      } else {
+      log = F("VEML6075: sensor initialised");
+      log += F(" / CONF: ");
+      log += String((uint16_t)(IT << 4)|(HD << 3), BIN);
+      addLog(LOG_LEVEL_INFO, log);
+      delay(150);
       return true;
+      }
   }
 }
-
-//**************************************************************************/
-// Initialize VEML6075
-//**************************************************************************/
-bool Plugin_130_begin(int a) {
-  if (! Plugin_130_check(a))
-    return false;
-
-  Plugin_130_enableVEML6075(a); // initalize sensor
-  delay(150);
-  
-  return true;
-}
-
-//===================================================================================================================
-//====== Set of useful function to access VEML6075 UV data
-//===================================================================================================================
-
-uint16_t Plugin_130_getVEML6075ID(int a)
-{
-    uint8_t rawData[2] = {0, 0};
-    Wire.beginTransmission(a);
-    Wire.write(0x0C);        // Command code for reading VEML6075 ID
-    Wire.endTransmission(false);  // Send the Tx buffer, but send a restart to keep connection alive
-
-    Wire.requestFrom(a, 2);  // Read two bytes from slave register address 
-    uint8_t i = 0;
-    while (Wire.available()) 
-    {
-        rawData[i++] = Wire.read();       // Put read results in the Rx buffer
-    }     
-    Wire.endTransmission();
-    return ((uint16_t) rawData[1] << 8) | rawData[0];
-}
-
-
-
-uint16_t Plugin_130_getUVdata(int a, uint16_t * destination)
-{
-    for (int j = 0; j < 5; j++)
-    {
-    uint8_t rawData[2] = {0, 0};
-    Wire.beginTransmission(a);
-    Wire.write(VEML6075_UVA_DATA + j);        // Command code for reading UV data channels in sequence
-    Wire.endTransmission(false);         // Send the Tx buffer, but send a restart to keep connection alive
-
-    Wire.requestFrom(a, 2);    // Read two bytes from slave register address 
-    uint8_t i = 0;
-    while (Wire.available()) 
-    {
-        rawData[i++] = Wire.read();       // Put read results in the Rx buffer
-    }     
-    Wire.endTransmission();
-    destination[j] = ((uint16_t) rawData[1] << 8) | rawData[0]; // 16-bit unsigend integer
-    }
- 
-}
-
-void Plugin_130_enableVEML6075(int a)
-{
-  String log = F("VEML6075  : IT: 0x");
-  log += String(IT<<4, HEX);
-  addLog(LOG_LEVEL_DEBUG, log);
-
-  Wire.beginTransmission(a);
-  Wire.write(VEML6075_UV_CONF); // Command code for configuration register
-  Wire.write((IT << 4)|(HD << 3)); // Bit 3 must be 0, bit 0 is 0 for run and 1 for shutdown, LS Byte
-  Wire.write(0x00); // MS Byte
-  Wire.endTransmission();
-}
-
 
 #endif
