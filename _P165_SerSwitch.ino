@@ -1,4 +1,4 @@
-//############################# Plugin 165: Serial MCU controlled switch v1.9 ###########################
+//############################# Plugin 165: Serial MCU controlled switch v2.3 ###########################
 //
 //  Designed for TUYA/YEWELINK Wifi Touch Light switch with ESP8266 + PIC16F1829 MCU,
 //  the similar Sonoff Dual MCU controlled Wifi relay and LCTECH WIFI RELAY is also supported.
@@ -16,6 +16,7 @@
 #define PLUGIN_VALUENAME1_165 "Relay0"
 #define PLUGIN_VALUENAME2_165 "Relay1"
 #define PLUGIN_VALUENAME3_165 "Relay2"
+#define PLUGIN_VALUENAME4_165 "Relay3"
 
 #define BUFFER_SIZE   100 // at least 3x33 byte serial buffer needed for Tuya
 
@@ -23,8 +24,8 @@
 #define SER_SWITCH_SONOFFDUAL 2
 #define SER_SWITCH_LCTECH 3
 
-static byte Plugin_165_switchstate[3];
-static byte Plugin_165_ostate[3];
+static byte Plugin_165_switchstate[4];
+static byte Plugin_165_ostate[4];
 byte Plugin_165_commandstate = 0; // 0:no,1:inprogress,2:finished
 byte Plugin_165_type;
 byte Plugin_165_numrelay = 1;
@@ -44,12 +45,12 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
       {
         Device[++deviceCount].Number = PLUGIN_ID_165;
         Device[deviceCount].Type = DEVICE_TYPE_DUMMY;
-        Device[deviceCount].VType = SENSOR_TYPE_TRIPLE;
+        Device[deviceCount].VType = SENSOR_TYPE_QUAD;
         Device[deviceCount].Ports = 0;
         Device[deviceCount].PullUpOption = false;
         Device[deviceCount].InverseLogicOption = false;
         Device[deviceCount].FormulaOption = false;
-        Device[deviceCount].ValueCount = 3;
+        Device[deviceCount].ValueCount = 4;
         Device[deviceCount].SendDataOption = true;
         Device[deviceCount].TimerOption = true;
         Device[deviceCount].TimerOptional = true;
@@ -67,6 +68,7 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
         strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_VALUENAME1_165));
         strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[1], PSTR(PLUGIN_VALUENAME2_165));
         strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[2], PSTR(PLUGIN_VALUENAME3_165));
+        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[3], PSTR(PLUGIN_VALUENAME4_165));
         success = true;
         break;
       }
@@ -109,8 +111,10 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
           String buttonOptions[2];
           buttonOptions[0] = F("1");
           buttonOptions[1] = F("2");
-          int buttonoptionValues[2] = { 1, 2 };
-          addFormSelector(F("Number of relays"), F("plugin_165_button"), 2, buttonOptions, buttonoptionValues, choice);
+          buttonOptions[2] = F("3");
+          buttonOptions[3] = F("4");
+          int buttonoptionValues[4] = { 1, 2, 3, 4 };
+          addFormSelector(F("Number of relays"), F("plugin_165_button"), 4, buttonOptions, buttonoptionValues, choice);
 
           choice = Settings.TaskDevicePluginConfig[event->TaskIndex][2];
           String speedOptions[8];
