@@ -108,7 +108,7 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
         if (Settings.TaskDevicePluginConfig[event->TaskIndex][0] == SER_SWITCH_LCTECH)
         {
           choice = Settings.TaskDevicePluginConfig[event->TaskIndex][1];
-          String buttonOptions[2];
+          String buttonOptions[4];
           buttonOptions[0] = F("1");
           buttonOptions[1] = F("2");
           buttonOptions[2] = F("3");
