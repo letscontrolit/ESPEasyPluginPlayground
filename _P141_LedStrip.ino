@@ -364,19 +364,19 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 				}
 
 				addFormSeparator(2);
-				string += F("<TR><TD>Huacanxing H801 pins:</TD><TD>15, 13, 12, 14, 4 - normal<TD>");			
-				string += F("<TR><TD>Magic Home v1.0 pins:</TD><TD>14,  5, 12, 13, IR=? - Invers<TD>");			
-				string += F("<TR><TD>Magic Home v2.0 pins:</TD><TD> 5, 12, 13, 15, IR=4 - Invers<TD>");			
+				addHtml(F("<TR><TD>Huacanxing H801 pins:</TD><TD>15, 13, 12, 14, 4 - normal<TD>"));			
+				addHtml(F("<TR><TD>Magic Home v1.0 pins:</TD><TD>14,  5, 12, 13, IR=? - Invers<TD>"));			
+				addHtml(F("<TR><TD>Magic Home v2.0 pins:</TD><TD> 5, 12, 13, 15, IR=4 - Invers<TD>"));			
 			}
 			else if( type >= PLUGIN_141_FIRST_TYPE_PIX ){
-				string += F("<TR><TD><b style='color:red'>NOT yet implemented</b><TD>");			
+				addHtml(F("<TR><TD><b style='color:red'>NOT yet implemented</b><TD>"));			
 				
 				if (type < PLUGIN_141_FIRST_TYPE_PIX_SPI){
 					addRowLabel("GPIO Data");
 					addPinSelect(false, PLUGIN_141_CONF_1, Settings.TaskDevicePluginConfig[event->TaskIndex][1]);			
 				}
 				else {
-					string += F("<TR><TD>Use hardware SPI GPIOs<TD>");
+					addHtml(F("<TR><TD>Use hardware SPI GPIOs<TD>"));
 				}
 			}
 
