@@ -1,4 +1,3 @@
-#ifdef PLUGIN_BUILD_TESTING
 
 // #######################################################################################################
 // ##################################### Plugin 124: Ventus W266 RFM69 ###################################
@@ -6,7 +5,7 @@
 
 // Purpose: Receiving weather data from a Ventus W266 outdoor unit using a RFM69 receiver modul
 
-// This plugin is based on the P186_Ventus_W266 plugin and is modified to use a RFM69 transceiver
+// This plugin is based on the P186_Ventus_W266 plugin and is modified to use a RFM69HCW transceiver
 // instead of the internal RFM31 of the Ventus indoor unit.
 
 // With this plugin it is possible to receive the data sent from the outdoor unit of a Ventus W266
@@ -61,14 +60,11 @@
 // lllh ... strike count (low/high byte) > A uint16 holding the accumulated number of detected lightning strikes
 // crc .... CRC checksum > Poly 0x31, init 0xff, revin&revout, xorout 0x00. Like Maxim 1-wire but with a 0xff init value
 
-// If you got any questions, send me an email to: huawatuam@gmail.com
-
-
 #include <SPI.h>
 
-#define PLUGIN_124_DEBUG            true                        // Shows recieved frames and crc in log@INFO
+#define PLUGIN_124_DEBUG            true                        // Shows received frames and crc in log@INFO
 
-#define PLUGIN_124                                              // Mandatory framework constants
+#define PLUGIN_124
 #define PLUGIN_ID_124               124
 #define PLUGIN_NAME_124             "Ventus W266 RFM69"
 #define PLUGIN_VALUENAME1_124       ""
@@ -1029,7 +1025,7 @@ void RFM69_setMode(uint8_t newMode)
 }
 
 void RFM69init()
-{
+{  
   digitalWrite(Plugin_124_RESET_Pin, HIGH);
   delay(10);
   digitalWrite(Plugin_124_RESET_Pin, LOW);
@@ -1189,6 +1185,20 @@ boolean Plugin_124(uint8_t function, struct EventStruct *event, String& string)
         break;
       }
 
+    case PLUGIN_GET_DEVICENAME:
+      {
+        string = F(PLUGIN_NAME_124);
+        break;
+      }
+
+    case PLUGIN_GET_DEVICEVALUENAMES:
+      {
+        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_VALUENAME1_124));
+        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[1], PSTR(PLUGIN_VALUENAME2_124));
+        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[2], PSTR(PLUGIN_VALUENAME3_124));        
+        break;
+      }
+
     case PLUGIN_WEBFORM_LOAD:
       {
         uint8_t instanceType = Settings.TaskDevicePluginConfig[event->TaskIndex][0];
@@ -1201,85 +1211,57 @@ boolean Plugin_124(uint8_t function, struct EventStruct *event, String& string)
         instance[INSTANCE_LIGHTNING] = F("Lightning");
         instance[INSTANCE_BATTERY] = F("Battery");
 
-
         if (instanceType == INSTANCE_TH)
-        {
-          string += F("<TR><TD>Unit ID:<TD><input type='text' name='plugin_124_unitID' value='");
-          string += Settings.TaskDevicePluginConfig[event->TaskIndex][1];
-          string += F("'>");
-        }
+          addFormNumericBox(F("Unit ID"), F("plugin_124_unitID"), Settings.TaskDevicePluginConfig[event->TaskIndex][1], 0, 255);
+          
+        addFormSelector(F("Plugin function"), F("plugin_124_instanceType"), NUMBER_OF_INSTANCES, instance, NULL, instanceType);
 
-        string += F("<TR><TD>Plugin function:<TD><select name='plugin_124_instanceType'>");
-        for (uint8_t x = 0; x < NUMBER_OF_INSTANCES; x++)
-        {
-          string += F("<option value='");
-          string += x;
-          string += "'";
-          if (instanceType == x)
-            string += F(" selected");
-          string += ">";
-          string += instance[x];
-          string += F("</option>");
-        }
+        addFormSubHeader(F("Information"));
 
         switch (instanceType)
         {
           case INSTANCE_TH:
             {
-              string += F("<TR><TD>");
-              string += F("<B>Be sure to only have one main plugin!</B>");
-              string += F("</TD>");
-
-              string += F("<TR><TD>");
-              string += F("Value 1: Temperature (1 decimal)<BR>");
-              string += F("Value 2: Humidity (0 decimal)<BR>");
-              string += F("Value 3: not used");
-              string += F("</TD>");
+              addHtml(F("<BR><B>Be sure to only have one main plugin!</B>"));
+              
+              addHtml(F("<BR><BR>Value 1: Temperature (1 decimal)"));
+              addHtml(F("<BR>Value 2: Humidity (0 decimal)"));
+              addHtml(F("<BR>Value 3: not used"));
               break;
             }
           case INSTANCE_WIND:
             {
-              string += F("<TR><TD>");
-              string += F("Value 1: Direction (1 decimal)<BR>");
-              string += F("Value 2: Average m/s (1 decimal)<BR>");
-              string += F("Value 3: Gust m/s (1 decimal)");
-              string += F("</TD>");
+              addHtml(F("<BR>Value 1: Direction (1 decimal)"));
+              addHtml(F("<BR>Value 2: Average m/s (1 decimal)"));
+              addHtml(F("<BR>Value 3: Gust m/s (1 decimal)"));
               break;
             }
           case INSTANCE_RAIN:
             {
-              string += F("<TR><TD>");
-              string += F("Value 1: Total rain in mm (1 decimal)<BR>");
-              string += F("Value 2: Rainfall past hour in mm (1 decimal)<BR>");
-              string += F("Value 3: not used");
-              string += F("</TD>");
+              addHtml(F("<BR>Value 1: Total rain in mm (1 decimal)"));
+              addHtml(F("<BR>Value 2: Rainfall past hour in mm (1 decimal)"));
+              addHtml(F("<BR>Value 3: not used"));              
               break;
             }
           case INSTANCE_UV:
             {
-              string += F("<TR><TD>");
-              string += F("Value 1: UV (1 decimal)<BR>");
-              string += F("Value 2: not used<BR>");
-              string += F("Value 3: not used");
-              string += F("</TD>");
+              addHtml(F("<BR>Value 1: UV (1 decimal)"));
+              addHtml(F("<BR>Value 2: not used"));
+              addHtml(F("<BR>Value 3: not used"));
               break;
             }
           case INSTANCE_LIGHTNING:
             {
-              string += F("<TR><TD>");
-              string += F("Value 1: Strike counter (0 decimal)<BR>");
-              string += F("Value 2: Strikes past 5 minutes (0 decimal)<BR>");
-              string += F("Value 3: Distance in km (0 decimal)");
-              string += F("</TD>");
+              addHtml(F("<BR>Value 1: Strike counter (0 decimal)"));
+              addHtml(F("<BR>Value 2: Strikes past 5 minutes (0 decimal)"));
+              addHtml(F("<BR>Value 3: Distance in km (0 decimal)"));
               break;
             }
           case INSTANCE_BATTERY:
             {
-              string += F("<TR><TD>");
-              string += F("Value 1: Battery low (0 decimal)<BR>");
-              string += F("Value 2: not used<BR>");
-              string += F("Value 3: not used");
-              string += F("</TD>");
+              addHtml(F("<BR>Value 1: Battery low (0 decimal)"));
+              addHtml(F("<BR>Value 2: not used"));
+              addHtml(F("<BR>Value 3: not used"));
               break;
             }
         }
@@ -1290,26 +1272,10 @@ boolean Plugin_124(uint8_t function, struct EventStruct *event, String& string)
 
     case PLUGIN_WEBFORM_SAVE:
       {
-        String plugin1 = WebServer.arg("plugin_124_instanceType");
-        String plugin2 = WebServer.arg("plugin_124_unitID");
-        Settings.TaskDevicePluginConfig[event->TaskIndex][0] = plugin1.toInt();     // instance type
-        Settings.TaskDevicePluginConfig[event->TaskIndex][1] = plugin2.toInt();     // unit ID
+        Settings.TaskDevicePluginConfig[event->TaskIndex][0] = getFormItemInt(F("plugin_124_instanceType"));
+        Settings.TaskDevicePluginConfig[event->TaskIndex][1] = getFormItemInt(F("plugin_124_unitID"));
 
         success = true;
-        break;
-      }
-
-    case PLUGIN_GET_DEVICENAME:
-      {
-        string = F(PLUGIN_NAME_124);
-        break;
-      }
-
-    case PLUGIN_GET_DEVICEVALUENAMES:
-      {
-        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_VALUENAME1_124));
-        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[1], PSTR(PLUGIN_VALUENAME2_124));
-        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[2], PSTR(PLUGIN_VALUENAME3_124));
         break;
       }
 
@@ -1328,20 +1294,23 @@ boolean Plugin_124(uint8_t function, struct EventStruct *event, String& string)
               // initialize SPI
               SPI.setHwCs(false);
               SPI.begin();
-              addLog(LOG_LEVEL_INFO, (char*)"P124 : SPI Init");
+              addLog(LOG_LEVEL_INFO, F("P124 : SPI Init"));
 
               // initilize RFM69
               RFM69init();
-              addLog(LOG_LEVEL_INFO, (char*)"P124 : RFM69 Init");
+              
+              addLog(LOG_LEVEL_INFO, F("P124 : RFM69 Init"));
 
               break;
             }
         }
+
+        success = true;
         break;
       }
 
     case PLUGIN_ONCE_A_SECOND:
-      {
+      {       
         // check only if MAIN instance is calling
         if (Settings.TaskDevicePluginConfig[event->TaskIndex][0] == INSTANCE_TH)
         {
@@ -1416,7 +1385,6 @@ boolean Plugin_124(uint8_t function, struct EventStruct *event, String& string)
               }
             }
           }
-
 
           // sensor data is initialized and valid?
           if (dataValid)
@@ -1520,4 +1488,4 @@ boolean Plugin_124(uint8_t function, struct EventStruct *event, String& string)
 
   return success;
 }
-#endif
+
