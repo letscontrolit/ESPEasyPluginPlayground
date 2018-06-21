@@ -24,10 +24,10 @@ List of commands :
 	- HSV,<hue 0-255>,<saturation 0-255>,<value/brightness 0-255>
 	- HUE,<hue 0-360>
 	- SAT,<saturation 0-100>
-	- VAL,<value/brightness 0-100>
-	- DIM,<value/brightness 0-100>
-	- H_RGB,<RGB HEX COLOR > ie FF0000 for red
-	- H_HSV,<HSV HEX COLOR > ie 00FFFF for red
+	- VAL,<value/brightness 0-1023>
+	- DIM,<value/brightness 0-1023>
+	- H_RGB,<RGB HEX COLOR > ie #FF0000 for red
+	- H_HSV,<HSV HEX COLOR > ie #00FFFF for red
 	- SPEED,<0-65535> Fast to slow
 	- MODE,<mode 0-6>,<Speed 1-255>	time for full color hue circle;
 		Available  Modes:
