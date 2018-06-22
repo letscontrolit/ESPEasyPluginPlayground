@@ -5,7 +5,7 @@
 #define PLUGIN_104
 #define PLUGIN_ID_104                         104
 #define PLUGIN_NAME_104                       "Ultrasonic range finder - SRF02"
-#define PLUGIN_VALUENAME1_104                 "Distance"
+#define PLUGIN_VALUENAME1_104                 "DISTANCE"
 
 #define SRF02_ADDRESS                         (0x70)  // default address (0x70 = datasheet address 0xE0)
 
@@ -69,34 +69,13 @@ boolean Plugin_104(byte function, struct EventStruct *event, String& string)
       }
 
     case PLUGIN_WEBFORM_LOAD:
-      {
-        byte choice = Settings.TaskDevicePluginConfig[event->TaskIndex][0];
-        
-        String options[1];
-        options[0] = F("Distance");
-        
-        int optionValues[1];
-        optionValues[0] = 0;
-        
-        string += F("<TR><TD>Report:<TD><select name='plugin_104_value'>");
-        string += F("<option value='");
-        string += optionValues[0];
-        string += "'";
-        if (choice == optionValues[0])
-          string += F(" selected");
-        string += ">";
-        string += options[0];
-        string += F("</option>");
-        string += F("</select>");
-
+      {     
         success = true;
         break;
       }
 
     case PLUGIN_WEBFORM_SAVE:
       {
-        String plugin1 = WebServer.arg("plugin_104_value");
-        Settings.TaskDevicePluginConfig[event->TaskIndex][0] = plugin1.toInt();
         success = true;
         break;
       }
@@ -113,9 +92,9 @@ boolean Plugin_104(byte function, struct EventStruct *event, String& string)
         float value;
         value = Plugin_104_getDistance();        
         UserVar[event->BaseVarIndex] = value;
-        String log = F("SRF02 : value : ");
+        String log = F("P104 : distance = ");
         log += value;
-        log += F("mm");
+        log += F(" mm");
         addLog(LOG_LEVEL_INFO,log);
         success = true;
         break;
