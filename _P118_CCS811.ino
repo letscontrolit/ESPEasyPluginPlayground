@@ -211,7 +211,6 @@ boolean Plugin_118(byte function, struct EventStruct * event, String & string)
             int frequencyValues[3] = {1, 2, 3};
             addFormSelector(string, F("Take reading every"), F("plugin_118_read_frequency"), 3,  frequencyOptions, frequencyValues, frequencyChoice);
 
-            // addFormSeparator(2);
             addFormSeparator(string);
 
             // mode
@@ -227,20 +226,9 @@ boolean Plugin_118(byte function, struct EventStruct * event, String & string)
 
             // temperature scale
             int temperatureScale = Settings.TaskDevicePluginConfig[event->TaskIndex][6];
-            // addRowLabel(string, F("Temperature Scale:"));
             String temperatureScaleOptions[2] = {F("&deg;C"), F("&deg;F")};
             int temperatureScaleValues[2] = {0, 1};
             addFormSelector(string, F("Temperature Scale:"), F("plugin_118_temperature_scale"), 2,  temperatureScaleOptions, temperatureScaleValues, temperatureScale);
-
-            // addCheckBox(string, plugin_118_temperature_c, temperatureScale == 0)
-            // addRowLabel(string, F("<input type='radio' id='plugin_118_temperature_c' name='plugin_118_temperature_scale' value='0'"));
-            // addRowLabel(string, (temperatureScale == 0) ? F(" checked>") : F(">"));
-            // addRowLabel(string, F("<label for='plugin_118_temperature_c'> &deg;C</label> &nbsp; "));
-            // addCheckBox(string, plugin_118_temperature_f, temperatureScale == 1)
-
-            // addRowLabel(string, F("<input type='radio' id='plugin_118_temperature_f' name='plugin_118_temperature_scale' value='1'"));
-            // addRowLabel(string, (temperatureScale == 1) ? F(" checked>") : F(">"));
-            // addRowLabel(string, F("<label for='plugin_118_temperature_f'> &deg;F</label><br>"));
 
             // humidity
             addRowLabel(string, F("Humidity:"));
