@@ -24,10 +24,10 @@ List of commands :
 	- HSV,<hue 0-255>,<saturation 0-255>,<value/brightness 0-255>
 	- HUE,<hue 0-360>
 	- SAT,<saturation 0-100>
-	- VAL,<value/brightness 0-100>
-	- DIM,<value/brightness 0-100>
-	- H_RGB,<RGB HEX COLOR > ie FF0000 for red
-	- H_HSV,<HSV HEX COLOR > ie 00FFFF for red
+	- VAL,<value/brightness 0-1023>
+	- DIM,<value/brightness 0-1023>
+	- H_RGB,<RGB HEX COLOR > ie #FF0000 for red
+	- H_HSV,<HSV HEX COLOR > ie #00FFFF for red
 	- SPEED,<0-65535> Fast to slow
 	- MODE,<mode 0-6>,<Speed 1-255>	time for full color hue circle;
 		Available  Modes:
@@ -329,54 +329,54 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 
 
 			byte type = Settings.TaskDevicePluginConfig[event->TaskIndex][0];
-			addFormSelector(string, F("LedStrip Type"), PLUGIN_141_CONF_0, i , options, optionValues, NULL ,type, true );
+			addFormSelector(F("LedStrip Type"), PLUGIN_141_CONF_0, i , options, optionValues, NULL ,type, true );
 
 
 			// show options depending on type selected ..........
 			//led Strip
 			if( type> 0 && type < PLUGIN_141_FIRST_TYPE_PIX ){
 				// RGB
-				addRowLabel(string, "GPIO Red");
-				addPinSelect(false, string, PLUGIN_141_CONF_1, Settings.TaskDevicePluginConfig[event->TaskIndex][1]);
+				addRowLabel("GPIO Red");
+				addPinSelect(false, PLUGIN_141_CONF_1, Settings.TaskDevicePluginConfig[event->TaskIndex][1]);
 			
-				addRowLabel(string, "GPIO Green");
-				addPinSelect(false, string, PLUGIN_141_CONF_2, Settings.TaskDevicePluginConfig[event->TaskIndex][2]);
+				addRowLabel("GPIO Green");
+				addPinSelect(false, PLUGIN_141_CONF_2, Settings.TaskDevicePluginConfig[event->TaskIndex][2]);
 
-				addRowLabel(string, "GPIO Blue");
-				addPinSelect(false, string, PLUGIN_141_CONF_3, Settings.TaskDevicePluginConfig[event->TaskIndex][3]);
+				addRowLabel("GPIO Blue");
+				addPinSelect(false, PLUGIN_141_CONF_3, Settings.TaskDevicePluginConfig[event->TaskIndex][3]);
 
 				// RGBW
 				if( type >=3 ){
-					addRowLabel(string, "GPIO White 1");
-					addPinSelect(false, string, PLUGIN_141_CONF_4, Settings.TaskDevicePluginConfig[event->TaskIndex][4]);
+					addRowLabel("GPIO White 1");
+					addPinSelect(false, PLUGIN_141_CONF_4, Settings.TaskDevicePluginConfig[event->TaskIndex][4]);
 				}
 				
 				// RGBWW
 				if( type >=5 ){
-					addRowLabel(string, "GPIO White 2");
-					addPinSelect(false, string, PLUGIN_141_CONF_5, Settings.TaskDevicePluginConfig[event->TaskIndex][5]);
+					addRowLabel("GPIO White 2");
+					addPinSelect(false, PLUGIN_141_CONF_5, Settings.TaskDevicePluginConfig[event->TaskIndex][5]);
 				}
 				
 				// has IR				
 				if( type ==2 || type == 4 || type == 6 ){
-					addRowLabel(string, "GPIO InfraRed");
-					addPinSelect(false, string, PLUGIN_141_CONF_6, Settings.TaskDevicePluginConfig[event->TaskIndex][6]);
+					addRowLabel("GPIO InfraRed");
+					addPinSelect(false, PLUGIN_141_CONF_6, Settings.TaskDevicePluginConfig[event->TaskIndex][6]);
 				}
 
-				addFormSeparator(string);
-				string += F("<TR><TD>Huacanxing H801 pins:</TD><TD>15, 13, 12, 14, 4 - normal<TD>");			
-				string += F("<TR><TD>Magic Home v1.0 pins:</TD><TD>14,  5, 12, 13, IR=? - Invers<TD>");			
-				string += F("<TR><TD>Magic Home v2.0 pins:</TD><TD> 5, 12, 13, 15, IR=4 - Invers<TD>");			
+				addFormSeparator(2);
+				addHtml(F("<TR><TD>Huacanxing H801 pins:</TD><TD>15, 13, 12, 14, 4 - normal<TD>"));			
+				addHtml(F("<TR><TD>Magic Home v1.0 pins:</TD><TD>14,  5, 12, 13, IR=? - Invers<TD>"));			
+				addHtml(F("<TR><TD>Magic Home v2.0 pins:</TD><TD> 5, 12, 13, 15, IR=4 - Invers<TD>"));			
 			}
 			else if( type >= PLUGIN_141_FIRST_TYPE_PIX ){
-				string += F("<TR><TD><b style='color:red'>NOT yet implemented</b><TD>");			
+				addHtml(F("<TR><TD><b style='color:red'>NOT yet implemented</b><TD>"));			
 				
 				if (type < PLUGIN_141_FIRST_TYPE_PIX_SPI){
-					addRowLabel(string, "GPIO Data");
-					addPinSelect(false, string, PLUGIN_141_CONF_1, Settings.TaskDevicePluginConfig[event->TaskIndex][1]);			
+					addRowLabel("GPIO Data");
+					addPinSelect(false, PLUGIN_141_CONF_1, Settings.TaskDevicePluginConfig[event->TaskIndex][1]);			
 				}
 				else {
-					string += F("<TR><TD>Use hardware SPI GPIOs<TD>");
+					addHtml(F("<TR><TD>Use hardware SPI GPIOs<TD>"));
 				}
 			}
 
