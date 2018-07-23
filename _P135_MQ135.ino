@@ -10,7 +10,7 @@
 #define PLUGIN_ID_135           135
 #define PLUGIN_NAME_135         "Gases - MQ135 [TESTING]"
 #define PLUGIN_VALUENAME1_135   "CO2"
-#define PLUGIN_VALUENAME2_135   "Air Quality"
+#define PLUGIN_VALUENAME2_135   "AirQuality"
 
 boolean Plugin_135_init = false;
 byte Plugin_MQ135_Air_Quality_Pin = 0;
@@ -32,48 +32,48 @@ byte Plugin_MQ135_Air_Quality_Pin = 0;
 //#define MQ135_H
 
 /// The load resistance on the board
-#define RLOAD 10.0
+#define RLOAD           10.0
 /// Calibration resistance at atmospheric CO2 level
-#define RZERO 76.63
+#define RZERO           76.63
 /// Parameters for calculating ppm of CO2 from sensor resistance
-#define PARA 116.6020682  // scaling factor value
-#define PARB 2.769034857  // exponent value
+#define PARA            116.6020682  // scaling factor value
+#define PARB            2.769034857  // exponent value
 
 /// Parameters to model temperature and humidity dependence
-#define CORA 0.00035
-#define CORB 0.02718
-#define CORC 1.39538
-#define CORD 0.0018
-#define CORE -0.003333333
-#define CORF -0.001923077
-#define CORG 1.130128205
+#define CORA            0.00035
+#define CORB            0.02718
+#define CORC            1.39538
+#define CORD            0.0018
+#define CORE            -0.003333333
+#define CORF            -0.001923077
+#define CORG            1.130128205
 
 /// Atmospheric CO2 level for calibration purposes
-#define ATMOCO2 397.13
+#define ATMOCO2         397.13
 
 /// Sensor pin and  data polling interval
 #define SENSOR_PIN      A0
 #define PUB_INTERVAL    5   // seconds
 
 class MQ135 {
- private:
-  uint8_t _pin;
+  private:
+    uint8_t _pin;
 
- public:
-  MQ135(uint8_t pin);
-  float getCorrectionFactor(float temperature, float humidity);
-//  float getResistance();
-  float getResistance(float tempRLOAD);
-//  float getCorrectedResistance(float t, float h);
-  float getCorrectedResistance(float tempRLOAD, float temperature, float humidity);
-//  float getPPM();
-  float getPPM(float tempRLOAD, float tempRZERO);
-//  float getCorrectedPPM(float t, float h);
-  float getCorrectedPPM(float tempRLOAD, float tempRZERO, float temperature, float humidity);
-//  float getRZero();
-  float getRZero(float tempRLOAD, float tempATMOCO2);
-//  float getCorrectedRZero(float t, float h);
-  float getCorrectedRZero(float tempRLOAD, float tempATMOCO2, float temperature, float humidity);
+  public:
+    MQ135(uint8_t pin);
+    float getCorrectionFactor(float temperature, float humidity);
+//    float getResistance();
+    float getResistance(float tempRLOAD);
+//    float getCorrectedResistance(float t, float h);
+    float getCorrectedResistance(float tempRLOAD, float temperature, float humidity);
+//    float getPPM();
+    float getPPM(float tempRLOAD, float tempRZERO);
+//    float getCorrectedPPM(float t, float h);
+    float getCorrectedPPM(float tempRLOAD, float tempRZERO, float temperature, float humidity);
+//    float getRZero();
+    float getRZero(float tempRLOAD, float tempATMOCO2);
+//    float getCorrectedRZero(float t, float h);
+    float getCorrectedRZero(float tempRLOAD, float tempATMOCO2, float temperature, float humidity);
 };
 //#endif
 
@@ -99,15 +99,15 @@ MQ135::MQ135(uint8_t pin) {
 */
 /**************************************************************************/
 float MQ135::getCorrectionFactor(float temperature, float humidity) {
-    // Linearization of the temperature dependency curve under and above 20 degree C
-    // below 20degC: fact = a * t * t - b * t - (h - 33) * d
-    // above 20degC: fact = a * t + b * h + c
-    // this assumes a linear dependency on humidity
-    if (temperature < 20) {
-        return CORA * temperature * temperature - CORB * temperature + CORC - (humidity-33.)*CORD;
-    } else {
-        return CORE * temperature + CORF * humidity + CORG;
-    }
+// Linearization of the temperature dependency curve under and above 20 degree C
+// below 20degC: fact = a * t * t - b * t - (h - 33) * d
+// above 20degC: fact = a * t + b * h + c
+// this assumes a linear dependency on humidity
+  if (temperature < 20) {
+      return CORA * temperature * temperature - CORB * temperature + CORC - (humidity-33.)*CORD;
+  } else {
+      return CORE * temperature + CORF * humidity + CORG;
+  }
 }
 
 /**************************************************************************/
@@ -273,15 +273,6 @@ boolean Plugin_135(byte function, struct EventStruct *event, String& string)
         LoadTaskSettings(Settings.TaskDevicePluginConfig[event->TaskIndex][1]); // we need to load the values from another task for selection!
         addHtml(F("<TR><TD>Temperature Value:<TD>"));
         addTaskValueSelect(F("plugin_135_temperature_value"), Settings.TaskDevicePluginConfig[event->TaskIndex][2], Settings.TaskDevicePluginConfig[event->TaskIndex][1]);
-        // temperature scale
-        int temperatureScale = Settings.TaskDevicePluginConfig[event->TaskIndex][5];
-        addHtml(F("<TR><TD>Temperature Scale:<TD>")); // checked
-        addHtml(F("<input type='radio' id='plugin_135_temperature_c' name='plugin_135_temperature_scale' value='0'"));
-        addHtml((temperatureScale == 0) ? F(" checked>") : F(">"));
-        addHtml(F("<label for='plugin_135_temperature_c'> &deg;C</label> &nbsp; "));
-        addHtml(F("<input type='radio' id='plugin_135_temperature_f' name='plugin_135_temperature_scale' value='1'"));
-        addHtml((temperatureScale == 1) ? F(" checked>") : F(">"));
-        addHtml(F("<label for='plugin_135_temperature_f'> &deg;F</label><br>"));
         // humidity
         addHtml(F("<TR><TD>Humidity:<TD>"));
         addTaskSelect(F("plugin_135_humidity_task"), Settings.TaskDevicePluginConfig[event->TaskIndex][3]);
@@ -304,7 +295,6 @@ boolean Plugin_135(byte function, struct EventStruct *event, String& string)
         Settings.TaskDevicePluginConfig[event->TaskIndex][2] = getFormItemInt(F("plugin_135_temperature_value"));
         Settings.TaskDevicePluginConfig[event->TaskIndex][3] = getFormItemInt(F("plugin_135_humidity_task"));
         Settings.TaskDevicePluginConfig[event->TaskIndex][4] = getFormItemInt(F("plugin_135_humidity_value"));
-        Settings.TaskDevicePluginConfig[event->TaskIndex][5] = getFormItemInt(F("plugin_135_temperature_scale"));
 
         success = true;
         break;
@@ -313,21 +303,21 @@ boolean Plugin_135(byte function, struct EventStruct *event, String& string)
     case PLUGIN_INIT:
       {
         if (Plugin_135_MQ135[event->TaskIndex])
-  				delete Plugin_135_MQ135[event->TaskIndex];
-  			Plugin_135_MQ135[event->TaskIndex] = new MQ135(SENSOR_PIN);
+            delete Plugin_135_MQ135[event->TaskIndex];
+        Plugin_135_MQ135[event->TaskIndex] = new MQ135(SENSOR_PIN);
 
         Plugin_135_init = true;
         pinMode(Settings.TaskDevicePin1[event->TaskIndex], INPUT);
         Plugin_MQ135_Air_Quality_Pin = Settings.TaskDevicePin1[event->TaskIndex];
 
-  			success = true;
-  			break;
+        success = true;
+        break;
       }
 
     case PLUGIN_READ:
-  		{
+        {
         if (!Plugin_135_MQ135[event->TaskIndex])
-  				return success;
+            return success;
 
         const float tempRLOAD = Settings.TaskDevicePluginConfigFloat[event->TaskIndex][0];
         const float tempRZERO = Settings.TaskDevicePluginConfigFloat[event->TaskIndex][1];
@@ -338,13 +328,6 @@ boolean Plugin_135(byte function, struct EventStruct *event, String& string)
             byte TaskIndex1    = Settings.TaskDevicePluginConfig[event->TaskIndex][1];
             byte BaseVarIndex1 = TaskIndex1 * VARS_PER_TASK + Settings.TaskDevicePluginConfig[event->TaskIndex][2];
             float temperature = UserVar[BaseVarIndex1]; // in degrees C
-            // convert to celsius if required
-            int temperature_in_fahrenheit = Settings.TaskDevicePluginConfig[event->TaskIndex][5];
-            String temp = F("°C");
-            if (temperature_in_fahrenheit) {
-                temperature = (temperature - 32) * 5 / 9;
-                temp =  F("°F");
-            }
 
             byte TaskIndex2    = Settings.TaskDevicePluginConfig[event->TaskIndex][3];
             byte BaseVarIndex2 = TaskIndex2 * VARS_PER_TASK + Settings.TaskDevicePluginConfig[event->TaskIndex][4];
@@ -357,27 +340,20 @@ boolean Plugin_135(byte function, struct EventStruct *event, String& string)
             UserVar[event->BaseVarIndex + 2] = Plugin_135_MQ135[event->TaskIndex]->getRZero(tempRLOAD, tempATMOCO2);
         }
 
-/*
-        String Air_Quality;
-        if (digitalRead(Plugin_MQ135_Air_Quality_Pin) == 0)
-            String Air_Quality = "Bad ";
-        else
-            String Air_Quality = "Good";
-*/
-
         UserVar[event->BaseVarIndex + 1] = digitalRead(Plugin_MQ135_Air_Quality_Pin);
 
         String log = F("MQ135: co2: ");
-  			log += UserVar[event->BaseVarIndex];
-  			addLog(LOG_LEVEL_INFO, log);
-  			log = F("MQ135: air quality: ");
+        log += UserVar[event->BaseVarIndex];
+        addLog(LOG_LEVEL_INFO, log);
+        log = F("MQ135: air quality: ");
         log += UserVar[event->BaseVarIndex + 1];
         addLog(LOG_LEVEL_INFO, log);
-  			log = F("MQ135: rzero: ");
-  			log += UserVar[event->BaseVarIndex + 2];
-  			addLog(LOG_LEVEL_INFO, log);
-  			success = true;
-  			break;
+        log = F("MQ135: rzero: ");
+        log += UserVar[event->BaseVarIndex + 2];
+        addLog(LOG_LEVEL_INFO, log);
+
+        success = true;
+        break;
       }
   }
   return success;
