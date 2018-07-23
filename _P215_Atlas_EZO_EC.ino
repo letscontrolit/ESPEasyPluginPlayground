@@ -51,9 +51,9 @@ boolean Plugin_215(byte function, struct EventStruct *event, String& string)
         #define ATLASEZO_EC_I2C_NB_OPTIONS 3
         byte I2Cchoice = Settings.TaskDevicePluginConfig[event->TaskIndex][0];
         int optionValues[ATLASEZO_EC_I2C_NB_OPTIONS] = { 0x64, 0x65, 0x66 };
-        addFormSelectorI2C(string, F("Plugin_215_i2c"), ATLASEZO_EC_I2C_NB_OPTIONS, optionValues, I2Cchoice);
+        addFormSelectorI2C(F("Plugin_215_i2c"), ATLASEZO_EC_I2C_NB_OPTIONS, optionValues, I2Cchoice);
 
-        addFormSubHeader(string, F("General"));
+        addFormSubHeader(F("General"));
 
         char sensordata[32];
         bool status;
@@ -62,89 +62,92 @@ boolean Plugin_215(byte function, struct EventStruct *event, String& string)
         if (status) {
           String boardInfo(sensordata);
 
-          string += "<TR><TD>Board type : </TD><TD>";
+          addHtml(F("<TR><TD>Board type : </TD><TD>"));
           int pos1 = boardInfo.indexOf(',');
           int pos2 = boardInfo.lastIndexOf(',');
-          string += boardInfo.substring(pos1+1,pos2);
+          addHtml(boardInfo.substring(pos1+1,pos2));
           if (boardInfo.substring(pos1+1,pos2) != "EC"){
-            string += "<span style='color:red'>  WARNING : Board type should be 'EC', check your i2c Address ? </span>";
+            addHtml(F("<span style='color:red'>  WARNING : Board type should be 'EC', check your i2c Address ? </span>"));
           }
-          string += "</TD></TR><TR><TD>Board version :</TD><TD>";
-          string += boardInfo.substring(pos2+1);
-          string += "</TD></TR>\n";
+          addHtml(F("</TD></TR><TR><TD>Board version :</TD><TD>"));
+          addHtml(boardInfo.substring(pos2+1));
+          addHtml(F("</TD></TR>\n"));
 
-          string += F("<input type='hidden' name='Plugin_215_sensorVersion' value='");
-          string += boardInfo.substring(pos2+1);
-          string += F("'>");
+          addHtml(F("<input type='hidden' name='Plugin_215_sensorVersion' value='"));
+          addHtml(boardInfo.substring(pos2+1));
+          addHtml(F("'>"));
 
           status = _P215_send_I2C_command(Settings.TaskDevicePluginConfig[event->TaskIndex][0],"K,?",sensordata);
           boardInfo = sensordata;
-          string += "<TR><TD>Sensor type : </TD><TD>K=";
+          addHtml(F("<TR><TD>Sensor type : </TD><TD>K="));
           pos2 = boardInfo.lastIndexOf(',');
-          string += boardInfo.substring(pos2+1);
-          string += "</TD></TR>\n";
+          addHtml(boardInfo.substring(pos2+1));
+          addHtml(F("</TD></TR>\n"));
 
         } else {
-          string += "<span style='color:red;'>Unable to send command to device</span>";
+          addHtml(F("<span style='color:red;'>Unable to send command to device</span>"));
           success = false;
           break;
         }
 
-        addFormCheckBox(string, F("Status LED"), F("Plugin_215_status_led"), Settings.TaskDevicePluginConfig[event->TaskIndex][1]);
-        addFormSubHeader(string, F("Calibration"));
-        string += F("<TR><TD>Dry calibration</TD><TD>Enable ");
-        addCheckBox(string, F("Plugin_215_enable_cal_dry' onClick='document.getElementById(\"Plugin_215_enable_cal_single\").checked = false;document.getElementById(\"Plugin_215_enable_cal_L\").checked = false;;document.getElementById(\"Plugin_215_enable_cal_H\").checked = false;"), false);
-        string += "</TD></TR><TR>\n";
-        addFormNote(string, F("Dry calibration must always be done first!"));
-        string += "</TR>";
+        addFormCheckBox(F("Status LED"), F("Plugin_215_status_led"), Settings.TaskDevicePluginConfig[event->TaskIndex][1]);
 
-        string += F("<TR><TD>Single point calibration</TD><TD>Enable ");
-        addCheckBox(string, F("Plugin_215_enable_cal_single' onClick='document.getElementById(\"Plugin_215_enable_cal_dry\").checked = false;document.getElementById(\"Plugin_215_enable_cal_L\").checked = false;;document.getElementById(\"Plugin_215_enable_cal_H\").checked = false;"), false);
-        string += F("&nbsp; &nbsp;Ref EC:&nbsp;");
-        addNumericBox(string, F("Plugin_215_ref_cal_single"), Settings.TaskDevicePluginConfig[event->TaskIndex][2]);
-        string += "&micro;S</TD></TR>\n";
+        addFormSubHeader(F("Calibration"));
 
-        string += F("<TR><TD>Low calibration</TD><TD>Enable ");
-        addCheckBox(string, F("Plugin_215_enable_cal_L' onClick='document.getElementById(\"Plugin_215_enable_cal_dry\").checked = false;document.getElementById(\"Plugin_215_enable_cal_single\").checked = false;;document.getElementById(\"Plugin_215_enable_cal_H\").checked = false;"), false);
-        string += F("&nbsp; &nbsp;Ref EC:&nbsp;");
-        addNumericBox(string, F("Plugin_215_ref_cal_L"), Settings.TaskDevicePluginConfig[event->TaskIndex][3]);
-        string += "&micro;S</TD></TR>\n";
+        addRowLabel(F("<strong>Dry calibration</strong>"));
+        addFormCheckBox(F("Enable"),F("Plugin_215_enable_cal_dry"), false);
+        addHtml(F("\n<script type='text/javascript'>document.getElementById(\"Plugin_215_enable_cal_dry\").onclick=function() {document.getElementById(\"Plugin_215_enable_cal_single\").checked = false;document.getElementById(\"Plugin_215_enable_cal_L\").checked = false;;document.getElementById(\"Plugin_215_enable_cal_H\").checked = false;};</script>"));
+        addFormNote(F("Dry calibration must always be done first!"));
 
-        string += F("<TR><TD>High calibration</TD><TD>Enable ");
-        addCheckBox(string, F("Plugin_215_enable_cal_H' onClick='document.getElementById(\"Plugin_215_enable_cal_dry\").checked = false;document.getElementById(\"Plugin_215_enable_cal_single\").checked = false;;document.getElementById(\"Plugin_215_enable_cal_L\").checked = false;"), false);
-        string += F("&nbsp; &nbsp;Ref EC:&nbsp;");
-        addNumericBox(string, F("Plugin_215_ref_cal_H"), Settings.TaskDevicePluginConfig[event->TaskIndex][4]);
-        string += "&micro;S</TD></TR>\n";
+        addRowLabel(F("<strong>Single point calibration</strong> "));
+        addFormCheckBox(F("Enable"),F("Plugin_215_enable_cal_single"), false);
+        addHtml(F("\n<script type='text/javascript'>document.getElementById(\"Plugin_215_enable_cal_single\").onclick=function() {document.getElementById(\"Plugin_215_enable_cal_dry\").checked = false;document.getElementById(\"Plugin_215_enable_cal_L\").checked = false;;document.getElementById(\"Plugin_215_enable_cal_H\").checked = false;};</script>"));
+        addFormNumericBox(F("Ref EC"),F("Plugin_215_ref_cal_single"), Settings.TaskDevicePluginConfig[event->TaskIndex][2]);
+        addUnit("&micro;S");
+
+        addRowLabel(F("<strong>Low calibration</strong>"));
+        addFormCheckBox(F("enable"),F("Plugin_215_enable_cal_L' onClick='document.getElementById(\"Plugin_215_enable_cal_dry\").checked = false;document.getElementById(\"Plugin_215_enable_cal_single\").checked = false;;document.getElementById(\"Plugin_215_enable_cal_H\").checked = false;"), false);
+        addHtml(F("\n<script type='text/javascript'>document.getElementById(\"Plugin_215_enable_cal_L\").onclick=function() {document.getElementById(\"Plugin_215_enable_cal_dry\").checked = false;document.getElementById(\"Plugin_215_enable_cal_single\").checked = false;;document.getElementById(\"Plugin_215_enable_cal_H\").checked = false;};</script>"));
+        addFormNumericBox(F("Ref EC"),F("Plugin_215_ref_cal_L"), Settings.TaskDevicePluginConfig[event->TaskIndex][3]);
+        addUnit("&micro;S");
+
+        addRowLabel(F("<strong>High calibration</strong>"));
+        addFormCheckBox(F("Enable"),F("Plugin_215_enable_cal_H"), false);
+        addHtml(F("\n<script type='text/javascript'>document.getElementById(\"Plugin_215_enable_cal_H\").onclick=function() {document.getElementById(\"Plugin_215_enable_cal_dry\").checked = false;document.getElementById(\"Plugin_215_enable_cal_single\").checked = false;;document.getElementById(\"Plugin_215_enable_cal_L\").checked = false;};</script>"));
+        addFormNumericBox(F("Ref EC"),F("Plugin_215_ref_cal_H"), Settings.TaskDevicePluginConfig[event->TaskIndex][4]);
+        addUnit("&micro;S");
 
         status = _P215_send_I2C_command(Settings.TaskDevicePluginConfig[event->TaskIndex][0], "Cal,?",sensordata);
         if (status){
           switch (sensordata[5]) {
             case '0' :
-              addFormNote(string,F("<span style='color:red'>Calibration needed</span>"));
+              addFormNote(F("<span style='color:red'>Calibration needed</span>"));
             break;
             case '1' :
-              addFormNote(string,F("<span style='color:green'>Single point calibration ok</span>"));
+              addFormNote(F("<span style='color:green'>Single point calibration ok</span>"));
             break;
             case '2' :
-              addFormNote(string,F("<span style='color:green'>Two points calibration ok</span>"));
+              addFormNote(F("<span style='color:green'>Two points calibration ok</span>"));
             break;
           }
         }
 
-        addFormSubHeader(string, F("Temperature compensation"));
+        addFormSubHeader(F("Temperature compensation"));
         char deviceTemperatureTemplate[40];
         LoadCustomTaskSettings(event->TaskIndex, (byte*)&deviceTemperatureTemplate, sizeof(deviceTemperatureTemplate));
-        addFormTextBox(string, F("Temperature "), F("Plugin_215_temperature_template"), deviceTemperatureTemplate, sizeof(deviceTemperatureTemplate));
-        addFormNote(string, F("You can use a formulae (and idealy refer to a temp sensor). "));
+        addFormTextBox(F("Temperature "), F("Plugin_215_temperature_template"), deviceTemperatureTemplate, sizeof(deviceTemperatureTemplate));
+        addFormNote(F("You can use a formulae (and idealy refer to a temp sensor). "));
         float value;
-        string += "<div class='note'>";
+        char strValue[5];
+        addHtml(F("<div class='note'>"));
         if (Calculate(deviceTemperatureTemplate,&value) == CALCULATE_OK ){
-          string += "Actual value : ";
-          string += value;
+          addHtml(F("Actual value : "));
+          dtostrf(value,5,2,strValue);
+          addHtml(strValue);
         } else {
-          string += "(It seems I can't parse your formulae)";
+          addHtml(F("(It seems I can't parse your formulae)"));
         }
-        string += "</div>";
+        addHtml(F("</div>"));
 
         success = true;
         break;
