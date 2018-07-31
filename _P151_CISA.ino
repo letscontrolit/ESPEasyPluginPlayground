@@ -130,16 +130,16 @@ boolean Plugin_151(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_WEBFORM_LOAD:
     {
-      addFormCheckBox(string, F("Invert led voltage"), F("led_invert"), CONFIG(4));
+      addFormCheckBox(F("Invert led voltage"), F("led_invert"), CONFIG(4));
 
-      addFormPinSelect(string, F("Sense out pin"), F("sense_out"), CONFIG(0));
-      addFormPinSelect(string, F("Sense in pin"), F("sense_in"), CONFIG(1));
+      addFormPinSelect(F("Sense out pin"), F("sense_out"), CONFIG(0));
+      addFormPinSelect(F("Sense in pin"), F("sense_in"), CONFIG(1));
 
-      addFormNumericBox(string, F("Sense locked minimum"), F("sense_locked"), CONFIG(2), 0, 65535);
-      addFormNumericBox(string, F("Sense hand detect minimum"), F("sense_person"), CONFIG(3), 0, 65535);
+      addFormNumericBox(F("Sense locked minimum"), F("sense_locked"), CONFIG(2), 0, 65535);
+      addFormNumericBox(F("Sense hand detect minimum"), F("sense_person"), CONFIG(3), 0, 65535);
 
-      addFormNumericBox(string, F("Unlock delay"), F("unlock_delay"), CONFIG(5), 0, 65535);
-      addUnit(string, F("ms"));
+      addFormNumericBox(F("Unlock delay"), F("unlock_delay"), CONFIG(5), 0, 65535);
+      addUnit(F("ms"));
 
 
       success = true;

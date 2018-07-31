@@ -86,10 +86,10 @@ boolean Plugin_203(byte function, struct EventStruct *event, String& string)
     case PLUGIN_WEBFORM_LOAD:
     {
 
-      addFormNumericBox(string, F("Rotate forward time"), F("forward"), CONFIG(0), 0, 60000);
-      addUnit(string, F("ms"));
-      addFormNumericBox(string, F("Rotate reverse time"), F("reverse"), CONFIG(1), 0, 60000);
-      addUnit(string, F("ms"));
+      addFormNumericBox(F("Rotate forward time"), F("forward"), CONFIG(0), 0, 60000);
+      addUnit(F("ms"));
+      addFormNumericBox(F("Rotate reverse time"), F("reverse"), CONFIG(1), 0, 60000);
+      addUnit(F("ms"));
 
 
 
@@ -126,14 +126,14 @@ boolean Plugin_203(byte function, struct EventStruct *event, String& string)
 
       if (command == F("feed"))
       {
-        for(int i=0; i<event->Par1; i++)
+        // for(int i=0; i<event->Par1; i++)
         {
           //forward
           // digitalWrite(Settings.TaskDevicePin1[event->TaskIndex], HIGH); //enable
           digitalWrite(Settings.TaskDevicePin2[event->TaskIndex], HIGH);
           digitalWrite(Settings.TaskDevicePin3[event->TaskIndex], LOW);
 
-          ramped_pulse(Settings.TaskDevicePin1[event->TaskIndex], 1000, CONFIG(0));
+          ramped_pulse(Settings.TaskDevicePin1[event->TaskIndex], event->Par1, CONFIG(0));
           // delay(CONFIG(0));
 
           //pause
