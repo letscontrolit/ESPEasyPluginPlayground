@@ -1420,13 +1420,15 @@ boolean Plugin_124(uint8_t function, struct EventStruct *event, String& string)
             }
           }
         }
-       
+
         // trigger immediate data forwarding
         if (newDataPending)
-          timerSensor[event->TaskIndex] = millis() - 1;
+          //timerSensor[event->TaskIndex] = millis() - 1;
+          schedule_task_device_timer(event->TaskIndex, millis() - 1);
         else
-          timerSensor[event->TaskIndex] = millis() + 60000;     // prevent periodic transmission
-
+          //timerSensor[event->TaskIndex] = millis() + 60000;     // prevent periodic transmission
+          schedule_task_device_timer(event->TaskIndex, millis() + 60000);   // prevent periodic transmission
+        
         success = true;
         break;
       }
