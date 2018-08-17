@@ -59,7 +59,7 @@ const uint8_t flameimg[] PROGMEM = {
 #define P168_WIFI_STATE_UNSET          -2
 #define P168_WIFI_STATE_NOT_CONNECTED  -1
 
-float Plugin_168_prev_temp;
+float Plugin_168_prev_temp = 99;
 float Plugin_168_prev_setpoint;
 float Plugin_168_prev_timeout;
 byte Plugin_168_prev_heating;
@@ -68,6 +68,7 @@ byte Plugin_168_prev_mode;
 byte Plugin_168_taskindex;
 byte Plugin_168_varindex;
 byte Plugin_168_changed;
+boolean Plugin_168_init = false;
 
 static unsigned long Plugin_168_buttons[3];
 
@@ -220,7 +221,7 @@ boolean Plugin_168(byte function, struct EventStruct *event, String& string)
           delete P168_display;
         }
         Plugin_168_taskindex = event->TaskIndex;
-        Plugin_168_varindex = event->BaseVarIndex;        
+        Plugin_168_varindex = event->BaseVarIndex;
 
         uint8_t OLED_address = Settings.TaskDevicePluginConfig[event->TaskIndex][0];
         if (Settings.TaskDevicePluginConfig[event->TaskIndex][2] == 1) {
@@ -234,15 +235,13 @@ boolean Plugin_168(byte function, struct EventStruct *event, String& string)
         uint8_t OLED_contrast = Settings.TaskDevicePluginConfig[event->TaskIndex][3];
         P168_setContrast(OLED_contrast);
 
-        String log = F("Thermo : Btn L:");
-        log += Settings.TaskDevicePin1[event->TaskIndex];
-        log += F("R:");
-        log += Settings.TaskDevicePin2[event->TaskIndex];
-        log += F("M:");
-        log += Settings.TaskDevicePin3[event->TaskIndex];
-        addLog(LOG_LEVEL_INFO, log);
-
-        P168_setHeater(F("0"));
+        String logstr = F("Thermo : Btn L:");
+        logstr += Settings.TaskDevicePin1[event->TaskIndex];
+        logstr += F("R:");
+        logstr += Settings.TaskDevicePin2[event->TaskIndex];
+        logstr += F("M:");
+        logstr += Settings.TaskDevicePin3[event->TaskIndex];
+        addLog(LOG_LEVEL_INFO, logstr);
 
         if (Settings.TaskDevicePin1[event->TaskIndex] != -1)
         {
@@ -256,19 +255,39 @@ boolean Plugin_168(byte function, struct EventStruct *event, String& string)
         {
           pinMode(Settings.TaskDevicePin3[event->TaskIndex], INPUT_PULLUP);
         }
+
+        Plugin_168_prev_temp = 99;
+
+        if (SPIFFS.exists("thermo.dat"))
+        {
+          fs::File f = SPIFFS.open("thermo.dat", "r");
+          if (f)
+          {
+            f.read( ((uint8_t *)&UserVar[event->BaseVarIndex] + 0), 16 );
+            f.close();
+          }
+        }
+        if (UserVar[event->BaseVarIndex] < 1) {
+          UserVar[event->BaseVarIndex] = 19; // setpoint
+          UserVar[event->BaseVarIndex + 2] = 1; // mode (X=0,A=1,M=2)
+        }
+        //UserVar[event->BaseVarIndex + 1] = 0; // heating (0=off,1=heating in progress)
+        //UserVar[event->BaseVarIndex + 3] = 0; // timeout (manual on for minutes)
         if (Settings.TaskDevicePluginConfig[event->TaskIndex][4] != -1)
         {
-          pinMode(Settings.TaskDevicePluginConfig[event->TaskIndex][4], OUTPUT);
+          //pinMode(Settings.TaskDevicePluginConfig[event->TaskIndex][4], OUTPUT);
+          P168_setHeatRelay(byte(UserVar[event->BaseVarIndex + 1]));          
         }
+       
+        logstr = F("Thermo : Starting status S:");
+        logstr += String(UserVar[event->BaseVarIndex]);
+        logstr += F(", R:");
+        logstr += String(UserVar[event->BaseVarIndex + 1]);
+        addLog(LOG_LEVEL_INFO, logstr);
 
-        UserVar[event->BaseVarIndex] = 19; // setpoint
-        UserVar[event->BaseVarIndex + 1] = 0; // heating (0=off,1=heating in progress)
-        UserVar[event->BaseVarIndex + 2] = 1; // mode (X=0,A=1,M=2)
-        UserVar[event->BaseVarIndex + 3] = 0; // timeout (manual on for minutes)
         Plugin_168_changed = 1;
-        Plugin_168_prev_temp = 99;
         Plugin_168_buttons[0] = 0; Plugin_168_buttons[1] = 0; Plugin_168_buttons[2] = 0;
-        
+
         //      flip screen if required
         if (Settings.TaskDevicePluginConfig[event->TaskIndex][1] == 2) P168_display->flipScreenVertically();
 
@@ -276,7 +295,8 @@ boolean Plugin_168(byte function, struct EventStruct *event, String& string)
         P168_display_header();
         P168_display_page();
         P168_display->display();
-
+        Plugin_168_init = true;
+        
         success = true;
         break;
       }
@@ -285,7 +305,6 @@ boolean Plugin_168(byte function, struct EventStruct *event, String& string)
       {
         if (P168_display)
         {
-          P168_setHeatRelay(LOW);
           P168_display->end();
           delete P168_display;
           P168_display = NULL;
@@ -296,55 +315,61 @@ boolean Plugin_168(byte function, struct EventStruct *event, String& string)
     case PLUGIN_TEN_PER_SECOND:
       {
         unsigned long current_time;
-        
+       if (Plugin_168_init){
         if (Settings.TaskDevicePin1[event->TaskIndex] != -1)
         {
           if (!digitalRead(Settings.TaskDevicePin1[event->TaskIndex]))
           {
-           current_time = millis();
-           if (Plugin_168_buttons[0]+300< current_time) {                     
-            Plugin_168_buttons[0] = current_time;
-            switch (int(UserVar[event->BaseVarIndex + 2])) {
-              case 0: { // off mode, no func
-                  break;
-                }
-              case 1: { // auto mode, setpoint dec
-                  P168_setSetpoint(F("-0.5"));
-                  break;
-                }
-              case 2: { // manual on mode, timer dec                
-                  UserVar[event->BaseVarIndex + 3] = UserVar[event->BaseVarIndex + 3] - 300;
-                  if (UserVar[event->BaseVarIndex + 3]<0) { UserVar[event->BaseVarIndex + 3] = 5400; }
-                  Plugin_168_prev_timeout = 32768;
-                  Plugin_168_changed = 1;
-                  break;
-                }
-            }}
+            current_time = millis();
+            if (Plugin_168_buttons[0] + 300 < current_time) {
+              Plugin_168_buttons[0] = current_time;
+              switch (int(UserVar[event->BaseVarIndex + 2])) {
+                case 0: { // off mode, no func
+                    break;
+                  }
+                case 1: { // auto mode, setpoint dec
+                    P168_setSetpoint(F("-0.5"));
+                    break;
+                  }
+                case 2: { // manual on mode, timer dec
+                    UserVar[event->BaseVarIndex + 3] = UserVar[event->BaseVarIndex + 3] - 300;
+                    if (UserVar[event->BaseVarIndex + 3] < 0) {
+                      UserVar[event->BaseVarIndex + 3] = 5400;
+                    }
+                    Plugin_168_prev_timeout = 32768;
+                    Plugin_168_changed = 1;
+                    break;
+                  }
+              }
+            }
           }
         }
         if (Settings.TaskDevicePin2[event->TaskIndex] != -1)
         {
           if (!digitalRead(Settings.TaskDevicePin2[event->TaskIndex]))
           {
-           current_time = millis();
-           if (Plugin_168_buttons[1]+300< current_time) {                     
-            Plugin_168_buttons[1] = current_time;          
-            switch (int(UserVar[event->BaseVarIndex + 2])) {
-              case 0: { // off mode, no func
-                  break;
-                }
-              case 1: { // auto mode, setpoint inc
-                  P168_setSetpoint(F("+0.5"));
-                  break;
-                }
-              case 2: { // manual on mode, timer dec
-                  UserVar[event->BaseVarIndex + 3] = UserVar[event->BaseVarIndex + 3] + 300;
-                  if (UserVar[event->BaseVarIndex + 3]>5400) { UserVar[event->BaseVarIndex + 3] = 60; }                  
-                  Plugin_168_prev_timeout = 32768;                  
-                  Plugin_168_changed = 1;
-                  break;
-                }
-            }}
+            current_time = millis();
+            if (Plugin_168_buttons[1] + 300 < current_time) {
+              Plugin_168_buttons[1] = current_time;
+              switch (int(UserVar[event->BaseVarIndex + 2])) {
+                case 0: { // off mode, no func
+                    break;
+                  }
+                case 1: { // auto mode, setpoint inc
+                    P168_setSetpoint(F("+0.5"));
+                    break;
+                  }
+                case 2: { // manual on mode, timer dec
+                    UserVar[event->BaseVarIndex + 3] = UserVar[event->BaseVarIndex + 3] + 300;
+                    if (UserVar[event->BaseVarIndex + 3] > 5400) {
+                      UserVar[event->BaseVarIndex + 3] = 60;
+                    }
+                    Plugin_168_prev_timeout = 32768;
+                    Plugin_168_changed = 1;
+                    break;
+                  }
+              }
+            }
           }
         }
 
@@ -352,34 +377,35 @@ boolean Plugin_168(byte function, struct EventStruct *event, String& string)
         {
           if (!digitalRead(Settings.TaskDevicePin3[event->TaskIndex]))
           {
-           current_time = millis();
-           if (Plugin_168_buttons[2]+300< current_time) {                     
-            Plugin_168_buttons[2] = current_time;   
-                        
-            switch (int(UserVar[event->BaseVarIndex + 2])) {
-              case 0: { // off mode, next
-                  P168_setMode(F("a"), F("0"));
-                  break;
-                }
-              case 1: { // auto mode, next
-                  P168_setMode(F("m"), F("5"));
-                  break;
-                }
-              case 2: { // manual on mode, next
-                  P168_setMode(F("x"), F("0"));
-                  break;
-                }
-            }}
+            current_time = millis();
+            if (Plugin_168_buttons[2] + 300 < current_time) {
+              Plugin_168_buttons[2] = current_time;
+
+              switch (int(UserVar[event->BaseVarIndex + 2])) {
+                case 0: { // off mode, next
+                    P168_setMode(F("a"), F("0"));
+                    break;
+                  }
+                case 1: { // auto mode, next
+                    P168_setMode(F("m"), F("5"));
+                    break;
+                  }
+                case 2: { // manual on mode, next
+                    P168_setMode(F("x"), F("0"));
+                    break;
+                  }
+              }
+            }
           }
         }
-
+       }
         break;
       }
 
     // Switch off display after displayTimer seconds
     case PLUGIN_ONCE_A_SECOND:
       {
-
+       if (Plugin_168_init){
         if (P168_display && P168_display_wifibars()) {
           // WiFi symbol was updated.
           P168_display->display();
@@ -392,42 +418,53 @@ boolean Plugin_168(byte function, struct EventStruct *event, String& string)
             UserVar[event->BaseVarIndex + 3] = 0;
             P168_setMode(F("a"), F("0")); //heater to auto
             P168_display_setpoint_temp(1);
-          }                             
+          }
         }
         if (Plugin_168_changed == 1) {
           sendData(event);
           Plugin_168_changed = 0;
+          fs::File f = SPIFFS.open("thermo.dat", "w");
+          if (f)
+          {
+            f.write( ((uint8_t *)&UserVar[event->BaseVarIndex] + 0), 16 );
+            f.close();
+          }
+          String logstr = F("Thermo : Save UserVars to SPIFFS");
+          addLog(LOG_LEVEL_INFO, logstr);
         }
         success = true;
+        }
         break;
       }
 
     case PLUGIN_READ:
       {
+       if (Plugin_168_init){
         //      Update display
         P168_display_header();
 
-        if (UserVar[event->BaseVarIndex + 2] == 1) {        
-         String atempstr2 = P168_deviceTemplate[0];
-         String atempstr = parseTemplate(atempstr2, 20);
-         atempstr.trim();
-         if ((atempstr.length() > 0) && (Plugin_168_prev_temp != 99)) {  
-          float atemp = atempstr.toFloat();
-          if (atemp != 0.0){
-           if ((UserVar[event->BaseVarIndex] > atemp) && (UserVar[event->BaseVarIndex + 1] < 1))
-           {
-            P168_setHeater(F("1"));
-            Plugin_168_changed = 1;
-           } else if (((((float)atemp - (float)Settings.TaskDevicePluginConfigFloat[event->TaskIndex][0]) >= (float)UserVar[event->BaseVarIndex])) && (UserVar[event->BaseVarIndex + 1] > 0)) {
-            P168_setHeater(F("0"));
-            Plugin_168_changed = 1;
-           } else {
+        if (UserVar[event->BaseVarIndex + 2] == 1) {
+          String atempstr2 = P168_deviceTemplate[0];
+          String atempstr = parseTemplate(atempstr2, 20);
+          atempstr.trim();
+          if ((atempstr.length() > 0) && (Plugin_168_prev_temp != 99)) { // do not switch until the first temperature data arrives
+            float atemp = atempstr.toFloat();
+            if (atemp != 0.0) {
+              if ((UserVar[event->BaseVarIndex] > atemp) && (UserVar[event->BaseVarIndex + 1] < 1))
+              {
+                P168_setHeater(F("1"));
+                Plugin_168_changed = 1;
+              } else if (((((float)atemp - (float)Settings.TaskDevicePluginConfigFloat[event->TaskIndex][0]) >= (float)UserVar[event->BaseVarIndex])) && (UserVar[event->BaseVarIndex + 1] > 0)) {
+                P168_setHeater(F("0"));
+                Plugin_168_changed = 1;
+              } else {
+                P168_display_heat();
+              }
+            }
+          } else {
             P168_display_heat();
-           }
           }
-        } else {
-          P168_display_heat();
-        }}
+        }
 
         P168_display_current_temp();
         P168_display_timeout();
@@ -435,6 +472,7 @@ boolean Plugin_168(byte function, struct EventStruct *event, String& string)
         P168_display->display();
 
         success = true;
+       }
         break;
       }
 
@@ -442,7 +480,8 @@ boolean Plugin_168(byte function, struct EventStruct *event, String& string)
       {
         String command = parseString(string, 1);
         String subcommand = parseString(string, 2);
-
+        String logstr = "";
+       if (Plugin_168_init){        
         if (command == F("oledframedcmd"))
         {
           success = true;
@@ -456,8 +495,8 @@ boolean Plugin_168(byte function, struct EventStruct *event, String& string)
             P168_setContrast(P168_CONTRAST_MED);
           else if (subcommand == F("high"))
             P168_setContrast(P168_CONTRAST_HIGH);
-          log = F("\nOk");
-          SendStatus(event->Source, log);
+          logstr = F("\nOk");
+          SendStatus(event->Source, logstr);
         }
 
         if (command == F("thermo"))
@@ -467,12 +506,13 @@ boolean Plugin_168(byte function, struct EventStruct *event, String& string)
           if (subcommand == F("setpoint"))
             P168_setSetpoint(par1);
           else if (subcommand == F("heating")) {
-            P168_setHeater(par1); Plugin_168_changed = 1; }           
+            P168_setHeater(par1); Plugin_168_changed = 1;
+          }
           else if (subcommand == F("mode"))
             P168_setMode(par1, parseString(string, 4));
-          log = F("\nOk");
-          SendStatus(event->Source, log);
-         }
+          logstr = F("\nOk");
+          SendStatus(event->Source, logstr);
+        }}
         break;
       }
 
@@ -616,11 +656,11 @@ void P168_display_setpoint_temp(byte force) {
     float stemp = (round(UserVar[Plugin_168_varindex] * 10)) / 10.0;
     if ((Plugin_168_prev_setpoint != stemp) || (force == 1)) {
       P168_display->setColor(BLACK);
-      P168_display->fillRect(86, 35, 41, 21);      
+      P168_display->fillRect(86, 35, 41, 21);
       P168_display->setColor(WHITE);
       String tmpString = toString(stemp, 1);
       P168_display->setFont(Dialog_plain_18);
-      P168_display->drawString(86, 35, tmpString.substring(0, 5));      
+      P168_display->drawString(86, 35, tmpString.substring(0, 5));
       Plugin_168_prev_setpoint = stemp;
       Plugin_168_changed = 1;
     }
@@ -630,14 +670,18 @@ void P168_display_setpoint_temp(byte force) {
 void P168_display_timeout() {
 
   if (UserVar[Plugin_168_varindex + 2] == 2) {
-    if (Plugin_168_prev_timeout >= (UserVar[Plugin_168_varindex+3]+60)) {
+    if (Plugin_168_prev_timeout >= (UserVar[Plugin_168_varindex + 3] + 60)) {
       float timeinmin = UserVar[Plugin_168_varindex + 3] / 60;
-      String thour = toString(((int)(timeinmin / 60) ),0); 
+      String thour = toString(((int)(timeinmin / 60) ), 0);
       thour += F(":");
-      String thour2 = toString(((int)timeinmin % 60),0);
-      if (thour2.length()<2) { thour += "0"+thour2; } else { thour += thour2; }
+      String thour2 = toString(((int)timeinmin % 60), 0);
+      if (thour2.length() < 2) {
+        thour += "0" + thour2;
+      } else {
+        thour += thour2;
+      }
       P168_display->setColor(BLACK);
-      P168_display->fillRect(86, 35, 41, 21);      
+      P168_display->fillRect(86, 35, 41, 21);
       P168_display->setColor(WHITE);
       P168_display->setFont(Dialog_plain_18);
       P168_display->drawString(86, 35, thour.substring(0, 5));
@@ -701,7 +745,7 @@ void P168_display_page() {
   Plugin_168_prev_heating = 255;
   Plugin_168_prev_mode = 255;
   Plugin_168_prev_timeout = 32768;
-  
+
   P168_display->setFont(Dialog_plain_12);
   P168_display->setTextAlignment(TEXT_ALIGN_LEFT);
   String tstr = "{D}C";
@@ -738,11 +782,11 @@ void P168_setSetpoint(String sptemp) {
 
 void P168_setHeatRelay(byte state) {
   uint8_t relaypin = Settings.TaskDevicePluginConfig[Plugin_168_taskindex][4];
-  String log = F("Thermo : Set Relay");
-  log += relaypin;
-  log += F("=");
-  log += state;
-  addLog(LOG_LEVEL_INFO, log);
+  String logstr = F("Thermo : Set Relay");
+  logstr += relaypin;
+  logstr += F("=");
+  logstr += state;
+  addLog(LOG_LEVEL_INFO, logstr);
   if (relaypin != -1) {
     pinMode(relaypin, OUTPUT);
     digitalWrite(relaypin, state);
@@ -771,7 +815,7 @@ void P168_setMode(String amode, String atimeout) {
     UserVar[Plugin_168_varindex + 2] = 0;
     P168_setHeater(F("0"));
     P168_display->setColor(BLACK);
-    P168_display->fillRect(86, 35, 41, 21);      
+    P168_display->fillRect(86, 35, 41, 21);
     Plugin_168_prev_setpoint = 0;
   } else if ((amode == "1") || (amode == "a")) {
     UserVar[Plugin_168_varindex + 2] = 1;
