@@ -49,58 +49,62 @@
 #endif
 OptolinkP300* myOptolinkPlugin_182 = NULL;
 
-
+String logString;
 bool readWriteDP (word address, byte Len, uint8_t* rawdata, bool Write = false ){
+  logString=""; 
   unsigned long now = millis(); 
-  if ( Len==0 ) {Serial1.println(F("readLen 0 is invalid")); return false;}
+  if ( Len==0 ) { addLog(LOG_LEVEL_DEBUG,F("Vito: readLen 0 is invalid")); return false;}
   while (myOptolinkPlugin_182->isBusy() && ((millis()-now) < 3000)) 
       {
       delay(10);  // wait for optolink to become available
       myOptolinkPlugin_182->loop();
       }
      if (myOptolinkPlugin_182->isBusy() ) { 
-        Serial1.print(F("optolink busy "));
+        addLog(LOG_LEVEL_DEBUG,F("Vito: optolink busy "));
         return false;
         }
-      Serial1.print(F("Address: "));
-      Serial1.print( address, HEX);
-      Serial1.print(F(" Len: "));
-      Serial1.print( Len);
-      Serial1.print(F(" data: "));
-          for (uint8_t i = 0; i < Len; ++i) {
-            if ( rawdata[i] < 0x10) Serial1.print("0");
-            Serial1.print(rawdata[i], HEX);
-           }
-      Serial1.print(F("\n"));
+      logString+=(F("Vito: Address: 0x")); 
+        if (address<0x1000) logString+=String("0");
+        if (address<0x100) logString+=String("0");
+        if (address<0x10) logString+=String("0");
+        
+      logString+=String( (uint16_t)address, HEX);
+      logString+=String(F(" Len: "));
+      logString+=String( Len);
+       
+     
         
     if (!Write) {
-        Serial1.println("calling readFromDP");
+        logString+=("... read");
         myOptolinkPlugin_182->readFromDP( address, Len);  // issue read command
         }
     else 
         {
-          Serial1.println("calling writeToDP");
+          logString+=("... write");
          myOptolinkPlugin_182->writeToDP( address, Len, rawdata);
         }
+         
     while (((millis()-now) < 3000)){
         myOptolinkPlugin_182->loop();
         if (myOptolinkPlugin_182->available() > 0) {
           myOptolinkPlugin_182->read(rawdata);
-          Serial1.print(F("Address "));
-          Serial1.print( address, HEX);
-          Serial1.print(F(" has value "));
+           
+          logString+=(F(" data: "));
+          addLog(LOG_LEVEL_DEBUG, logString);
           for (uint8_t i = 0; i < Len; ++i) {
-            if ( rawdata[i] < 0x10) Serial1.print("0");
-            Serial1.print(rawdata[i], HEX);
+            if ( rawdata[i] < 0x10) logString+=("0");
+            logString+=String(rawdata[i], HEX);
            }
-          Serial1.println();
-          return true; 
+           return true; 
         }
         if (myOptolinkPlugin_182->available() < 0) {
-          Serial1.println(myOptolinkPlugin_182->readError());
+          logString+="Optolink error: ";logString+=(myOptolinkPlugin_182->readError());
+           addLog(LOG_LEVEL_ERROR,logString);
           return false; 
         }
   }
+   logString+=F("Vito: Optolink unknown error. ");
+   addLog(LOG_LEVEL_ERROR,logString);
   return false;
 }
  
@@ -113,7 +117,7 @@ DPValue globalDPvalue(23.6f);
 String RawToStr (String type, uint8* raw, uint8 readLen=0, double factor=0){
       //if (factor == 0) factor =1; 
       if (readLen==0 ) readLen = TypeStringToLen(type);
-      if (readLen>10) {Serial1.println("Readlen>10");  readLen=10;}
+      if (readLen>10) {addLog(LOG_LEVEL_ERROR,"Readlen>10");  readLen=10;}
       if (type == "TempL"){ DPTemp temp_dp("TempL", "DPs", 0x00);               globalDPvalue = temp_dp.decode(raw);   if (factor!=0) retval = factor*globalDPvalue.getFloat(); else retval = globalDPvalue.getFloat();   } 
       else if (type == "TempS") {   DPTempS temps_dp("TempS", "DPs", 0x00);     globalDPvalue = temps_dp.decode(raw);  if (factor!=0) retval = factor*globalDPvalue.getU8();    else retval = globalDPvalue.getU8();  }
       else if (type == "STAT")  {   DPStat stat_dp("Stat", "DPs", 0x00);        globalDPvalue = stat_dp.decode(raw);     retval =  globalDPvalue.getBool() ? "true" : "false";      }
@@ -183,7 +187,7 @@ void webPage_read() { // webpage "read" Handler
      &&(WebServer.arg("Type") !="all")) 
      && (WebServer.arg("ReadLen") !="" )) { WebServer.send(200, "text/plain",  F("Do not specify a ReadLen unless you use Raw or all")); return;}
     
-    if (WebServer.arg("factor") !="") { factor = atof(WebServer.arg("factor").c_str()); Serial1.println(factor);}
+    if (WebServer.arg("factor") !="") { factor = atof(WebServer.arg("factor").c_str());  }
     
     address = strtol(WebServer.arg("DP").c_str(),0,16); // interpret DP adress as hex
     type=WebServer.arg("Type");  
@@ -197,12 +201,18 @@ void webPage_read() { // webpage "read" Handler
    
     if (readWriteDP(address,readLen,out_str,false)){ // false = read
         message = RawToStr(type,out_str,readLen,factor);
+        
         if  (WebServer.arg("MQTTTopic") !="")  {
           MQTTclient.publish(WebServer.arg("MQTTTopic").c_str(), message.c_str());
           }
     } else  message = "timeout";
+    
+    logString+=F(" Value ");
+    logString += message; 
+    addLog(LOG_LEVEL_INFO,logString);
     message += "\n";  
-    Serial1.println(message);
+    
+    //Serial1.println(message);
     WebServer.send(200, "text/plain", message);//Response to the HTTP request
 } 
 
@@ -226,7 +236,10 @@ void webPage_write() { // webpage "read" Handler
     else
          message += "write fail\n";
 
-  
+    logString+=F(" Value ");
+    logString += RawToStr(type,out_str,writeLen); ; 
+    addLog(LOG_LEVEL_INFO,logString);
+ 
     message += "\n";  
     WebServer.send(200, "text/plain", message);//Response to the HTTP request
 } 
@@ -315,7 +328,7 @@ boolean Plugin_096(byte function, struct EventStruct *event, String& string) {
     WebServer.on("/read", webPage_read);
     WebServer.on("/write", webPage_write);
     myOptolinkPlugin_182->begin(&Serial);
-    myOptolinkPlugin_182->setLogger(&Serial1);
+    //myOptolinkPlugin_182->setLogger(&Serial1);
     Serial.swap(); 
     pinMode(TX,INPUT);
 		}
