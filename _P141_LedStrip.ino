@@ -444,42 +444,50 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 
 			if (command == F("off"))	{
 				Fp141_CommandOff();
+				success = true;
 			}
 
 			if (command == F("on"))	{
 				Fp141_CommandOn();
+				success = true;
 			}
 
 			if (command == F("rgb"))	{
 				Fp141_SetCurrentColor( Fp141_RgbToHSV(CRGB(event->Par1, event->Par2, event->Par3)));
 				Fp141_OutputCurrentColor();
+				success = true;
 			}
 
 			if (command == F("hsv"))	{
 				Fp141_SetCurrentColor(CHSV (event->Par1, event->Par2, event->Par3));
 				Fp141_OutputCurrentColor();
+				success = true;
 			}
 
 			if (command == F("hue"))	{
 				v_p141_cur_color.h	= event->Par1 ;	 //Hue
 				Fp141_SetCurrentColor(v_p141_cur_color);
 				Fp141_OutputCurrentColor();
+				success = true;
 			}
 
 			if (command == F("sat"))	{
 				v_p141_cur_color.s 	= event->Par1 ;	 //Saturation
 				Fp141_SetCurrentColor(v_p141_cur_color);
 				Fp141_OutputCurrentColor();
+				success = true;
 			}
 
 			if (command == F("val") || command == F("dim"))	{
 				v_p141_cur_color.v 	= event->Par1 ;	 //Value/Brightness
 				Fp141_SetCurrentColor(v_p141_cur_color);
 				Fp141_OutputCurrentColor();
+				success = true;
 			}
 
 			if (command == F("speed"))	{
 				v_p141_cur_anim_speed = event->Par1 ;
+				success = true;
 			}
 
 			if (command == F("h_rgb"))	{
@@ -488,6 +496,7 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 				Fp141_SetCurrentColor(v_p141_cur_color);
 				Fp141_OutputCurrentColor();
 				//String log = F(PLUGIN_141_LOGPREFIX); log += F("H_RGB="); log += color; addLog(LOG_LEVEL_DEBUG, log);
+				success = true;
 			}
 
 			if (command == F("h_hsv"))	{
@@ -496,30 +505,37 @@ boolean Plugin_141 (byte function, struct EventStruct *event, String& string)
 				Fp141_SetCurrentColor(v_p141_cur_color);
 				Fp141_OutputCurrentColor();
 				//String log = F(PLUGIN_141_LOGPREFIX); log += F("H_HSV="); log += color; addLog(LOG_LEVEL_DEBUG, log);
+			  success = true;
 			}
 
 
 			if (command == F("mode"))	{
 				byte mode = event->Par1;
-				
+
 				if(mode == 0){
 					Fp141_CommandOff();
+					success = true;
 				}
 				else if(mode == 1){
 					Fp141_CommandOn();
+					success = true;
 				}
 				else if(mode >= PLUGIN_141_FIRST_ANIM_MODE && mode < PLUGIN_141_MODES_TOTAL ){
 					Fp141_ProcessAnimation(mode, true, false, event->Par2, event->Par3, event->Par4, event->Par5);
+						success = true;
 				}
 			}
-			
+
+			if(success) {
+				Fp141_SendStatus(event->Source);
+			}
+
 			//store current value
 			UserVar[event->BaseVarIndex + 0] = (int) v_p141_cur_color.h;
 			UserVar[event->BaseVarIndex + 1] = (int) v_p141_cur_color.s;
 			UserVar[event->BaseVarIndex + 2] = (int) v_p141_cur_color.v;
 			UserVar[event->BaseVarIndex + 3] = (int) v_p141_cur_anim_mode;
 
-			success = true;
 			break;
 		}
 
@@ -718,9 +734,9 @@ void Fp141_CommandOff(){
 // ---------------------------------------------------------------------------------------
 void Fp141_OutputRGB( const CRGB& rgb){
 	if(v_p141_cur_strip_type < PLUGIN_141_FIRST_TYPE_PIX ){
-		analogWrite(v_p141_pins[0], v_p141_pin_inverse ? (PWMRANGE - rgb.r)  : rgb.r);
-		analogWrite(v_p141_pins[1], v_p141_pin_inverse ? (PWMRANGE - rgb.g)  : rgb.g);
-		analogWrite(v_p141_pins[2], v_p141_pin_inverse ? (PWMRANGE - rgb.b)  : rgb.b);
+		analogWrite(v_p141_pins[0], v_p141_pin_inverse ? (PWMRANGE - rgb.r*4)  : rgb.r*4);
+		analogWrite(v_p141_pins[1], v_p141_pin_inverse ? (PWMRANGE - rgb.g*4)  : rgb.g*4);
+		analogWrite(v_p141_pins[2], v_p141_pin_inverse ? (PWMRANGE - rgb.b*4)  : rgb.b*4);
 	}
 	else{
 		// pixels mode
@@ -808,6 +824,42 @@ CHSV Fp141_LongToHsv(unsigned long hsv){
 	out.s = hsv >> 8 & 0xFF;
 	out.v = hsv & 0xFF;
 	return out;
+}
+
+// ---------------------------------------------------------------------------------
+// ------------------------------ JsonResponse -------------------------------------
+// ---------------------------------------------------------------------------------
+void Fp141_SendStatus(byte eventSource) {
+
+	CRGB rgb;
+	rgb = v_p141_cur_color;
+
+  String log = F(PLUGIN_141_LOGPREFIX);
+  log += F("JSON reply send.");
+  addLog(LOG_LEVEL_INFO, log);
+
+  String json;
+  printToWebJSON = true;
+  json += F("{\n");
+  json += F("\"plugin\": \"141");
+  json += F("\",\n\"mode\": \"");
+  json += v_p141_cur_anim_mode;
+  json += F("\",\n\"speed\": \"");
+  json += v_p141_cur_anim_speed;
+  json += F("\",\n\"r\": \"");
+  json += rgb.r;
+  json += F("\",\n\"g\": \"");
+  json += rgb.g;
+  json += F("\",\n\"b\": \"");
+  json += rgb.b;
+  json += F("\",\n\"h\": \"");
+  json += v_p141_cur_color.h;
+  json += F("\",\n\"s\": \"");
+  json += v_p141_cur_color.s;
+	json += F("\",\n\"v\": \"");
+  json += v_p141_cur_color.v;
+  json += F("\"\n}\n");
+  SendStatus(eventSource, json); // send http response to controller (JSON format)
 }
 
 /*
