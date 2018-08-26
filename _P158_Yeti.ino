@@ -2,21 +2,21 @@
 
 #ifdef PLUGIN_BUILD_TESTING
 
-#define PLUGIN_169
-#define PLUGIN_ID_169     169
-#define PLUGIN_NAME_169   "Yeti interface"
-#define PLUGIN_VALUENAME1_169 "POWER1"
-#define PLUGIN_VALUENAME2_169 "POWER2"
-#define PLUGIN_VALUENAME3_169 "POWER3"
-#define PLUGIN_VALUENAME4_169 "POWER4"
+#define PLUGIN_158
+#define PLUGIN_ID_158     158
+#define PLUGIN_NAME_158   "Yeti interface"
+#define PLUGIN_VALUENAME1_158 "POWER1"
+#define PLUGIN_VALUENAME2_158 "POWER2"
+#define PLUGIN_VALUENAME3_158 "POWER3"
+#define PLUGIN_VALUENAME4_158 "POWER4"
 
-boolean Plugin_169_init = false;
-byte p169_relaycount = 0;
-byte Plugin_169_taskindex;
-byte Plugin_169_varindex;
-byte Plugin_169_idx;
+boolean Plugin_158_init = false;
+byte p158_relaycount = 0;
+byte Plugin_158_taskindex;
+byte Plugin_158_varindex;
+byte Plugin_158_idx;
 
-boolean Plugin_169(byte function, struct EventStruct *event, String& string)
+boolean Plugin_158(byte function, struct EventStruct *event, String& string)
 {
 
   boolean success = false;
@@ -25,7 +25,7 @@ boolean Plugin_169(byte function, struct EventStruct *event, String& string)
   {
     case PLUGIN_DEVICE_ADD:
       {
-        Device[++deviceCount].Number = PLUGIN_ID_169;
+        Device[++deviceCount].Number = PLUGIN_ID_158;
         Device[deviceCount].Type = DEVICE_TYPE_TRIPLE;
         Device[deviceCount].VType = SENSOR_TYPE_SWITCH;
         Device[deviceCount].Ports = 0;
@@ -42,16 +42,16 @@ boolean Plugin_169(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_GET_DEVICENAME:
       {
-        string = F(PLUGIN_NAME_169);
+        string = F(PLUGIN_NAME_158);
         break;
       }
 
     case PLUGIN_GET_DEVICEVALUENAMES:
       {
-        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_VALUENAME1_169));
-        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[1], PSTR(PLUGIN_VALUENAME2_169));
-        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[2], PSTR(PLUGIN_VALUENAME3_169));
-        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[3], PSTR(PLUGIN_VALUENAME4_169));
+        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_VALUENAME1_158));
+        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[1], PSTR(PLUGIN_VALUENAME2_158));
+        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[2], PSTR(PLUGIN_VALUENAME3_158));
+        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[3], PSTR(PLUGIN_VALUENAME4_158));
         break;
       }
 
@@ -62,7 +62,7 @@ boolean Plugin_169(byte function, struct EventStruct *event, String& string)
         //addFormPinSelect(F("Relay 2"), F("taskdevicepin2"), Settings.TaskDevicePin2[event->TaskIndex]);
         //addFormPinSelect(F("Relay 3"), F("taskdevicepin3"), Settings.TaskDevicePin3[event->TaskIndex]);
         addFormPinSelect(F("4th GPIO:"), F("taskdevicepin4"), Settings.TaskDevicePluginConfig[event->TaskIndex][0]);
-        addFormCheckBox(F("Report back only first name to Yeti"), F("Plugin_169_fakename"), Settings.TaskDevicePluginConfig[event->TaskIndex][1]);
+        addFormCheckBox(F("Report back only first name to Yeti"), F("Plugin_158_fakename"), Settings.TaskDevicePluginConfig[event->TaskIndex][1]);
         
         addFormNote(F("You can specify 4 output pin above, that can be controlled by Yeti after adding the unit IP address into it."));
         success = true;
@@ -72,52 +72,52 @@ boolean Plugin_169(byte function, struct EventStruct *event, String& string)
     case PLUGIN_WEBFORM_SAVE:
       {
         Settings.TaskDevicePluginConfig[event->TaskIndex][0] = getFormItemInt(F("taskdevicepin4"));
-        Settings.TaskDevicePluginConfig[event->TaskIndex][1] = isFormItemChecked(F("Plugin_169_fakename"));
+        Settings.TaskDevicePluginConfig[event->TaskIndex][1] = isFormItemChecked(F("Plugin_158_fakename"));
         success = true;
         break;
 
       }
     case PLUGIN_INIT:
       {
-        p169_relaycount = 0;
+        p158_relaycount = 0;
         if (Settings.TaskDevicePin1[event->TaskIndex] != -1)
         {
-          p169_relaycount = 1;
+          p158_relaycount = 1;
           //          UserVar[event->BaseVarIndex] = (digitalRead(Settings.TaskDevicePin1[event->TaskIndex]) == HIGH);
           pinMode(Settings.TaskDevicePin1[event->TaskIndex], OUTPUT);
         }
         if (Settings.TaskDevicePin2[event->TaskIndex] != -1)
         {
-          if (p169_relaycount > 0) {
-            p169_relaycount = 2;
+          if (p158_relaycount > 0) {
+            p158_relaycount = 2;
             //            UserVar[event->BaseVarIndex + 1] = (digitalRead(Settings.TaskDevicePin2[event->TaskIndex]) == HIGH);
             pinMode(Settings.TaskDevicePin2[event->TaskIndex], OUTPUT);
           }
         }
         if (Settings.TaskDevicePin3[event->TaskIndex] != -1)
         {
-          if (p169_relaycount > 1) {
-            p169_relaycount = 3;
+          if (p158_relaycount > 1) {
+            p158_relaycount = 3;
             //            UserVar[event->BaseVarIndex + 2] = (digitalRead(Settings.TaskDevicePin3[event->TaskIndex]) == HIGH);
             pinMode(Settings.TaskDevicePin3[event->TaskIndex], OUTPUT);
           }
         }
         if (Settings.TaskDevicePluginConfig[event->TaskIndex][0] != -1)
         {
-          if (p169_relaycount > 2) {
-            p169_relaycount = 4;
+          if (p158_relaycount > 2) {
+            p158_relaycount = 4;
             //            UserVar[event->BaseVarIndex + 3] = (digitalRead(Settings.TaskDevicePluginConfig[event->TaskIndex][0]) == HIGH);
             pinMode(Settings.TaskDevicePluginConfig[event->TaskIndex][0], OUTPUT);
           }
         }
 
-        Plugin_169_taskindex = event->TaskIndex;
-        Plugin_169_varindex = event->BaseVarIndex;
-        Plugin_169_idx = event->idx;
+        Plugin_158_taskindex = event->TaskIndex;
+        Plugin_158_varindex = event->BaseVarIndex;
+        Plugin_158_idx = event->idx;
 
-        WebServer.on("/cm", p169_handle_cm);
+        WebServer.on("/cm", p158_handle_cm);
 
-        Plugin_169_init = true;
+        Plugin_158_init = true;
         success = true;
         break;
 
@@ -132,14 +132,14 @@ boolean Plugin_169(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_WRITE:
       {
-        if (Plugin_169_init)
+        if (Plugin_158_init)
         {
 
           String command = parseString(string, 1);
           if ( command == F("power") )
           {
             success = true;
-            p169_set_state(event->Par1, String(event->Par2));
+            p158_set_state(event->Par1, String(event->Par2));
             String log = F("YetiSW   : SetSwitch r");
             log += event->Par1;
             log += F(":");
@@ -160,9 +160,9 @@ boolean Plugin_169(byte function, struct EventStruct *event, String& string)
 }     //function
 
 //plugin specific procedures and functions
-String p169_get_state(byte relnum, boolean retstr) {
-  if ((relnum > 0) && (relnum <= p169_relaycount)) {
-    if (UserVar[Plugin_169_varindex + relnum - 1] > 0) {
+String p158_get_state(byte relnum, boolean retstr) {
+  if ((relnum > 0) && (relnum <= p158_relaycount)) {
+    if (UserVar[Plugin_158_varindex + relnum - 1] > 0) {
       if (retstr) {
         return F("ON");
       } else {
@@ -180,58 +180,58 @@ String p169_get_state(byte relnum, boolean retstr) {
   }
 }
 
-void p169_set_state_0(byte relnum, byte newstate) {
+void p158_set_state_0(byte relnum, byte newstate) {
  switch (relnum) {
    case 1:
-    pinMode(Settings.TaskDevicePin1[Plugin_169_taskindex], OUTPUT);
-    digitalWrite(Settings.TaskDevicePin1[Plugin_169_taskindex], newstate);
+    pinMode(Settings.TaskDevicePin1[Plugin_158_taskindex], OUTPUT);
+    digitalWrite(Settings.TaskDevicePin1[Plugin_158_taskindex], newstate);
    break; 
    case 2:
-    pinMode(Settings.TaskDevicePin2[Plugin_169_taskindex], OUTPUT);
-    digitalWrite(Settings.TaskDevicePin2[Plugin_169_taskindex], newstate);
+    pinMode(Settings.TaskDevicePin2[Plugin_158_taskindex], OUTPUT);
+    digitalWrite(Settings.TaskDevicePin2[Plugin_158_taskindex], newstate);
    break; 
    case 3:
-    pinMode(Settings.TaskDevicePin3[Plugin_169_taskindex], OUTPUT);
-    digitalWrite(Settings.TaskDevicePin3[Plugin_169_taskindex], newstate);
+    pinMode(Settings.TaskDevicePin3[Plugin_158_taskindex], OUTPUT);
+    digitalWrite(Settings.TaskDevicePin3[Plugin_158_taskindex], newstate);
    break; 
    case 4:
-    pinMode(Settings.TaskDevicePluginConfig[Plugin_169_taskindex][0], OUTPUT);
-    digitalWrite(Settings.TaskDevicePluginConfig[Plugin_169_taskindex][0], newstate);
+    pinMode(Settings.TaskDevicePluginConfig[Plugin_158_taskindex][0], OUTPUT);
+    digitalWrite(Settings.TaskDevicePluginConfig[Plugin_158_taskindex][0], newstate);
    break;  
  }
 }
 
 
-void p169_set_state(byte relnum, String state) {
-  LoadTaskSettings(Plugin_169_taskindex);
-  if ((relnum > 0) && (relnum <= p169_relaycount)) {
+void p158_set_state(byte relnum, String state) {
+  LoadTaskSettings(Plugin_158_taskindex);
+  if ((relnum > 0) && (relnum <= p158_relaycount)) {
     if ((state.equalsIgnoreCase(F("off"))) || (state.equalsIgnoreCase(F("0")))) {
-      UserVar[Plugin_169_varindex + relnum - 1] = 0;
-      p169_set_state_0(relnum,0);
+      UserVar[Plugin_158_varindex + relnum - 1] = 0;
+      p158_set_state_0(relnum,0);
     } else if ((state.equalsIgnoreCase(F("on"))) || (state.equalsIgnoreCase(F("1")))) {
-      UserVar[Plugin_169_varindex + relnum - 1] = 1;
-      p169_set_state_0(relnum,1);      
+      UserVar[Plugin_158_varindex + relnum - 1] = 1;
+      p158_set_state_0(relnum,1);      
     } else if ((state.equalsIgnoreCase(F("toggle"))) || (state.equalsIgnoreCase(F("2")))) {
-      if (UserVar[Plugin_169_varindex + relnum - 1] > 0) {
-        UserVar[Plugin_169_varindex + relnum - 1] = 0;
-        p169_set_state_0(relnum,0);     
+      if (UserVar[Plugin_158_varindex + relnum - 1] > 0) {
+        UserVar[Plugin_158_varindex + relnum - 1] = 0;
+        p158_set_state_0(relnum,0);     
       } else {
-        UserVar[Plugin_169_varindex + relnum - 1] = 1;
-        p169_set_state_0(relnum,1);             
+        UserVar[Plugin_158_varindex + relnum - 1] = 1;
+        p158_set_state_0(relnum,1);             
       }
     }
   }
 }
 
-void p169_handle_cm()
+void p158_handle_cm()
 {
   String wcmnd = WebServer.arg("cmnd");
   WebServer.sendHeader("Access-Control-Allow-Origin", "*");
   TXBuffer.startJsonStream();
 
-  if ((wcmnd.length() != 0) && (Plugin_169_init))
+  if ((wcmnd.length() != 0) && (Plugin_158_init))
   {
-    LoadTaskSettings(Plugin_169_taskindex);
+    LoadTaskSettings(Plugin_158_taskindex);
     if (wcmnd.substring(0, 6).equalsIgnoreCase(F("status"))) {
       char strUpTime[40];
       int minutes = wdcounter / 2;
@@ -244,7 +244,7 @@ void p169_handle_cm()
       if ((wcmnd.length() == 6) || (wcmnd.substring(7) == F("0")) || (wcmnd.substring(7) == F("9"))) { // status=abbrev only, 0=all
         TXBuffer += F("\"Status\":{\n"); // }
         byte modnum = 1;
-        switch (p169_relaycount) {
+        switch (p158_relaycount) {
           case 1:
             modnum = 28;
             break;
@@ -260,17 +260,17 @@ void p169_handle_cm()
         }
         stream_next_json_object_value(F("Module"), String(modnum));
         TXBuffer += F("\"FriendlyName\":[");
-        if (Settings.TaskDevicePluginConfig[Plugin_169_taskindex][1]) {
+        if (Settings.TaskDevicePluginConfig[Plugin_158_taskindex][1]) {
           TXBuffer += F("\"");
           TXBuffer += String(ExtraTaskSettings.TaskDeviceValueNames[0]);
           TXBuffer += F("\"");         
         } else        
-         for (modnum = 0; modnum < p169_relaycount; modnum++)
+         for (modnum = 0; modnum < p158_relaycount; modnum++)
          {
           TXBuffer += F("\"");
           TXBuffer += String(ExtraTaskSettings.TaskDeviceValueNames[modnum]);
           TXBuffer += F("\"");
-          if (modnum < (p169_relaycount - 1)) {
+          if (modnum < (p158_relaycount - 1)) {
             TXBuffer += F(",");
           }
          }
@@ -393,14 +393,14 @@ void p169_handle_cm()
         stream_next_json_object_value(F("Time"), getDateTimeString('-', ':', 'T'));
         sprintf_P(strUpTime, PSTR("%dT%d:%d:0"), days, hrs, minutes);
         stream_next_json_object_value(F("Uptime"), String(strUpTime));
-        if (p169_relaycount == 1) {
-          stream_next_json_object_value(F("POWER"), String(p169_get_state(1, true)));
+        if (p158_relaycount == 1) {
+          stream_next_json_object_value(F("POWER"), String(p158_get_state(1, true)));
         } else
-          for (byte rnum = 0; rnum < p169_relaycount; rnum++)
+          for (byte rnum = 0; rnum < p158_relaycount; rnum++)
           {
             tstr = F("POWER");
             tstr += String(rnum + 1);
-            stream_next_json_object_value(tstr, String(p169_get_state(rnum + 1, true)));
+            stream_next_json_object_value(tstr, String(p158_get_state(rnum + 1, true)));
           }
         TXBuffer += F("\"Wifi\":{\n"); // }
         stream_next_json_object_value(F("AP"), F("1"));
@@ -415,21 +415,21 @@ void p169_handle_cm()
     if (wcmnd.substring(0, 5).equalsIgnoreCase(F("power"))) {
       byte relnum2 = (byte)wcmnd.substring(5, 6).toInt();
       if (wcmnd.length() > 7) {
-       p169_set_state(relnum2, wcmnd.substring(7));
+       p158_set_state(relnum2, wcmnd.substring(7));
       }
       TXBuffer += F("{"); // }
-      int tempidx = Plugin_169_idx+relnum2-1;
+      int tempidx = Plugin_158_idx+relnum2-1;
       if (tempidx<1) {
         tempidx = 1;
       }
       stream_next_json_object_value(F("idx"), String(tempidx));
-      stream_next_json_object_value(F("nvalue"), p169_get_state(relnum2, false));
+      stream_next_json_object_value(F("nvalue"), p158_get_state(relnum2, false));
       stream_next_json_object_value(F("svalue"), F(""));
       String pwrstr = F("POWER");
-      if (p169_relaycount>1) {
+      if (p158_relaycount>1) {
        pwrstr += String(relnum2);
       }
-      stream_last_json_object_value(pwrstr, String(p169_get_state(relnum2, true)));
+      stream_last_json_object_value(pwrstr, String(p158_get_state(relnum2, true)));
 
     } // power end
   }
