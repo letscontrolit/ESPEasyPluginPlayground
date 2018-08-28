@@ -227,7 +227,7 @@ boolean Plugin_216(byte function, struct EventStruct *event, String& string)
               else if (strcasecmp_P(value1.c_str(),PSTR("WHITE")) == 0) {
                 msglength = getPktSetBulbColor(taskIndex, data,58275, 0, 65535, 5500, duration);
               }
-              else if (strcasecmp_P(value1.c_str(),PSTR("COLD_WHTE")) == 0) {
+              else if (strcasecmp_P(value1.c_str(),PSTR("COLD_WHITE")) == 0) {
                 msglength = getPktSetBulbColor(taskIndex, data,58275, 0, 65535, 9000, duration);
               }
               else if (strcasecmp_P(value1.c_str(),PSTR("WARM_WHITE")) == 0) {
