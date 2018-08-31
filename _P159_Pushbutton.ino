@@ -1,6 +1,8 @@
 #ifdef PLUGIN_BUILD_TESTING
 //#######################################################################################################
 //#################################### Plugin 159: Pushbutton    ########################################
+//# Multiple pushbutton in one plugin, with ShortPress and LongPress detection,
+//# can be detected by rule events as buttonname#Shortpress and butonname#Longpress=button_down_time
 //#######################################################################################################
 
 #define PLUGIN_159
@@ -98,16 +100,13 @@ boolean Plugin_159(byte function, struct EventStruct *event, String& string)
         Settings.TaskDevicePluginConfig[event->TaskIndex][0] = getFormItemInt(F("taskdevicepin4"));
         Settings.TaskDevicePluginConfig[event->TaskIndex][1] = getFormItemInt(F("plugin_159_lpt"));
 
-        if (Settings.TaskDevicePluginConfig[event->TaskIndex][2] < P159_MaxInstances) {
-          success = true;
-        } else {
-          success = false;
-        }       
+        success = true;
         break;
       }
 
     case PLUGIN_INIT:
       {
+        LoadTaskSettings(event->TaskIndex);
         byte baseaddr = 0;
         if (event->TaskIndex > 0) {
           for (byte TaskIndex = 0; TaskIndex < event->TaskIndex; TaskIndex++)
@@ -171,13 +170,14 @@ boolean Plugin_159(byte function, struct EventStruct *event, String& string)
           Plugin_159_init = true;
         } else {
           success = false;
+          logs = String(F("PB : Task init failed"));
+          addLog(LOG_LEVEL_INFO, logs);
         }
         break;
       }
 
     case PLUGIN_TEN_PER_SECOND:
       {
-        // Settings.TaskDevicePin1Inversed[event->TaskIndex] def:low
         unsigned long current_time;
         byte state = 0;
         boolean changed = false;
@@ -192,6 +192,7 @@ boolean Plugin_159(byte function, struct EventStruct *event, String& string)
               {
                 Plugin_159_buttons[Settings.TaskDevicePluginConfig[event->TaskIndex][2]][0] = current_time; // push started at
               } else { // button released
+                LoadTaskSettings(event->TaskIndex);
                 current_time = (current_time - Plugin_159_buttons[Settings.TaskDevicePluginConfig[event->TaskIndex][2]][0]); // push duration
                 if (current_time < Settings.TaskDevicePluginConfig[event->TaskIndex][1]) { // short push
                   UserVar[event->BaseVarIndex] = !UserVar[event->BaseVarIndex];
@@ -220,6 +221,7 @@ boolean Plugin_159(byte function, struct EventStruct *event, String& string)
               {
                 Plugin_159_buttons[Settings.TaskDevicePluginConfig[event->TaskIndex][2]][1] = current_time; // push started at
               } else { // button released
+                LoadTaskSettings(event->TaskIndex);
                 current_time = (current_time - Plugin_159_buttons[Settings.TaskDevicePluginConfig[event->TaskIndex][2]][1]); // push duration
                 if (current_time < Settings.TaskDevicePluginConfig[event->TaskIndex][1]) { // short push
                   UserVar[event->BaseVarIndex+1] = !UserVar[event->BaseVarIndex+1];
@@ -248,6 +250,7 @@ boolean Plugin_159(byte function, struct EventStruct *event, String& string)
               {
                 Plugin_159_buttons[Settings.TaskDevicePluginConfig[event->TaskIndex][2]][2] = current_time; // push started at
               } else { // button released
+                LoadTaskSettings(event->TaskIndex);
                 current_time = (current_time - Plugin_159_buttons[Settings.TaskDevicePluginConfig[event->TaskIndex][2]][2]); // push duration
                 if (current_time < Settings.TaskDevicePluginConfig[event->TaskIndex][1]) { // short push
                   UserVar[event->BaseVarIndex+2] = !UserVar[event->BaseVarIndex+2];
@@ -270,6 +273,7 @@ boolean Plugin_159(byte function, struct EventStruct *event, String& string)
           {
             state = digitalRead(Settings.TaskDevicePluginConfig[event->TaskIndex][0]);
             if (Plugin_159_pinstate[Settings.TaskDevicePluginConfig[event->TaskIndex][2]][3] != state) { //status changed
+              LoadTaskSettings(event->TaskIndex);
               current_time = millis();
               if (state == Settings.TaskDevicePin1Inversed[event->TaskIndex]) // button pushed
               {

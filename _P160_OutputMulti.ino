@@ -1,5 +1,5 @@
 /* Multiple output plugin for ESPEasy  */
-/* One dummy "inhibitor" values supported per outputs  */
+/* One dummy "blocker" values supported per outputs  */
 
 #ifdef PLUGIN_BUILD_TESTING
 
@@ -61,6 +61,7 @@ boolean Plugin_160(byte function, struct EventStruct *event, String& string)
         //addFormPinSelect(F("Relay 1"), F("taskdevicepin1"), Settings.TaskDevicePin1[event->TaskIndex]);
         //addFormPinSelect(F("Relay 2"), F("taskdevicepin2"), Settings.TaskDevicePin2[event->TaskIndex]);
         //addFormPinSelect(F("Relay 3"), F("taskdevicepin3"), Settings.TaskDevicePin3[event->TaskIndex]);
+        LoadTaskSettings(event->TaskIndex);
         addFormPinSelect(F("4th GPIO"), F("taskdevicepin4"), Settings.TaskDevicePluginConfig[event->TaskIndex][0]);
         addFormCheckBox(F("Active state is LOW"), F("Plugin_160_inverted"), Settings.TaskDevicePluginConfig[event->TaskIndex][1]);
 
@@ -83,15 +84,11 @@ boolean Plugin_160(byte function, struct EventStruct *event, String& string)
         LoadCustomTaskSettings(event->TaskIndex, (byte*)&P160_deviceTemplate[baseaddr], sizeof(P160_deviceTemplate[baseaddr]));
         for (byte varNr = 0; varNr < P160_Nlines; varNr++)
         {
-          addFormTextBox(String(F("Inhibit ")) + (varNr + 1), String(F("Plugin_160_template")) + (varNr + 1), P160_deviceTemplate[baseaddr][varNr], P160_Nchars);
+          addFormTextBox(String(F("Blocker ")) + (varNr + 1), String(F("Plugin_160_template")) + (varNr + 1), P160_deviceTemplate[baseaddr][varNr], P160_Nchars);
         }
-        addFormNote(F("You can specify 4 inhibitor expression - for example dummy values - one for every GPIO output. 0 or no expression means no restirection, 1 means it can not be activated."));
+        addFormNote(F("You can specify 4 blocker expression - for example dummy values - one for every GPIO output. 0 or no expression means no restirection, 1 means it can not be activated."));
 
-        if (Settings.TaskDevicePluginConfig[event->TaskIndex][3] < P160_MaxInstances) {
-          success = true;
-        } else {
-          success = false;
-        }
+        success = true;
         break;
       }
 
@@ -114,11 +111,7 @@ boolean Plugin_160(byte function, struct EventStruct *event, String& string)
 
         SaveCustomTaskSettings(event->TaskIndex, (byte*)&P160_deviceTemplate[raddr], sizeof(P160_deviceTemplate[raddr]));
 
-        if (Settings.TaskDevicePluginConfig[event->TaskIndex][3] < P160_MaxInstances) {
-          success = true;
-        } else {
-          success = false;
-        }
+        success = true;
         break;
 
       }
@@ -126,6 +119,7 @@ boolean Plugin_160(byte function, struct EventStruct *event, String& string)
       {
         byte p160_relaycount = 0;
         char echr[41] = {0};
+        LoadTaskSettings(event->TaskIndex);
         if (Settings.TaskDevicePin1[event->TaskIndex] != -1)
         {
           p160_relaycount = 1;
@@ -193,6 +187,8 @@ boolean Plugin_160(byte function, struct EventStruct *event, String& string)
           success = true;
         } else {
           success = false;
+          logs = String(F("MO : Task init failed"));
+          addLog(LOG_LEVEL_INFO, logs);
         }
         break;
       }
@@ -239,7 +235,7 @@ boolean Plugin_160(byte function, struct EventStruct *event, String& string)
               String tmpString = String(P160_deviceTemplate[inhibaddr][relnum]);              
               byte inhibitvalue = parseTemplate(tmpString, 20).toInt();
               if (inhibitvalue >= 1) {
-                logs = F("Inhibit active ");
+                logs = F("Blocker active ");
                 logs += String(inhibitvalue)+ F(" set to LOW");
                 addLog(LOG_LEVEL_INFO, logs);                 
                 pinvalue = Settings.TaskDevicePluginConfig[taskIndex][1];
