@@ -1,9 +1,16 @@
+/*##########################################################################################
+  ############################### Plugin 159: Pushbutton ###################################
+  ##########################################################################################
+
+  Features :
+   Multiple pushbutton in one plugin, with ShortPress and LongPress detection,
+   can be detected by rule events as buttonname#Shortpress and butonname#Longpress=button_down_time_in_ms
+
+  ------------------------------------------------------------------------------------------
+  Copyleft Nagy Sándor 2018 - https://bitekmindenhol.blog.hu/
+  ------------------------------------------------------------------------------------------
+*/
 #ifdef PLUGIN_BUILD_TESTING
-//#######################################################################################################
-//#################################### Plugin 159: Pushbutton    ########################################
-//# Multiple pushbutton in one plugin, with ShortPress and LongPress detection,
-//# can be detected by rule events as buttonname#Shortpress and butonname#Longpress=button_down_time
-//#######################################################################################################
 
 #define PLUGIN_159
 #define PLUGIN_ID_159        159
@@ -16,12 +23,27 @@
 #define P159_MaxInstances 3
 
 boolean Plugin_159_init = false;
+static bool Plugin_159_statechanged[P159_MaxInstances][4];
+
+void ICACHE_RAM_ATTR p159_isr_1() { Plugin_159_statechanged[0][0] = true; }
+void ICACHE_RAM_ATTR p159_isr_2() { Plugin_159_statechanged[0][1] = true; }
+void ICACHE_RAM_ATTR p159_isr_3() { Plugin_159_statechanged[0][2] = true; }
+void ICACHE_RAM_ATTR p159_isr_4() { Plugin_159_statechanged[0][3] = true; }
+void ICACHE_RAM_ATTR p159_isr_5() { Plugin_159_statechanged[1][0] = true; }
+void ICACHE_RAM_ATTR p159_isr_6() { Plugin_159_statechanged[1][1] = true; }
+void ICACHE_RAM_ATTR p159_isr_7() { Plugin_159_statechanged[1][2] = true; }
+void ICACHE_RAM_ATTR p159_isr_8() { Plugin_159_statechanged[1][3] = true; }
+void ICACHE_RAM_ATTR p159_isr_9() { Plugin_159_statechanged[2][0] = true; }
+void ICACHE_RAM_ATTR p159_isr_10(){ Plugin_159_statechanged[2][1] = true; }
+void ICACHE_RAM_ATTR p159_isr_11(){ Plugin_159_statechanged[2][2] = true; }
+void ICACHE_RAM_ATTR p159_isr_12(){ Plugin_159_statechanged[2][3] = true; }
 
 boolean Plugin_159(byte function, struct EventStruct *event, String& string)
 {
   boolean success = false;
   static byte Plugin_159_pinstate[P159_MaxInstances][4];
   static unsigned long Plugin_159_buttons[P159_MaxInstances][4];
+  void (*Plugin_159_ISR[P159_MaxInstances][4])();
 
   switch (function)
   {
@@ -116,7 +138,29 @@ boolean Plugin_159(byte function, struct EventStruct *event, String& string)
             }
           }
         }
-        Settings.TaskDevicePluginConfig[event->TaskIndex][2] = baseaddr;        
+        Settings.TaskDevicePluginConfig[event->TaskIndex][2] = baseaddr;
+
+        switch (baseaddr)
+        {
+          case 0:
+            Plugin_159_ISR[0][0] = p159_isr_1;
+            Plugin_159_ISR[0][1] = p159_isr_2;
+            Plugin_159_ISR[0][2] = p159_isr_3;
+            Plugin_159_ISR[0][3] = p159_isr_4;
+            break;
+          case 1:
+            Plugin_159_ISR[1][0] = p159_isr_5;
+            Plugin_159_ISR[1][1] = p159_isr_6;
+            Plugin_159_ISR[1][2] = p159_isr_7;
+            Plugin_159_ISR[1][3] = p159_isr_8;
+            break;
+          case 2:
+            Plugin_159_ISR[2][0] = p159_isr_9;
+            Plugin_159_ISR[2][1] = p159_isr_10;
+            Plugin_159_ISR[2][2] = p159_isr_11;
+            Plugin_159_ISR[2][3] = p159_isr_12;
+            break;            
+        }
 
         if (Settings.TaskDevicePin1[event->TaskIndex] != -1)
         {
@@ -125,6 +169,7 @@ boolean Plugin_159(byte function, struct EventStruct *event, String& string)
           } else {
             pinMode(Settings.TaskDevicePin1[event->TaskIndex], INPUT);
           }
+          attachInterrupt(digitalPinToInterrupt(Settings.TaskDevicePin1[event->TaskIndex]), Plugin_159_ISR[baseaddr][0], CHANGE);
           Plugin_159_pinstate[baseaddr][0] = !Settings.TaskDevicePin1Inversed[event->TaskIndex];
         }
         if (Settings.TaskDevicePin2[event->TaskIndex] != -1)
@@ -134,6 +179,7 @@ boolean Plugin_159(byte function, struct EventStruct *event, String& string)
           } else {
             pinMode(Settings.TaskDevicePin2[event->TaskIndex], INPUT);
           }
+          attachInterrupt(digitalPinToInterrupt(Settings.TaskDevicePin2[event->TaskIndex]), Plugin_159_ISR[baseaddr][1], CHANGE);
           Plugin_159_pinstate[baseaddr][1] = !Settings.TaskDevicePin1Inversed[event->TaskIndex];
           event->sensorType = SENSOR_TYPE_DUAL;
         }
@@ -144,6 +190,7 @@ boolean Plugin_159(byte function, struct EventStruct *event, String& string)
           } else {
             pinMode(Settings.TaskDevicePin3[event->TaskIndex], INPUT);
           }
+          attachInterrupt(digitalPinToInterrupt(Settings.TaskDevicePin3[event->TaskIndex]), Plugin_159_ISR[baseaddr][2], CHANGE);
           Plugin_159_pinstate[baseaddr][2] = !Settings.TaskDevicePin1Inversed[event->TaskIndex];
           event->sensorType = SENSOR_TYPE_TRIPLE;
         }
@@ -154,6 +201,7 @@ boolean Plugin_159(byte function, struct EventStruct *event, String& string)
           } else {
             pinMode(Settings.TaskDevicePluginConfig[event->TaskIndex][0], INPUT);
           }
+          attachInterrupt(digitalPinToInterrupt(Settings.TaskDevicePluginConfig[event->TaskIndex][0]), Plugin_159_ISR[baseaddr][3], CHANGE);
           Plugin_159_pinstate[baseaddr][3] = !Settings.TaskDevicePin1Inversed[event->TaskIndex];
           event->sensorType = SENSOR_TYPE_QUAD;
         }
@@ -178,130 +226,59 @@ boolean Plugin_159(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_TEN_PER_SECOND:
       {
-        unsigned long current_time;
+        unsigned long current_time = 0;
         byte state = 0;
         boolean changed = false;
         String logs = F("");
         if (Plugin_159_init) {
-          if (Settings.TaskDevicePin1[event->TaskIndex] != -1)
-          {
-            state = digitalRead(Settings.TaskDevicePin1[event->TaskIndex]);
-            if (Plugin_159_pinstate[Settings.TaskDevicePluginConfig[event->TaskIndex][2]][0] != state) { //status changed
-              current_time = millis();
-              if (state == Settings.TaskDevicePin1Inversed[event->TaskIndex]) // button pushed
+
+          for (byte x = 0; x < 4; x++) {
+            if (Plugin_159_statechanged[Settings.TaskDevicePluginConfig[event->TaskIndex][2]][x]) {
+
+              byte buttonpin = -1;
+              switch (x)
               {
-                Plugin_159_buttons[Settings.TaskDevicePluginConfig[event->TaskIndex][2]][0] = current_time; // push started at
-              } else { // button released
-                LoadTaskSettings(event->TaskIndex);
-                current_time = (current_time - Plugin_159_buttons[Settings.TaskDevicePluginConfig[event->TaskIndex][2]][0]); // push duration
-                if (current_time < Settings.TaskDevicePluginConfig[event->TaskIndex][1]) { // short push
-                  UserVar[event->BaseVarIndex] = !UserVar[event->BaseVarIndex];
-                  changed = true;
-                  String events = String(ExtraTaskSettings.TaskDeviceValueNames[0]);
-                  events += F("#Shortpress");
-                  rulesProcessing(events);
-                } else { // long push
-                  String events = String(ExtraTaskSettings.TaskDeviceValueNames[0]);
-                  events += F("#Longpress=");
-                  events += String(current_time);
-                  rulesProcessing(events);
-                }
+                case 0: buttonpin = Settings.TaskDevicePin1[event->TaskIndex];
+                  break;
+                case 1: buttonpin = Settings.TaskDevicePin2[event->TaskIndex];
+                  break;
+                case 2: buttonpin = Settings.TaskDevicePin3[event->TaskIndex];
+                  break;
+                case 3: buttonpin = Settings.TaskDevicePluginConfig[event->TaskIndex][0];
+                  break;
               }
-              Plugin_159_pinstate[Settings.TaskDevicePluginConfig[event->TaskIndex][2]][0] = state;
-            }
-          } // btn1
-
-
-          if (Settings.TaskDevicePin2[event->TaskIndex] != -1)
-          {
-            state = digitalRead(Settings.TaskDevicePin2[event->TaskIndex]);
-            if (Plugin_159_pinstate[Settings.TaskDevicePluginConfig[event->TaskIndex][2]][1] != state) { //status changed
-              current_time = millis();
-              if (state == Settings.TaskDevicePin1Inversed[event->TaskIndex]) // button pushed
-              {
-                Plugin_159_buttons[Settings.TaskDevicePluginConfig[event->TaskIndex][2]][1] = current_time; // push started at
-              } else { // button released
-                LoadTaskSettings(event->TaskIndex);
-                current_time = (current_time - Plugin_159_buttons[Settings.TaskDevicePluginConfig[event->TaskIndex][2]][1]); // push duration
-                if (current_time < Settings.TaskDevicePluginConfig[event->TaskIndex][1]) { // short push
-                  UserVar[event->BaseVarIndex+1] = !UserVar[event->BaseVarIndex+1];
-                  changed = true;
-                  String events = String(ExtraTaskSettings.TaskDeviceValueNames[1]);
-                  events += F("#Shortpress");
-                  rulesProcessing(events);
-                } else { // long push
-                  String events = String(ExtraTaskSettings.TaskDeviceValueNames[1]);
-                  events += F("#Longpress=");
-                  events += String(current_time);
-                  rulesProcessing(events);
+              if (buttonpin == -1) break;
+              state = digitalRead(buttonpin);
+              if (Plugin_159_pinstate[Settings.TaskDevicePluginConfig[event->TaskIndex][2]][x] != state) { //status changed
+                if (current_time == 0) current_time = millis();
+                if (state == Settings.TaskDevicePin1Inversed[event->TaskIndex]) // button pushed
+                {
+                  Plugin_159_buttons[Settings.TaskDevicePluginConfig[event->TaskIndex][2]][x] = current_time; // push started at
+                } else { // button released
+                  LoadTaskSettings(event->TaskIndex);
+                  current_time = (current_time - Plugin_159_buttons[Settings.TaskDevicePluginConfig[event->TaskIndex][2]][x]); // push duration
+                  if (current_time < Settings.TaskDevicePluginConfig[event->TaskIndex][1]) { // short push
+                    UserVar[event->BaseVarIndex+x] = !UserVar[event->BaseVarIndex+x];
+                    changed = true;
+                    String events = String(ExtraTaskSettings.TaskDeviceValueNames[x]);
+                    events += F("#Shortpress");
+                    rulesProcessing(events);
+                  } else { // long push
+                    String events = String(ExtraTaskSettings.TaskDeviceValueNames[x]);
+                    events += F("#Longpress=");
+                    events += String(current_time);
+                    rulesProcessing(events);
+                  }
                 }
+                Plugin_159_pinstate[Settings.TaskDevicePluginConfig[event->TaskIndex][2]][x] = state;
               }
-              Plugin_159_pinstate[Settings.TaskDevicePluginConfig[event->TaskIndex][2]][1] = state;
-            }
-          } // btn2
 
-
-          if (Settings.TaskDevicePin3[event->TaskIndex] != -1)
-          {
-            state = digitalRead(Settings.TaskDevicePin3[event->TaskIndex]);
-            if (Plugin_159_pinstate[Settings.TaskDevicePluginConfig[event->TaskIndex][2]][2] != state) { //status changed
-              current_time = millis();
-              if (state == Settings.TaskDevicePin1Inversed[event->TaskIndex]) // button pushed
-              {
-                Plugin_159_buttons[Settings.TaskDevicePluginConfig[event->TaskIndex][2]][2] = current_time; // push started at
-              } else { // button released
-                LoadTaskSettings(event->TaskIndex);
-                current_time = (current_time - Plugin_159_buttons[Settings.TaskDevicePluginConfig[event->TaskIndex][2]][2]); // push duration
-                if (current_time < Settings.TaskDevicePluginConfig[event->TaskIndex][1]) { // short push
-                  UserVar[event->BaseVarIndex+2] = !UserVar[event->BaseVarIndex+2];
-                  changed = true;
-                  String events = String(ExtraTaskSettings.TaskDeviceValueNames[2]);
-                  events += F("#Shortpress");
-                  rulesProcessing(events);
-                } else { // long push
-                  String events = String(ExtraTaskSettings.TaskDeviceValueNames[2]);
-                  events += F("#Longpress=");
-                  events += String(current_time);
-                  rulesProcessing(events);
-                }
-              }
-              Plugin_159_pinstate[Settings.TaskDevicePluginConfig[event->TaskIndex][2]][2] = state;
+              Plugin_159_statechanged[Settings.TaskDevicePluginConfig[event->TaskIndex][2]][x] = false;
             }
-          } // btn3
-
-          if (Settings.TaskDevicePluginConfig[event->TaskIndex][0] != -1)
-          {
-            state = digitalRead(Settings.TaskDevicePluginConfig[event->TaskIndex][0]);
-            if (Plugin_159_pinstate[Settings.TaskDevicePluginConfig[event->TaskIndex][2]][3] != state) { //status changed
-              LoadTaskSettings(event->TaskIndex);
-              current_time = millis();
-              if (state == Settings.TaskDevicePin1Inversed[event->TaskIndex]) // button pushed
-              {
-                Plugin_159_buttons[Settings.TaskDevicePluginConfig[event->TaskIndex][2]][3] = current_time; // push started at
-              } else { // button released
-                current_time = (current_time - Plugin_159_buttons[Settings.TaskDevicePluginConfig[event->TaskIndex][2]][3]); // push duration
-                if (current_time < Settings.TaskDevicePluginConfig[event->TaskIndex][1]) { // short push
-                  UserVar[event->BaseVarIndex+3] = !UserVar[event->BaseVarIndex+3];
-                  changed = true;
-                  String events = String(ExtraTaskSettings.TaskDeviceValueNames[3]);
-                  events += F("#Shortpress");
-                  rulesProcessing(events);
-                } else { // long push
-                  String events = String(ExtraTaskSettings.TaskDeviceValueNames[3]);
-                  events += F("#Longpress=");
-                  events += String(current_time);
-                  rulesProcessing(events);
-                }
-              }
-              Plugin_159_pinstate[Settings.TaskDevicePluginConfig[event->TaskIndex][2]][3] = state;
-            }
-          } // btn4
+          }
 
           if (changed)
           {
-            logs += F("PB: State changed");
-            logs += state;
-            addLog(LOG_LEVEL_INFO, logs);
             sendData(event);
           }
 
@@ -316,8 +293,8 @@ boolean Plugin_159(byte function, struct EventStruct *event, String& string)
         break;
 
       }
-            
+
   }
-  return success;  
+  return success;
 }
-#endif 
+#endif
