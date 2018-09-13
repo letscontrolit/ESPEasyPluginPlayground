@@ -1,3 +1,22 @@
+/*##########################################################################################
+  ############################### Plugin 161: Switchboard plugin #######################
+  ##########################################################################################
+
+  Features :
+	- Displays input/output devices states/values at a dedicated URL
+    http://ipaddress/board
+
+  List of internal commands :
+   - board?cmd=output,[devicename],[pin_number]  Send the output command to a device, than return status in html
+   - board?cmd=toggle,[taskindex],[valuenumber]  Toggle state of taskindex numbered task specified value,
+                                                  if devicepin defined, than toggle it also (for Output helper)
+                                                  than return html
+
+  ------------------------------------------------------------------------------------------
+	Copyleft Nagy Sándor 2018 - https://bitekmindenhol.blog.hu/
+  ------------------------------------------------------------------------------------------
+*/
+
 /* Switchboard plugin for ESPEasy  */
 
 #ifdef PLUGIN_BUILD_TESTING
@@ -47,22 +66,12 @@ boolean Plugin_161(byte function, struct EventStruct *event, String& string)
     case PLUGIN_WEBFORM_LOAD:
       {
 
-          byte choice = Settings.TaskDevicePluginConfig[event->TaskIndex][0];
-          String btnOptions[8];
-          btnOptions[0] = F("1");
-          btnOptions[1] = F("2");
-          btnOptions[2] = F("3");
-          btnOptions[3] = F("4");
-          btnOptions[4] = F("5");
-          btnOptions[5] = F("6");
-          btnOptions[6] = F("7");
-          btnOptions[7] = F("8");
-          addFormSelector(F("Buttons per row"), F("plugin_165_btns"), 8, btnOptions, NULL, choice);
-
+          addFormNumericBox(F("Buttons per row"), F("plugin_161_btns"), Settings.TaskDevicePluginConfig[event->TaskIndex][0], 1, 8);
           addFormCheckBox(F("Display switch inputs"), F("Plugin_161_swi"), Settings.TaskDevicePluginConfig[event->TaskIndex][1]);
           addFormCheckBox(F("Outputs as buttons"), F("Plugin_161_outs"), Settings.TaskDevicePluginConfig[event->TaskIndex][3]);
           addFormCheckBox(F("Multi-Outputs as buttons"), F("Plugin_161_outm"), Settings.TaskDevicePluginConfig[event->TaskIndex][4]);
           addFormCheckBox(F("Dummies as buttons"), F("Plugin_161_dum"), Settings.TaskDevicePluginConfig[event->TaskIndex][5]);
+          addFormNumericBox(F("Last Task number to add"), F("Plugin_161_lt"), Settings.TaskDevicePluginConfig[event->TaskIndex][6], 1, TASKS_MAX+1);
 
         addFormNote(F("When activating this plugin the above selected devices will appear at http://IPADDRESS/board ."));
 
@@ -72,12 +81,12 @@ boolean Plugin_161(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_WEBFORM_SAVE:
       {
-        Settings.TaskDevicePluginConfig[event->TaskIndex][0] = getFormItemInt(F("plugin_165_btns"));
+        Settings.TaskDevicePluginConfig[event->TaskIndex][0] = getFormItemInt(F("plugin_161_btns"));
         Settings.TaskDevicePluginConfig[event->TaskIndex][1] = isFormItemChecked(F("Plugin_161_swi"));
-        Settings.TaskDevicePluginConfig[event->TaskIndex][2] = isFormItemChecked(F("Plugin_161_pbi"));
         Settings.TaskDevicePluginConfig[event->TaskIndex][3] = isFormItemChecked(F("Plugin_161_outs"));
         Settings.TaskDevicePluginConfig[event->TaskIndex][4] = isFormItemChecked(F("Plugin_161_outm"));
         Settings.TaskDevicePluginConfig[event->TaskIndex][5] = isFormItemChecked(F("Plugin_161_dum"));
+        Settings.TaskDevicePluginConfig[event->TaskIndex][6] = getFormItemInt(F("Plugin_161_lt"));
 
         success = true;
         break;
@@ -119,7 +128,7 @@ void p161_handle_board()
       String valuenum = parseString(wcmnd, 3);
       if (command.equalsIgnoreCase(F("toggle"))) {
        byte TaskIndex1 = tasknum.toInt();
-       byte ValueName1 = valuenum.toInt();       
+       byte ValueName1 = valuenum.toInt();
        LoadTaskSettings(TaskIndex1);              // using other devices variables as our own is dangerous.. but we are brave!
        byte BaseVarIndex1 = TaskIndex1 * VARS_PER_TASK;
        if (Settings.TaskDeviceEnabled[TaskIndex1]) {
@@ -128,29 +137,29 @@ void p161_handle_board()
           switch(ValueName1)
           {
             case 0:
-              pinnum = Settings.TaskDevicePin1[TaskIndex1];              
-              pinvalue = (byte)UserVar[BaseVarIndex1];              
+              pinnum = Settings.TaskDevicePin1[TaskIndex1];
+              pinvalue = (byte)UserVar[BaseVarIndex1];
               pinvalue = !pinvalue;
               UserVar[BaseVarIndex1] = pinvalue;
              break;
             case 1:
-              pinnum = Settings.TaskDevicePin2[TaskIndex1];              
+              pinnum = Settings.TaskDevicePin2[TaskIndex1];
               pinvalue = (byte)UserVar[BaseVarIndex1+ValueName1];
               pinvalue = !pinvalue;
-              UserVar[BaseVarIndex1+ValueName1] = pinvalue;              
+              UserVar[BaseVarIndex1+ValueName1] = pinvalue;
              break;
             case 2:
-              pinnum = Settings.TaskDevicePin3[TaskIndex1];              
+              pinnum = Settings.TaskDevicePin3[TaskIndex1];
               pinvalue = (byte)UserVar[BaseVarIndex1+ValueName1];
               pinvalue = !pinvalue;
-              UserVar[BaseVarIndex1+ValueName1] = pinvalue;              
+              UserVar[BaseVarIndex1+ValueName1] = pinvalue;
              break;
             case 3:
               pinvalue = (byte)UserVar[BaseVarIndex1+ValueName1];
               pinvalue = !pinvalue;
-              UserVar[BaseVarIndex1+ValueName1] = pinvalue;              
-             break;             
-          }         
+              UserVar[BaseVarIndex1+ValueName1] = pinvalue;
+             break;
+          }
           if (pinnum >= 0 && pinnum <= PIN_D_MAX && pinvalue>=0 && pinvalue <= 1)
           {
             pinMode(pinnum, OUTPUT);
@@ -159,12 +168,24 @@ void p161_handle_board()
             String logs = String(F("SWB  : GPIO ")) + String(pinnum) + String(F(" Set to ")) + String(pinvalue);
             addLog(LOG_LEVEL_INFO, logs);
           }
-        }                      
+        }
+      } // end of toggle command
+      if (command.equalsIgnoreCase(F("output"))) {
+        struct EventStruct TempEvent;
+        parseCommandString(&TempEvent, wcmnd);
+        TempEvent.Source = VALUE_SOURCE_HTTP;
+        if (PluginCall(PLUGIN_WRITE, &TempEvent, wcmnd));
+        String logs = F("SWB :");
+        logs += String(wcmnd);
+        addLog(LOG_LEVEL_INFO,logs);
       }
     }
 
     byte firstTaskIndex = 0;
     byte lastTaskIndex = TASKS_MAX - 1;
+    if (Settings.TaskDevicePluginConfig[Plugin_161_taskindex][6] < lastTaskIndex) {
+      lastTaskIndex = Settings.TaskDevicePluginConfig[Plugin_161_taskindex][6];
+    }
     byte lastActiveTaskIndex = 0;
     for (byte TaskIndex = firstTaskIndex; TaskIndex <= lastTaskIndex; TaskIndex++) {
       if (Settings.TaskDeviceNumber[TaskIndex] && Settings.TaskDeviceEnabled[TaskIndex])
@@ -175,7 +196,7 @@ void p161_handle_board()
     TXBuffer += F("function callcmd(cmdline) { commandurl = 'control?cmd='+cmdline; var xmlHttp = new XMLHttpRequest(); xmlHttp.open('GET', commandurl, true); xmlHttp.send(null);}");
     TXBuffer += F(" (function(){ var max_tasknumber = ");
     TXBuffer += String(lastActiveTaskIndex); // loop from 0 to lastactivetaskindex
-    TXBuffer += F("; var max_taskvalues = 4; var timeForNext = 1000; var c; var k; var err = ''; var i = setInterval(function(){ var url = '/json';");
+    TXBuffer += F("; var max_taskvalues = 4; var timeForNext = 1500; var c; var k; var err = ''; var i = setInterval(function(){ var url = '/json';");
     TXBuffer += F("  fetch(url).then( function(response) {  if (response.status !== 200) { console.log('Looks like there was a problem. Status Code: ' +  response.status); return; } response.json().then(function(data) {");
     TXBuffer += F("timeForNext = data.TTL;for (c = 0; c <= max_tasknumber; c++) {for (k = 0; k < max_taskvalues; k++) {var cell = document.getElementById('value_' + c + '_' + k);");
     TXBuffer += F("if (cell){var taskvalue = data.Sensors[c].TaskValues[k].Value; cell.innerHTML= taskvalue;} var cell = document.getElementById('valuename_' + c + '_' + k);");
@@ -183,11 +204,11 @@ void p161_handle_board()
     TXBuffer += F("}}}}});}) ;}, timeForNext);})();");
     TXBuffer += F("</script>");
     TXBuffer += F("<style>.btn{margin-left:2px;margin-top:2px;float:left;display:block;border:1px solid black;border-radius:0.3rem;color:black;min-height:50px;font-size:1.2rem;width:");
-    TXBuffer += String(100/(Settings.TaskDevicePluginConfig[Plugin_161_taskindex][0]+1)-1); // TXBuffer += F("24");
+    TXBuffer += String(100/(Settings.TaskDevicePluginConfig[Plugin_161_taskindex][0])-1); // TXBuffer += F("24");
     TXBuffer += F("%;-webkit-transition-duration:0.4s;transition-duration:0.4s;cursor:pointer;text-align:center;vertical-align:middle;text-decoration:none;}");
     TXBuffer += F(".on {background-color: rgba(0, 255, 0, 0.6) !important;} .off{background-color: rgba(255, 255, 0, 0.6) !important;}.btn:hover{color:blue;}</style>");
 
-    TXBuffer  += F("<div style='min-height: 100%;height: 100%;width:100%;'>");
+    TXBuffer  += F("<div style='width:100%;overflow:hidden;'>&nbsp;</div><div style='min-height: 100%;height: 100%;width:100%;'>");
     for (byte TaskIndex = firstTaskIndex; TaskIndex <= lastTaskIndex; TaskIndex++)
     {
       if (Settings.TaskDeviceNumber[TaskIndex])
@@ -203,7 +224,7 @@ void p161_handle_board()
             if (Device[DeviceIndex].ValueCount != 0) {
               for (byte x = 0; x < Device[DeviceIndex].ValueCount; x++)
               {
-               if (String(ExtraTaskSettings.TaskDeviceValueNames[x]).length() > 0) {                 
+               if (String(ExtraTaskSettings.TaskDeviceValueNames[x]).length() > 0) {
                 TXBuffer  += F("<a href='board?cmd=toggle,");
                 TXBuffer  += String(TaskIndex) + F(",")+String(x);
                 TXBuffer  += F("' class='btn ");
@@ -230,10 +251,9 @@ void p161_handle_board()
               for (byte x = 0; x < Device[DeviceIndex].ValueCount; x++)
               {
                if (String(ExtraTaskSettings.TaskDeviceValueNames[x]).length() > 0) {
-                TXBuffer  += F("<button onclick=\"");
-                TXBuffer  += F("callcmd('output,");
-                TXBuffer  += String(ExtraTaskSettings.TaskDeviceName) + F(",")+String(x)+F("')\"");
-                TXBuffer  += F(" class='btn ");
+                TXBuffer  += F("<a href='board?cmd=output,");
+                TXBuffer  += String(ExtraTaskSettings.TaskDeviceName) + F(",")+String(x);
+                TXBuffer  += F("' class='btn ");
                 if (UserVar[BaseVarIndex + x] < 1) {
                   TXBuffer  += F("off");
                 } else {
@@ -245,7 +265,7 @@ void p161_handle_board()
                 TXBuffer  += String(x);
                 TXBuffer  += F("'>");
                 TXBuffer  += ExtraTaskSettings.TaskDeviceValueNames[x];
-                TXBuffer  += F("</button>");
+                TXBuffer  += F("</a>");
               }}
 
 
@@ -256,7 +276,7 @@ void p161_handle_board()
         } // device enabled end
       }
     }
-    TXBuffer  += F("<div style='width:100%;overflow:hidden;'>&nbsp;</div>");    
+    TXBuffer  += F("<div style='width:100%;overflow:hidden;'>&nbsp;</div>");
     for (byte TaskIndex = firstTaskIndex; TaskIndex <= lastTaskIndex; TaskIndex++)
     {
       if (Settings.TaskDeviceNumber[TaskIndex])
