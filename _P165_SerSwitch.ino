@@ -1,4 +1,4 @@
-//############################# Plugin 165: Serial MCU controlled switch v2.4 ###########################
+//############################# Plugin 165: Serial MCU controlled switch v2.4b ##########################
 //
 //  Designed for TUYA/YEWELINK Wifi Touch Light switch with ESP8266 + PIC16F1829 MCU,
 //  the similar Sonoff Dual MCU controlled Wifi relay and LCTECH WIFI RELAY is also supported.
@@ -88,8 +88,8 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
           choice = Settings.TaskDevicePluginConfig[event->TaskIndex][1];
           String buttonOptions[3];
           buttonOptions[0] = F("1");
-          buttonOptions[1] = F("2/Dimmer");
-          buttonOptions[2] = F("3");
+          buttonOptions[1] = F("2/Dimmer#2");
+          buttonOptions[2] = F("3/Dimmer#3");
           int buttonoptionValues[3] = { 1, 2, 3 };
           addFormSelector(F("Number of relays"), F("plugin_165_button"), 3, buttonOptions, buttonoptionValues, choice);
         }
@@ -168,6 +168,7 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
         LoadTaskSettings(event->TaskIndex);
         Plugin_165_ownindex = event->TaskIndex;
         Serial.setDebugOutput(false);
+        Settings.SerialLogLevel = 0;
         Serial.setRxBufferSize(BUFFER_SIZE); // Arduino core for ESP8266 WiFi chip 2.4.0
         log = F("SerSW : Init ");
         if (Settings.TaskDevicePluginConfig[event->TaskIndex][0] == SER_SWITCH_YEWE)
@@ -590,7 +591,7 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
           if ( command == F("ydim") ) // deal with dimmer command
           {
             String log = F("SerSW   : SetDim ");
-            if ( Plugin_165_globalpar0 == SER_SWITCH_YEWE) { // only on yewe
+            if ( (Plugin_165_globalpar0 == SER_SWITCH_YEWE) && (Plugin_165_numrelay > 1)) { // only on tuya dimmer
               success = true;
 
               LoadTaskSettings(Plugin_165_ownindex); // get our own task values please
@@ -705,7 +706,7 @@ void sendmcudim(byte dimvalue)
   Serial.write(0x06); // Tuya command 06 - send order
   Serial.write(0x00);
   Serial.write(0x08); // following data length 0x08
-  Serial.write(0x02); // dimmer order-id?
+  Serial.write(Plugin_165_numrelay); // dimmer order-id? select it at plugin settings 2/3!!!
   Serial.write(0x02); // type=value
   Serial.write(0x00); // length hi
   Serial.write(0x04); // length low
@@ -713,6 +714,6 @@ void sendmcudim(byte dimvalue)
   Serial.write(0x00); // ?
   Serial.write(0x00); // ?
   Serial.write( dimvalue ); // dim value (0-255)
-  Serial.write( byte(21 + dimvalue) ); // checksum:sum of all bytes in packet mod 256
+  Serial.write( byte(19 + Plugin_165_numrelay + dimvalue) ); // checksum:sum of all bytes in packet mod 256
   Serial.flush();
 }
