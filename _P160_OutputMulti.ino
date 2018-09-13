@@ -1,5 +1,26 @@
-/* Multiple output plugin for ESPEasy  */
-/* One dummy "blocker" values supported per outputs  */
+/*##########################################################################################
+  ############################### Plugin 160: Multiple output plugin #######################
+  ##########################################################################################
+
+  Features :
+	- Records max 4 GPIO output states in UserVars
+        - One "blocker" line belongs to every GPIO,
+          when blocker evaluates to >= 1 then GPIO can not be set to active state
+          otherwise GPIO can be setted
+        - changing values has to be done with the "output" command!
+
+  List of commands :
+	- output,[devicename],[pin_number],[status]   Set specific GPIO status of the named task (0/1)
+	- output,[devicename],[pin_number]            Toggle GPIO status (pin_number:1-4)
+
+  Command Examples :
+	-  /control?cmd=output,seldevice,1,0          Set task named 'seldevice' first GPIO to 0
+	-  /control?cmd=output,seldevice,2            Toggle task named 'seldevice' second GPIO
+
+  ------------------------------------------------------------------------------------------
+	Copyleft Nagy Sándor 2018 - https://bitekmindenhol.blog.hu/
+  ------------------------------------------------------------------------------------------
+*/
 
 #ifdef PLUGIN_BUILD_TESTING
 
@@ -230,27 +251,33 @@ boolean Plugin_160(byte function, struct EventStruct *event, String& string)
               } else {
                 pinvalue = (byte)vvalue.toInt();
               }
-              
-              byte inhibaddr = Settings.TaskDevicePluginConfig[taskIndex][3];              
-              String tmpString = String(P160_deviceTemplate[inhibaddr][relnum]);              
+
+              byte inhibaddr = Settings.TaskDevicePluginConfig[taskIndex][3];
+              String tmpString = String(P160_deviceTemplate[inhibaddr][relnum]);
               byte inhibitvalue = parseTemplate(tmpString, 20).toInt();
               if (inhibitvalue >= 1) {
                 logs = F("Blocker active ");
                 logs += String(inhibitvalue)+ F(" set to LOW");
-                addLog(LOG_LEVEL_INFO, logs);                 
+                addLog(LOG_LEVEL_INFO, logs);
                 pinvalue = Settings.TaskDevicePluginConfig[taskIndex][1];
               }
-              
+
               if (pinvalue != -1) {
                 if (pinnum != -1) {
                   pinMode(pinnum, OUTPUT);
                   digitalWrite(pinnum, pinvalue);
                 }
                 UserVar[BaseVarIndex1 + relnum] = pinvalue;
+                String events = getTaskDeviceName(taskIndex);
+                events += F("#");
+                events += ExtraTaskSettings.TaskDeviceValueNames[relnum];
+                events += F("=");
+                events += String(pinvalue);
+                rulesProcessing(events);
               }
             logs = String(F("MultiOut : ")) + taskName + F(" GPIO ") + pinnum + F(" value: ") + pinvalue;
             addLog(LOG_LEVEL_INFO, logs);
-            logs = F("\nOk");            
+            logs = F("\nOk");
             SendStatus(event->Source, logs);
           }
         }
