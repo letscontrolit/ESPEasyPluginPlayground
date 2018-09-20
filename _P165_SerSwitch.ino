@@ -1,15 +1,47 @@
-//############################# Plugin 165: Serial MCU controlled switch v2.4b ##########################
-//
-//  Designed for TUYA/YEWELINK Wifi Touch Light switch with ESP8266 + PIC16F1829 MCU,
-//  the similar Sonoff Dual MCU controlled Wifi relay and LCTECH WIFI RELAY is also supported.
-//  Based on P020 Ser2Net and P001 Switch.
-//
-//  Dummy device (Switch) can be used to control relays, one device per relay and/or rules Publish command
-//  for example.
-//  Support thread: https://www.letscontrolit.com/forum/viewtopic.php?f=6&t=3245
-//
-//#######################################################################################################
+/*##########################################################################################
+  ######################### Plugin 165: Serial MCU controlled switch #######################
+  ##########################################################################################
 
+  Features :
+   - make it possible to control serial linked devices through ESP8266
+   - exactly only ONE P165 plugin can be used one time on one device!
+   - serial have to be ENABLED, and serial logging level set to 0 at ESPEasy settings!
+
+  Compatible device list:
+   1/ Tuya Wifi Touch wall switch (originally controlled by Tuya Smart/Smart Life app)
+   2/ Tuya Wifi Dimmer Switch (originally controlled by Tuya Smart/Smart Life app)
+   3/ Sonoff Dual - v1 only! (R2 has no serial MCU!)
+   4/ LCTECH compatible 5V WiFi relay 1,2 and 4 relay versions also supported.
+
+   Relay states can be read from plugin values, the LCTech communication is only 1way, so the last stored state seen.
+   Tuya can report states and can be queried the actual state, Sonoff Dual may report its state, when it's hardware buttons pushed.
+
+   Support forum  thread: https://www.letscontrolit.com/forum/viewtopic.php?f=6&t=3245
+
+   !!! For some reasons the serial 2way communication only works with Arduino ESP8266 core 2.4.0 !!!
+
+  List of commands :
+	- relay,[relay_number],[status]                 Set specific relay (0-3) to status (0/1)
+	- relaypulse,[relay_number],[status],[delay]    Pulse specific relay for DELAY millisec with STATUS state,
+                                                        than return to inverse state
+        - ydim,[DIM_VALUE]                              Set DIM_VALUE to Tuya dimmer switch (value can be 0-255, no range check!)
+                                                        Of course, only the Tuya dimmer can do it... dim value can be read from plugin values.
+                                                        There are no checks for is it state on or off.
+
+  Command Examples :
+	-  /control?cmd=relay,0,1             Switch on first relay
+	-  /control?cmd=relay,0,0             Switch off first relay
+	-  /control?cmd=relay,1,1             Switch on second relay
+	-  /control?cmd=relay,1,0             Switch off second relay
+	-  /control?cmd=relaypulse,0,1,500    Set first relay to ON for 500ms, than stay OFF
+	-  /control?cmd=relaypulse,0,0,1000   Set first relay to OFF for 1s, than stay ON
+	-  /control?cmd=ydim,255              Set dimmer to MAX value
+	-  /control?cmd=ydim,25               Set dimmer to ~10%
+
+  ------------------------------------------------------------------------------------------
+	Copyleft Nagy Sándor 2018 - https://bitekmindenhol.blog.hu/
+  ------------------------------------------------------------------------------------------
+*/
 #define PLUGIN_165
 #define PLUGIN_ID_165         165
 #define PLUGIN_NAME_165       "Serial MCU controlled switch"
@@ -18,7 +50,7 @@
 #define PLUGIN_VALUENAME3_165 "Relay2"
 #define PLUGIN_VALUENAME4_165 "Relay3"
 
-#define BUFFER_SIZE   100 // at least 3x33 byte serial buffer needed for Tuya
+#define BUFFER_SIZE   128 // at least 3x33 byte serial buffer needed for Tuya
 
 #define SER_SWITCH_YEWE 1
 #define SER_SWITCH_SONOFFDUAL 2
@@ -167,14 +199,16 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
         String log = "";
         LoadTaskSettings(event->TaskIndex);
         Plugin_165_ownindex = event->TaskIndex;
-        Serial.setDebugOutput(false);
-        Settings.SerialLogLevel = 0;
+        Settings.UseSerial = true;         // make sure that serial enabled
+        Settings.SerialLogLevel = 0;       // and logging disabled
+        Serial.setDebugOutput(false);      // really, disable it!
         Serial.setRxBufferSize(BUFFER_SIZE); // Arduino core for ESP8266 WiFi chip 2.4.0
         log = F("SerSW : Init ");
         if (Settings.TaskDevicePluginConfig[event->TaskIndex][0] == SER_SWITCH_YEWE)
         {
           Plugin_165_numrelay = Settings.TaskDevicePluginConfig[event->TaskIndex][1];
           Serial.begin(9600, SERIAL_8N1);
+          Serial.setRxBufferSize(BUFFER_SIZE); // Arduino core for ESP8266 WiFi chip 2.4.0          
           delay(1);
           getmcustate(); // request status on startup
           log += F(" Yewe ");
@@ -184,7 +218,7 @@ boolean Plugin_165(byte function, struct EventStruct *event, String& string)
         if (Settings.TaskDevicePluginConfig[event->TaskIndex][0] == SER_SWITCH_SONOFFDUAL)
         {
           Plugin_165_numrelay = 3; // 3rd button is the "wifi" button
-          Serial.begin(19230, SERIAL_8N1);
+          Serial.begin(19230, SERIAL_8N1);          
           log += F(" Sonoff Dual");
         }
         if (Settings.TaskDevicePluginConfig[event->TaskIndex][0] == SER_SWITCH_LCTECH)
