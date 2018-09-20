@@ -1,10 +1,18 @@
-//#######################################################################################################
-//#################################### Plugin 167: ADS1015 I2C 0x48)  ###################################
-//# Supports slow, purple chinese ADS1015
-//# Needs soligen2010/Adafruit_ADS1x15 patched library
-//# https://github.com/soligen2010/Adafruit_ADS1X15
-//# WARNING: This plugin can not coexist with ADS1115 plugin!
-//#######################################################################################################
+/*##########################################################################################
+  ############################### Plugin 167: ADS1015 I2C 0x48) ############################
+  ##########################################################################################
+
+  Features :
+   Supports slow, purple chinese ADS1015
+   Needs soligen2010/Adafruit_ADS1x15 patched library
+    https://github.com/soligen2010/Adafruit_ADS1X15
+
+  WARNING: This plugin can not coexist with ADS1115 plugin!
+
+  ------------------------------------------------------------------------------------------
+  Copyleft Nagy Sándor 2018 - https://bitekmindenhol.blog.hu/
+  ------------------------------------------------------------------------------------------
+*/
 
 #ifdef PLUGIN_BUILD_TESTING
 

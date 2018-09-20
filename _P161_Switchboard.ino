@@ -4,13 +4,16 @@
 
   Features :
 	- Displays input/output devices states/values at a dedicated URL
-    http://ipaddress/board
+    http://ipaddress/board  
 
   List of internal commands :
    - board?cmd=output,[devicename],[pin_number]  Send the output command to a device, than return status in html
    - board?cmd=toggle,[taskindex],[valuenumber]  Toggle state of taskindex numbered task specified value,
                                                   if devicepin defined, than toggle it also (for Output helper)
                                                   than return html
+
+  Known bug:
+   - if empty slots exists in between devices in device pages, the /json output causes refresh errors
 
   ------------------------------------------------------------------------------------------
 	Copyleft Nagy Sándor 2018 - https://bitekmindenhol.blog.hu/
@@ -183,8 +186,8 @@ void p161_handle_board()
 
     byte firstTaskIndex = 0;
     byte lastTaskIndex = TASKS_MAX - 1;
-    if (Settings.TaskDevicePluginConfig[Plugin_161_taskindex][6] < lastTaskIndex) {
-      lastTaskIndex = Settings.TaskDevicePluginConfig[Plugin_161_taskindex][6];
+    if (Settings.TaskDevicePluginConfig[Plugin_161_taskindex][6]-1 < lastTaskIndex) {
+      lastTaskIndex = Settings.TaskDevicePluginConfig[Plugin_161_taskindex][6]-1;
     }
     byte lastActiveTaskIndex = 0;
     for (byte TaskIndex = firstTaskIndex; TaskIndex <= lastTaskIndex; TaskIndex++) {
@@ -192,15 +195,15 @@ void p161_handle_board()
         lastActiveTaskIndex = TaskIndex;
     }
 
-    TXBuffer += F("<script>");
+    TXBuffer += F("<script>"); // DO NOT LEAVE EMPTY SLOTS AT DEVICE PAGE INSIDE OTHERS, ONLY AT THE END! CAUSES INTERESTING ERRORS!
     TXBuffer += F("function callcmd(cmdline) { commandurl = 'control?cmd='+cmdline; var xmlHttp = new XMLHttpRequest(); xmlHttp.open('GET', commandurl, true); xmlHttp.send(null);}");
     TXBuffer += F(" (function(){ var max_tasknumber = ");
     TXBuffer += String(lastActiveTaskIndex); // loop from 0 to lastactivetaskindex
     TXBuffer += F("; var max_taskvalues = 4; var timeForNext = 1500; var c; var k; var err = ''; var i = setInterval(function(){ var url = '/json';");
     TXBuffer += F("  fetch(url).then( function(response) {  if (response.status !== 200) { console.log('Looks like there was a problem. Status Code: ' +  response.status); return; } response.json().then(function(data) {");
     TXBuffer += F("timeForNext = data.TTL;for (c = 0; c <= max_tasknumber; c++) {for (k = 0; k < max_taskvalues; k++) {var cell = document.getElementById('value_' + c + '_' + k);");
-    TXBuffer += F("if (cell){var taskvalue = data.Sensors[c].TaskValues[k].Value; cell.innerHTML= taskvalue;} var cell = document.getElementById('valuename_' + c + '_' + k);");
-    TXBuffer += F("if (cell){var taskvalue = data.Sensors[c].TaskValues[k].Value; if (taskvalue < 1) {cell.classList.remove('on'); cell.classList.add('off');} else {cell.classList.remove('off'); cell.classList.add('on');");
+    TXBuffer += F("if (cell){var taskvalue = data.Sensors[c].TaskValues[k].Value; cell.innerHTML= taskvalue;} var cell2 = document.getElementById('valuename_' + c + '_' + k);");
+    TXBuffer += F("if (cell2){var taskvalue = data.Sensors[c].TaskValues[k].Value; if (taskvalue < 1) {cell2.classList.remove('on'); cell2.classList.add('off');} else {cell2.classList.remove('off'); cell2.classList.add('on');");
     TXBuffer += F("}}}}});}) ;}, timeForNext);})();");
     TXBuffer += F("</script>");
     TXBuffer += F("<style>.btn{margin-left:2px;margin-top:2px;float:left;display:block;border:1px solid black;border-radius:0.3rem;color:black;min-height:50px;font-size:1.2rem;width:");
