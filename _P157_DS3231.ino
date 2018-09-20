@@ -565,6 +565,7 @@ unsigned long plugin_157_initialize()
   ESP32interrupts();
 #endif
   nextSyncTime = 0;
+  syncInterval = 1800;
   unsigned long loctime = rtcnow();    // get time from RTC
   if (Plugin_157_interval > 0) { // if alarm enabled set it up
 #if defined(ESP32)
