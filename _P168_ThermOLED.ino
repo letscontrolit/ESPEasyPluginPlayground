@@ -1,9 +1,41 @@
-//#######################################################################################################
-//#################################### Plugin 168: OLED SSD1306 display for Thermostat ##################
-//
-// This is a modification to Plugin_036 with graphics library provided from squix78 github
-// https://github.com/squix78/esp8266-oled-ssd1306
-//
+/*##########################################################################################
+  ##################### Plugin 168: OLED SSD1306 display for Thermostat ####################
+  ##########################################################################################
+
+   This is a modification to Plugin_036 with graphics library provided from squix78 github
+   https://github.com/squix78/esp8266-oled-ssd1306
+
+  Features :
+    - Displays and use current temperature from specified Device/Value (can be a Dummy for example)
+    - Displays and maintains setpoint value
+    - on power down/up this plugin maintains and reloads RELAY and SETPOINT values from SPIFFS
+    - Supports 3 buttons, LEFT, RIGHT and MODE selection (MODE button cycles modes below, 
+      LEFT/RIGHT increases-decreases setpoint OR timeout (Mode sensitive)
+    - one output relay need to be specified, currently only HIGH level active supported
+    - 3 mode is available: 
+        - 0 or X: set relay permanently off no matter what
+        - 1 or A: set relay ON if current temperature below setpoint, and set OFF when 
+                  temperature+hysteresis reached - comparison made at setted Plugin interval (AUTO MODE)
+        - 2 or M: set relay ON for specified time in minutes (MANUAL ON MODE), after timeout, mode switch to "A"
+  
+  List of commands :
+  - oledframedcmd,[OLED_STATUS]               Inherited command from P036 status can be: 
+                                              [off/on/low/med/high]
+  - thermo,setpoint,[target_temperature]      Target setpoint, only used in Mode "A"
+  - thermo,heating,[RELAY_STATUS]             Manually forcing relay status [off/on]
+  - thermo,mode,[MODE],[TIMEOUT]              Set to either mode X/A/M, if M selected, 
+                                              then TIMEOUT can be specified in minutes
+  
+  Command Examples :
+  -  /control?cmd=thermo,setpoint,23          Set target setpoint to 23 Celsius
+  -  /control?cmd=thermo,mode,1               Set mode to AUTOMATIC so it starts to maintain setpoint temperature
+  -  /control?cmd=thermo,mode,2,5             Starts pre-heat for 5 minute, does not care about TEMP, then go to AUTO mode after timeout
+  -  /control?cmd=thermo,mode,0               Switch heating off, absolutely do nothing until further notice
+
+  ------------------------------------------------------------------------------------------
+  Copyleft Nagy Sándor 2018 - https://bitekmindenhol.blog.hu/
+  ------------------------------------------------------------------------------------------
+*/
 
 #define PLUGIN_168
 #define PLUGIN_ID_168         168
@@ -26,7 +58,7 @@
 #include "Dialog_Plain_12_font.h"
 #include "Dialog_Plain_18_font.h"
 
-const uint8_t flameimg[] PROGMEM = {
+const char flameimg[] PROGMEM = {
   0x00, 0x20, 0x00,
   0x00, 0x70, 0x00,
   0x00, 0x78, 0x00,
@@ -69,6 +101,8 @@ byte Plugin_168_taskindex;
 byte Plugin_168_varindex;
 byte Plugin_168_changed;
 boolean Plugin_168_init = false;
+unsigned long Plugin_168_lastsavetime = 0;
+byte Plugin_168_saveneeded = 0;
 
 static unsigned long Plugin_168_buttons[3];
 
@@ -267,6 +301,7 @@ boolean Plugin_168(byte function, struct EventStruct *event, String& string)
             f.close();
           }
         }
+        Plugin_168_lastsavetime = millis();
         if (UserVar[event->BaseVarIndex] < 1) {
           UserVar[event->BaseVarIndex] = 19; // setpoint
           UserVar[event->BaseVarIndex + 2] = 1; // mode (X=0,A=1,M=2)
@@ -422,16 +457,23 @@ boolean Plugin_168(byte function, struct EventStruct *event, String& string)
         }
         if (Plugin_168_changed == 1) {
           sendData(event);
+          Plugin_168_saveneeded = 1;
           Plugin_168_changed = 0;
-          fs::File f = SPIFFS.open("thermo.dat", "w");
-          if (f)
-          {
+        }
+        if (Plugin_168_saveneeded == 1) {
+         if ((Plugin_168_lastsavetime+30000) < millis()) {
+           Plugin_168_saveneeded = 0;
+           Plugin_168_lastsavetime = millis();         
+           fs::File f = SPIFFS.open("thermo.dat", "w");
+           if (f)
+           {
             f.write( ((uint8_t *)&UserVar[event->BaseVarIndex] + 0), 16 );
             f.close();
-          }
-          String logstr = F("Thermo : Save UserVars to SPIFFS");
-          addLog(LOG_LEVEL_INFO, logstr);
-        }
+            flashCount();
+           }
+           String logstr = F("Thermo : Save UserVars to SPIFFS");
+           addLog(LOG_LEVEL_INFO, logstr);
+        }}
         success = true;
         }
         break;
