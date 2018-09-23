@@ -16,11 +16,11 @@
 
   List of commands :
 	- output,[devicename],[pin_number],[status]   Set specific GPIO status of the named task (0/1)
-	- output,[devicename],[pin_number]            Toggle GPIO status (pin_number:1-4)
+	- output,[devicename],[pin_number]            Toggle GPIO status (pin_number:0-3)
 
   Command Examples :
-	-  /control?cmd=output,seldevice,1,0          Set task named 'seldevice' first GPIO to 0
-	-  /control?cmd=output,seldevice,2            Toggle task named 'seldevice' second GPIO
+	-  /control?cmd=output,seldevice,0,0          Set task named 'seldevice' first GPIO to 0
+	-  /control?cmd=output,seldevice,1            Toggle task named 'seldevice' second GPIO
 
   ------------------------------------------------------------------------------------------
 	Copyleft Nagy Sándor 2018 - https://bitekmindenhol.blog.hu/
