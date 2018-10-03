@@ -39,34 +39,6 @@
 
 #define MAX_NTP_RETRIES   10
 
-#if defined(ESP32)
-
-#define ESP32noInterrupts() {portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;portENTER_CRITICAL(&mux)
-#define ESP32interrupts() portEXIT_CRITICAL(&mux);}
-
-bool i2cCheckLineState(int8_t sda, int8_t scl) {
-  if (sda < 0 || scl < 0) {
-    return true;
-  }
-  pinMode(sda, OUTPUT);
-  pinMode(scl, OUTPUT);
-
-  if (!digitalRead(sda)) {
-    for (uint8_t a = 0; a < 9; a++) {
-      digitalWrite(scl, LOW);
-      delayMicroseconds(5);
-      digitalWrite(scl, HIGH);
-      delayMicroseconds(5);
-    }
-  }
-  pinMode(sda,INPUT_PULLUP);
-  pinMode(scl,INPUT_PULLUP);
-  String logs = F("I2C  : ");
-  addLog(LOG_LEVEL_INFO, logs);
-  return true;
-}
-#endif
-
 bool Plugin_157_ntpsync = false;
 bool Plugin_157_ntpinit = false;
 byte Plugin_157_ntpretries = 0;
@@ -167,13 +139,7 @@ boolean Plugin_157(byte function, struct EventStruct *event, String& string)
         unsigned long loctime = plugin_157_initialize();
 
         if ( (loctime > 0) && (year(loctime) > 2000) && (year(loctime) < 3000) ) {
-#if defined(ESP32)
-          ESP32noInterrupts();
-#endif
           UserVar[event->BaseVarIndex] = DS3231_get_treg(); // get temperature from rtc, it is free
-#if defined(ESP32)
-          ESP32interrupts();
-#endif
           UserVar[event->BaseVarIndex + 1] = loctime;
           ilogs += F(" Get init time from RTC. Unix time: ");
           ilogs += String(loctime);
@@ -201,28 +167,13 @@ boolean Plugin_157(byte function, struct EventStruct *event, String& string)
             Plugin_157_ntpretries = Plugin_157_ntpretries + 1;
             plugin_157_do_ntpsync();
             if ((Plugin_157_interval > 0) && (Plugin_157_ntpinit)) { // if alarm enabled and time changed set it up
-#if defined(ESP32)
-              ESP32noInterrupts();
-#endif
               DS3231_clear_a1f();
-#if defined(ESP32)
-              ESP32interrupts();
-#endif
               plugin_157_setnextalarm();
             }
           }
           unsigned long loctime = rtcnow(); // refresh uservars
           if (loctime > 0) {
-#if defined(ESP32)
-            ESP32noInterrupts();
-#endif
             UserVar[event->BaseVarIndex] = DS3231_get_treg();
-#if defined(ESP32)
-            ESP32interrupts();
-            if (UserVar[event->BaseVarIndex] == 0) {
-              i2cCheckLineState(Settings.Pin_i2c_sda, Settings.Pin_i2c_scl);
-            }
-#endif
             UserVar[event->BaseVarIndex + 1] = loctime;
           }
         }
@@ -265,23 +216,12 @@ boolean Plugin_157(byte function, struct EventStruct *event, String& string)
           if ((t2.sec < 0) || (t2.sec > 59)) {
             t2.sec = 0;
           }
-#if defined(ESP32)
-          ESP32noInterrupts();
-#endif
           DS3231_set(t2);
-#if defined(ESP32)
-          ESP32interrupts();
-#endif
           if (Plugin_157_interval > 0) { // if alarm enabled set it up
-#if defined(ESP32)
-            ESP32noInterrupts();
-#endif
             DS3231_clear_a1f();
-#if defined(ESP32)
-            ESP32interrupts();
-#endif
             plugin_157_setnextalarm();
           }
+          nextSyncTime = 0;
           rtcnow();
           command = F("\nOk\nTime updated!");
           SendStatus(event->Source, command);
@@ -307,13 +247,7 @@ boolean Plugin_157(byte function, struct EventStruct *event, String& string)
               Plugin_157_ntpretries = 0;
               rtcnow();    // get time from RTC
               if (Plugin_157_interval > 0) { // if alarm enabled set it up
-#if defined(ESP32)
-                ESP32noInterrupts();
-#endif
                 DS3231_clear_a1f();
-#if defined(ESP32)
-                ESP32interrupts();
-#endif
                 plugin_157_setnextalarm();
               }
               break;
@@ -324,13 +258,7 @@ boolean Plugin_157(byte function, struct EventStruct *event, String& string)
         }
         if (command == F("getalarm")) {
           char buff[60];
-#if defined(ESP32)
-          ESP32noInterrupts();
-#endif
           DS3231_get_a1(&buff[0], 60);
-#if defined(ESP32)
-          ESP32interrupts();
-#endif
           command = String(buff);
           SendStatus(event->Source, command);
           success = true;
@@ -352,13 +280,7 @@ boolean Plugin_157(byte function, struct EventStruct *event, String& string)
           if (Plugin_157_interval > 0) {    // handle triggered alarms and retrigger them
             if (DS3231_triggered_a1()) {
               plugin_157_setnextalarm();
-#if defined(ESP32)
-              ESP32noInterrupts();
-#endif
               DS3231_clear_a1f();
-#if defined(ESP32)
-              ESP32interrupts();
-#endif
               String event = F("RTC#Alarm1");
               rulesProcessing(event);
             }
@@ -404,40 +326,36 @@ unsigned long getRtcTime() // based on core getNtpTime()
     return 0;
   }
   struct ts t;
-#if defined(ESP32)
-  ESP32noInterrupts();
-#endif
   DS3231_get(&t);
-#if defined(ESP32)
-  ESP32interrupts();
-#endif
-  if (t.year < 2000) { // rtc read error?
-#if defined(ESP32)
-    i2cCheckLineState(Settings.Pin_i2c_sda, Settings.Pin_i2c_scl);
-#endif
-    nextSyncTime = sysTime + 60;
+  if ((t.year < 2000) || (t.year > 3000)) { // rtc read error?
+   Plugin_157_init = false; // stop trying?
+   String logs = F("RTC time read failed.");
+   addLog(LOG_LEVEL_INFO, logs);
+   return 0;
+  } else
+  {
+   String logs = F("RTC time read from chip : ");
+   logs += t.year;
+   logs += F(".");
+   logs += t.mon;
+   logs += F(".");
+   logs += t.mday;
+   logs += F(" ");
+   logs += t.hour;
+   logs += F(":");
+   logs += t.min;
+   logs += F(":");
+   logs += t.sec;
+   addLog(LOG_LEVEL_INFO, logs);
+   timeStruct tm2;
+   tm2.Year = t.year - 1970;
+   tm2.Month = t.mon;
+   tm2.Day = t.mday;
+   tm2.Hour = t.hour;
+   tm2.Minute = t.min;
+   tm2.Second = t.sec;
+   return makeTime(tm2); // return unix time
   }
-  String logs = F("RTC time read from chip : ");
-  logs += t.year;
-  logs += F(".");
-  logs += t.mon;
-  logs += F(".");
-  logs += t.mday;
-  logs += F(" ");
-  logs += t.hour;
-  logs += F(":");
-  logs += t.min;
-  logs += F(":");
-  logs += t.sec;
-  addLog(LOG_LEVEL_INFO, logs);
-  timeStruct tm2;
-  tm2.Year = t.year - 1970;
-  tm2.Month = t.mon;
-  tm2.Day = t.mday;
-  tm2.Hour = t.hour;
-  tm2.Minute = t.min;
-  tm2.Second = t.sec;
-  return makeTime(tm2); // return unix time
 }
 
 void rtccheckTime()
@@ -478,14 +396,8 @@ void plugin_157_setnextalarm(void) // setup next alarm
   String logs = F("RTC  : Next alarm time set to: ");
   logs += String(tma.Hour) + F(":") + String(tma.Minute) + F(":") + String(tma.Second);
   addLog(LOG_LEVEL_INFO, logs);
-#if defined(ESP32)
-  ESP32noInterrupts();
-#endif
   DS3231_set_a1(tma.Second, tma.Minute, tma.Hour, tma.Day, flags);
   DS3231_set_creg(DS3231_CONTROL_INTCN | DS3231_CONTROL_A1IE);    // activate Alarm1
-#if defined(ESP32)
-  ESP32interrupts();
-#endif
 }
 
 uint32_t plugin_157_deLocal(uint32_t utc)
@@ -530,13 +442,7 @@ void plugin_157_do_ntpsync()
     logs += t2.sec;
     addLog(LOG_LEVEL_INFO, logs);
     if (t2.year > 2017) {       // if time seems valid update RTC
-#if defined(ESP32)
-      ESP32noInterrupts();
-#endif
       DS3231_set(t2);
-#if defined(ESP32)
-      ESP32interrupts();
-#endif
       logs = F("RTC  : Updating time from NTP. Unix time: ");
       logs += String(getUnixTime());
       addLog(LOG_LEVEL_INFO, logs);
@@ -557,24 +463,12 @@ unsigned long plugin_157_initialize()
   if (Plugin_157_ntpsync) { // if ntp sync enabled
     plugin_157_do_ntpsync();
   }
-#if defined(ESP32)
-  ESP32noInterrupts();
-#endif
   DS3231_init(DS3231_CONTROL_INTCN);   // init ds3231, do not use wire.begin it is handled by espeasy
-#if defined(ESP32)
-  ESP32interrupts();
-#endif
   nextSyncTime = 0;
   syncInterval = 1800;
   unsigned long loctime = rtcnow();    // get time from RTC
   if (Plugin_157_interval > 0) { // if alarm enabled set it up
-#if defined(ESP32)
-    ESP32noInterrupts();
-#endif
     DS3231_clear_a1f();
-#if defined(ESP32)
-    ESP32interrupts();
-#endif
     plugin_157_setnextalarm();
   }
   return loctime;
