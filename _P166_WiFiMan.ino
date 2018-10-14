@@ -1,8 +1,30 @@
-//############################# Plugin 166: WiFi Power Management Functions v1.1########################
-//
-//  Can be used with commands and rules
-//
-//#######################################################################################################
+/*##########################################################################################
+  ####################### Plugin 166: WiFi Power Management Functions ######################
+  ##########################################################################################
+
+  Features :
+	- Brings end users the possibility to step into ModemSleep mode with ESP8266.
+          It means Wifi go to off, reducing consumption from 80-150mA down ot 15mA,
+          and processing continues, so main loop is active, and "rules" is working.
+        - KillAp mode purpose is to do not expose AP's with every ESPEasy device, when master AP is go down for a while.
+
+  List of commands :
+	- modemsleep,1                     Enter into Modemsleep mode
+	- modemsleep,0                     Exit from Modemsleep mode
+        - settx,21                         Set WiFi output power: (0-21)
+        - killap,1                         Disable AP mode usage, if AP mode started by ESPEasy, plugin shuts it down in every second
+        - killap,0                         Enable AP mode usage, if AP mode started by ESPEasy, plugin let it go
+
+  Fired event names, that can be used in rules:
+      System#ModemSleep=1                Device enters into Modemsleep mode
+      System#ModemSleep=0                Exit from Modemsleep mode
+      System#WifiState=1                 Wifi connected
+      System#WifiState=0                 Wifi disconnected
+
+  ------------------------------------------------------------------------------------------
+	Copyleft Nagy Sándor 2018 - https://bitekmindenhol.blog.hu/
+  ------------------------------------------------------------------------------------------
+*/
 
 #define PLUGIN_166
 #define PLUGIN_ID_166         166
@@ -11,7 +33,17 @@
 #define PLUGIN_VALUENAME2_166 "TX"
 #define PLUGIN_VALUENAME3_166 "Connected"
 #define PLUGIN_VALUENAME4_166 "KillAP"
-#define MAX_TX_POWER          20.5
+#if defined(ESP32)
+ #include "esp_wifi_types.h"
+ #include "esp_wifi.h"
+ #define MAX_TX_POWER          127
+#else
+ #define MAX_TX_POWER          20.5
+#endif
+
+#ifndef WIFI_PS_MAX_MODEM
+ #define WIFI_PS_MAX_MODEM WIFI_PS_MODEM
+#endif
 
 byte Plugin_166_ownindex;
 byte Plugin_166_modemsleepstatus;
@@ -82,6 +114,11 @@ boolean Plugin_166(byte function, struct EventStruct *event, String& string)
         UserVar[event->BaseVarIndex] = Plugin_166_modemsleepstatus;
         UserVar[event->BaseVarIndex + 1] = MAX_TX_POWER;
         UserVar[event->BaseVarIndex + 3] = 0;
+        #if defined(ESP32)
+         int8_t __rtx = MAX_TX_POWER;
+         esp_wifi_get_max_tx_power(&__rtx);
+         UserVar[event->BaseVarIndex + 1] = __rtx;
+        #endif
 
         success = true;
         Plugin_166_init = true;
@@ -154,9 +191,10 @@ boolean Plugin_166(byte function, struct EventStruct *event, String& string)
           if ( command == F("settx") )
           {
             success = true;
-            float _rtx = 20.5;
+            float _rtx = MAX_TX_POWER;
+            int8_t __rtx = _rtx;
 
-            if ((event->Par1 >= 0) && (event->Par1 <= 21)) {
+            if ((event->Par1 >= 0) && (event->Par1 <= MAX_TX_POWER)) {
               _rtx = event->Par1;
             }
             LoadTaskSettings(Plugin_166_ownindex);
@@ -165,6 +203,10 @@ boolean Plugin_166(byte function, struct EventStruct *event, String& string)
             event->BaseVarIndex = varIndex;
 
             settxpower(_rtx);
+            #if defined(ESP32)
+             esp_wifi_get_max_tx_power(&__rtx);
+             _rtx = __rtx;
+            #endif
             UserVar[(varIndex + 1)] = _rtx;
 
             String log = F("WiFi TX=");
@@ -206,7 +248,11 @@ void setmodemsleep(byte state) {
   // 1=Wifi off (sleep), 0= Wifi on to STA (wake)
   if ((state == 0) && (Plugin_166_modemsleepstatus == 1)) {
     WiFi.mode( WIFI_STA ); // set wifi to STA mode, modemsleep is not usable in AP mode
-    WiFi.forceSleepWake(); // wake wifi from ModemSleep
+    #if defined(ESP32)
+     esp_wifi_set_ps(WIFI_PS_NONE);
+    #else
+     WiFi.forceSleepWake(); // wake wifi from ModemSleep
+    #endif
     delay( 1 );            // let cpu to deal with it
     WiFi.persistent( false ); // do not use flash memory
 //    WifiConnect(2);        // use ESPEasy Wifi.ino to reconnect
@@ -219,11 +265,17 @@ void setmodemsleep(byte state) {
   if ((state == 1) && (Plugin_166_modemsleepstatus == 0)) {
     wifiSetup = true; // bypass WifiCheck() with this simple hack
     WiFi.persistent( false ); // do not use flash memory
-    wifi_station_disconnect();
+    #ifndef ESP32
+     wifi_station_disconnect();
+    #endif
     WifiDisconnect(); // disconnect current connections
     delay( 1 );             // wait to finish disconnect
     WiFi.mode( WIFI_OFF ); // set wifi to off mode
-    WiFi.forceSleepBegin(); // tell wifi to stay ModemSleep until further notice
+    #if defined(ESP32)
+     esp_wifi_set_ps(WIFI_PS_MAX_MODEM);
+    #else
+     WiFi.forceSleepBegin(); // tell wifi to stay ModemSleep until further notice
+    #endif
     delay( 1 );             // let cpu to acknowledge this
     String event = F("System#ModemSleep=1");
     rulesProcessing(event);
@@ -233,5 +285,9 @@ void setmodemsleep(byte state) {
 }
 
 void settxpower(float dBm) { // 0-20.5
-  WiFi.setOutputPower(dBm);
+  #if defined(ESP32)
+   esp_wifi_set_max_tx_power((byte)dBm);
+  #else
+   WiFi.setOutputPower(dBm);
+  #endif
 }

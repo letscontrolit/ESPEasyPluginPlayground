@@ -1,4 +1,33 @@
-/* Yeti plugin for ESPEasy  */
+/*##########################################################################################
+  ############################### Plugin 158: Yeti interface plugin ########################
+  ##########################################################################################
+
+  Features :
+	- Supports Yeti Android application by implementing partial Tasmota commands  (status + power)
+        - can be added to Yeti manually at Sonoff-Connect-Advanced and type the module IP address, automatic search may not work
+
+  List of commands :
+	- power,[relay_number],[status]             Set specific relay status
+
+  Command Examples :
+	-  /control?cmd=power,1,on                  Set first relay to ON
+	-  /control?cmd=power,2,off                 Set second relay to OFF
+
+Commands at Tasmota way:
+
+         Get status:
+             http://IPADDRESS/cm?cmnd=status%200
+         Toggle the first and only GPIO (when only 1 defined):
+             http://IPADDRESS/cm?cmnd=Power%20TOGGLE
+         Toggle the first GPIO (when more than 1 defined):
+             http://IPADDRESS/cm?cmnd=Power1%20TOGGLE
+         Toggle the second GPIO (when more than 1 defined):
+             http://IPADDRESS/cm?cmnd=Power2%20TOGGLE
+
+  ------------------------------------------------------------------------------------------
+	Copyleft Nagy Sándor 2018 - https://bitekmindenhol.blog.hu/
+  ------------------------------------------------------------------------------------------
+*/
 
 #ifdef PLUGIN_BUILD_TESTING
 
