@@ -1,10 +1,11 @@
 
-#ifdef PLUGIN_BUILD_DEVELOPMENT
+#ifdef PLUGIN_BUILD_DEV
 
   //Plugin to measure AC current using a ACS712 module. Very much a work in progress.
+  //For my lab, i have used R1=1200 and R2=2000
   #define PLUGIN_217
   #define PLUGIN_ID_217     217               //plugin id
-  #define PLUGIN_NAME_217   "Energy (AC) - ACS712"     //"Plugin Name" is what will be dislpayed in the selection list
+  #define PLUGIN_NAME_217   "Energy (AC) - ACS712 [DEVELOPMENT]"     //"Plugin Name" is what will be dislpayed in the selection list
   #define PLUGIN_VALUENAME1_217 "A"     //variable output of the plugin. The label is in quotation marks
   #define PLUGIN_217_DEBUG  true             //set to true for extra log info in the debug
   #define PLUGIN_217_MODEL_5A 185
@@ -30,8 +31,8 @@
           Device[deviceCount].FormulaOption = false;
           Device[deviceCount].ValueCount = 1;             //number of output variables. The value should match the number of keys PLUGIN_VALUENAME1_xxx
           Device[deviceCount].SendDataOption = true;
-          Device[deviceCount].TimerOption = false;
-          Device[deviceCount].TimerOptional = true;
+          Device[deviceCount].TimerOption = true;
+          Device[deviceCount].TimerOptional = false;
           Device[deviceCount].GlobalSyncOption = true;
           Device[deviceCount].DecimalsOnly = true;
           break;
@@ -93,20 +94,35 @@
 
       case PLUGIN_READ:
       {
-        addLog(LOG_LEVEL_INFO,"P217PluginRead");
-        int mVperAmp = 66; // use 100 for 20A Module and 66 for 30A Module
+
+        int mVperAmp = Settings.TaskDevicePluginConfig[event->TaskIndex][0];
+        float R1 = ExtraTaskSettings.TaskDevicePluginConfigLong[0];
+        float R2 = ExtraTaskSettings.TaskDevicePluginConfigLong[1];
         double Voltage = 0;
         double VRMS = 0;
         double AmpsRMS = 0;
+        double VoltageSensor = 0;
         Voltage = p217_get_VPP();
-        addLog(LOG_LEVEL_INFO,String(Voltage));
-        VRMS = (Voltage/2.0) *0.707;
+
+
+        VoltageSensor = (Voltage*(R2/R1));
+        VRMS = (VoltageSensor/2.0) *0.707;
         AmpsRMS = (VRMS * 1000)/mVperAmp;
-        addLog(LOG_LEVEL_INFO,String(AmpsRMS));
-        addLog(LOG_LEVEL_INFO,String(Settings.TaskDevicePluginConfig[event->TaskIndex][0]));
-        addLog(LOG_LEVEL_INFO,String(ExtraTaskSettings.TaskDevicePluginConfigLong[0]));
-        addLog(LOG_LEVEL_INFO,String(ExtraTaskSettings.TaskDevicePluginConfigLong[1]));
         UserVar[event->BaseVarIndex] = (float)AmpsRMS;
+        #ifdef PLUGIN_217_DEBUG
+          String log = "";
+          log = "Voltage:";
+          log += String(Voltage);
+          log += ", R1:";
+          log += String(R1);
+          log += ", R2:";
+          log += String(R2);
+          log += " VoltageSensor:";
+          log += String(VoltageSensor);
+          log += ", AmpsRMS:";
+          log += String(AmpsRMS);
+          addLog(LOG_LEVEL_INFO,String(log));
+        #endif
         success = true;
         break;
 
