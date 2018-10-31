@@ -199,7 +199,7 @@ boolean Plugin_166(byte function, struct EventStruct *event, String& string)
             byte varIndex = Plugin_166_ownindex * VARS_PER_TASK;
             event->BaseVarIndex = varIndex;
 
-            setmodemsleep(_rmode,Settings.TaskDevicePluginConfig[event->TaskIndex][0],Settings.TaskDevicePluginConfig[event->TaskIndex][1]);
+            setmodemsleep(_rmode,Settings.TaskDevicePluginConfig[Plugin_166_ownindex][0],Settings.TaskDevicePluginConfig[Plugin_166_ownindex][1]);
             UserVar[varIndex] = _rmode;
 
             String log = F("ModemSleep=");
