@@ -60,7 +60,8 @@
         int modelValues[3] = { PLUGIN_217_MODEL_5A, PLUGIN_217_MODEL_20A, PLUGIN_217_MODEL_30A };
         addFormSubHeader(F("Model selection"));
         addFormSelector(F("ACS712 model"), F("plugin_217_model"), 3, model, modelValues, modelchoice);
-
+        addFormSubHeader(F("Sampling period"));
+        addFormNumericBox(F("Sampling period in ms"), F("plugin_217_sampling_period"), ExtraTaskSettings.TaskDevicePluginConfigLong[2]);
         addFormSubHeader(F("Voltage divider values"));
         addFormNumericBox(F("R1 Value, Ohms"), F("plugin_217_r1"), ExtraTaskSettings.TaskDevicePluginConfigLong[0]);
         addFormNumericBox(F("R2 Value, Ohms"), F("plugin_217_r2"), ExtraTaskSettings.TaskDevicePluginConfigLong[1]);
@@ -77,6 +78,7 @@
         Settings.TaskDevicePluginConfig[event->TaskIndex][0] = getFormItemInt(F("plugin_217_model"));
         ExtraTaskSettings.TaskDevicePluginConfigLong[0] = getFormItemInt(F("plugin_217_r1"));
         ExtraTaskSettings.TaskDevicePluginConfigLong[1] = getFormItemInt(F("plugin_217_r2"));
+        ExtraTaskSettings.TaskDevicePluginConfigLong[2] = getFormItemInt(F("plugin_217_sampling_period"));
         //after the form has been saved successfuly, set success and break
         success = true;
         break;
@@ -146,15 +148,24 @@
 
 float p217_get_VPP()
   {
+    float sampling_period = ExtraTaskSettings.TaskDevicePluginConfigLong[2];
     const int sensorIn = A0;
     float result;
     int readValue;             //value read from the sensor
     int maxValue = 0;          // store max value here
     int minValue = 1024;          // store min value here
     uint32_t start_time = millis();
-   while((millis()-start_time) < 1000) //sample for 1 Sec
+    uint32_t nice_time = millis();
+   while((millis()-start_time) < sampling_period) //sample the period specified
    {
        readValue = analogRead(sensorIn);
+       //After a friendly tip in my pull request it was suggested that one should
+       //call delay(0) periodically to increase stability. So, lets do that every 20ms
+       if ((millis()-nice_time) > 20 ){
+         delay(0);
+         nice_time = millis();
+       }
+
        // see if you have a new maxValue
        if (readValue > maxValue)
        {
