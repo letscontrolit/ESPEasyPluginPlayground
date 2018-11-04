@@ -158,7 +158,7 @@ float p217_get_VPP()
     int minValue = 1024;          // store min value here
     uint32_t start_time = millis();
     uint32_t nice_time = millis();
-   //while((millis()-start_time) < sampling_period) //sample the period specified
+   
    while(timePassedSince(start_time) < sampling_period) //sample the period specified
    {
        readValue = analogRead(sensorIn);
