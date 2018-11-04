@@ -148,6 +148,8 @@
 
 float p217_get_VPP()
   {
+    long timePassedSince(unsigned long timestamp);
+    boolean timeOutReached(unsigned long timer);
     float sampling_period = ExtraTaskSettings.TaskDevicePluginConfigLong[2];
     const int sensorIn = A0;
     float result;
@@ -156,12 +158,13 @@ float p217_get_VPP()
     int minValue = 1024;          // store min value here
     uint32_t start_time = millis();
     uint32_t nice_time = millis();
-   while((millis()-start_time) < sampling_period) //sample the period specified
+   //while((millis()-start_time) < sampling_period) //sample the period specified
+   while(timePassedSince(start_time) < sampling_period) //sample the period specified
    {
        readValue = analogRead(sensorIn);
        //After a friendly tip in my pull request it was suggested that one should
        //call delay(0) periodically to increase stability. So, lets do that every 20ms
-       if ((millis()-nice_time) > 20 ){
+       if (timePassedSince(nice_time) > 20 ){
          delay(0);
          nice_time = millis();
        }
