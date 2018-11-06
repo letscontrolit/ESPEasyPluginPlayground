@@ -12,7 +12,7 @@
 
 #define PLUGIN_150
 #define PLUGIN_ID_150         150
-#define PLUGIN_NAME_150       "Eastron SDM120C Energy Meter"
+#define PLUGIN_NAME_150       "Energy (AC) - Eastron SDM120C"
 #define PLUGIN_VALUENAME1_150 "Voltage"
 
 boolean Plugin_150_init = false;

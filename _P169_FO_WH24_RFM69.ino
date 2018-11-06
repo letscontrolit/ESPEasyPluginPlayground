@@ -1,15 +1,13 @@
-
 // #######################################################################################################
-// ##################################### Plugin 124: Ventus W266 RFM69 ###################################
+// ##################################### Plugin 169: Fine Offset WH24 RFM69 ##############################
 // #######################################################################################################
 
-// Purpose: Receiving weather data from a Ventus W266 outdoor unit using a RFM69 receiver modul
+// Purpose: Receiving weather data from a Fine Offset WH24 outdoor unit using a RFM69 receiver modul
 
-// This plugin is based on the P186_Ventus_W266 plugin and is modified to use a RFM69HCW transceiver
-// instead of the internal RFM31 of the Ventus indoor unit.
+// This plugin is based on the P124_Ventus_W266_RFM69 plugin.
 
-// With this plugin it is possible to receive the data sent from the outdoor unit of a Ventus W266
-// (aka Renkforce W205GU) and forward it to a server.
+// With this plugin it is possible to receive the data sent from the outdoor unit of a Fine Offset WH24
+// (aka HP1000 / HP2000 / WH2303) and forward it to a server.
 // All you need is a RFM69 directly wired to an ESP8266.
 // No additional components are needed for the interface since both moduls run on 3.3V.
 
@@ -27,7 +25,7 @@
 // GPIO-12   MISO
 
 // The following information can be received:
-// Humidity, temperature, wind direction, wind average, wind gust, rainfall, UV and lightning.
+// Humidity, temperature, wind direction, wind average, wind gust, rainfall, UV and light.
 // That is more than te maximum of 4 values per device for espeasy. The plugins functionality is therefore
 // divided per sensorgroup.
 
@@ -35,53 +33,54 @@
 // the main plugin. The plugin function can be selected by a dropdown and only the MAIN plugin has
 // the ability to set the sensor address (remote unit ID).
 
-// To find out the current ID of your Ventus remote unit, simply setup a task with instance type "MAIN Temp/Hygro" and observe the LOG.
-// Everytime the RFM69 receives a valid packet from a Ventus W266 it shows up in the LOG (approx. every 30 seconds)
-// The first number after the "RX:" is the ID of the unit received.
+// To find out the current ID of your WH24 remote unit, simply setup a task with instance type "MAIN Temp/Hygro" and observe the LOG.
+// Everytime the RFM69 receives a valid packet from a WH24 it shows up in the LOG (approx. every 16 seconds)
+// The 2nd number after the "RX:" is the ID of the unit received.
 // This ID-number then has to be entered in the "Unit ID" field in the task setup of the "MAIN Temp/Hygro" instance.
 // Data is sent to the specified server as soon as it is received.
 
 // RFM69 RX-buffer content:
 // ************************
-// IDhh 1A tlth ?b tlth wb alahglgh rlrh?? uv ld?? lllhcrc
-// 9827 1A B100 00 B100 06 00000000 1E0000 00 3F8A 2A0017
-//  0 1  2  3 4  5  6 7  8  9 0 1 2  3 4 5  6  7 8  9 0 1
+// FC SC WD XX T  H  WS WG Rh Rl Uh Ul Lh Lm Ll CRC CS
+// 0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5   6
 //
-// ID ..... ID of the remote unit. Changes randomly each time the batteries are removed. Is needed to identify "your" unit.
-// hh ..... humidity -> Humidity bcd encoded
-// tlth ... temperature (low/high byte) > Temperature is stored as a 16bit integer holding the temperature in degree celcius*10
-// b ...... battery low > This uint8 is 00 when battery is ok, 01 when battery is low
-// wb ..... bearing (cw 0-15) > The wind bearing in 16 clockwise steps (0 = north, 4 = east, 8 = south and C = west)
-// alah ... wind average (low/high byte) > A uint16 holding the wind avarage in m/s
-// glgh ... wind gust (low/high byte) > A uint16 holding the wind gust in m/s
-// rlrh ... rainfall (low/high byte) > Accumulated rainfall in 1/4mm
-// uv ..... uv-index > The UV value * 10
-// ld ..... lightningstorm-distance (3F max) > The distance to the stormfront in km
-// lllh ... strike count (low/high byte) > A uint16 holding the accumulated number of detected lightning strikes
-// crc .... CRC checksum > Poly 0x31, init 0xff, revin&revout, xorout 0x00. Like Maxim 1-wire but with a 0xff init value
+// FC				Family Code - 0x24 is the WH24 outdoor unit code
+// SC				Security Code - This is "YOUR" Station Code or Station ID, it can change with every battery replacement.
+// WD				Wind Direction, 10th bit is bit 7 of 3rd Byte
+// XX				bit 3 is the battery low indicator, this 0 when battery is ok and 1 when battery is low - bit 5 and bit 6 is always "1"
+// T				Temp, bit 0 - 2 of 3rd Byte is 8th, 9th and 10th bit of Temperature reading.
+// H				Humitity
+// WS				Wind Speed, 9th bit is bit dit 4 of 3rd Byte
+// WG				Wind Gust
+// RhRl			Rain counter ( high/low byte)
+// UhUl			UV (high/low byte)
+// LhLmLl		Light intensity (high/mid/low byte)
+// CRC			CRC checksum > Like Maxim 1-wire but reversed
+// CS				Check Sum - the sum of previous 16byte w/o carry - I have NOT implemented this check in this code
+// 
 
 #include <SPI.h>
 
-#define PLUGIN_124_DEBUG            true                        // Shows received frames and crc in log@INFO
+#define PLUGIN_169_DEBUG            true                        // Shows received frames and crc in log@INFO
 
-#define PLUGIN_124
-#define PLUGIN_ID_124               124
-#define PLUGIN_NAME_124             "Ventus W266 RFM69"
-#define PLUGIN_VALUENAME1_124       ""
-#define PLUGIN_VALUENAME2_124       ""
-#define PLUGIN_VALUENAME3_124       ""
+#define PLUGIN_169
+#define PLUGIN_ID_169               169
+#define PLUGIN_NAME_169             "Fine Offset WH24 RFM69"
+#define PLUGIN_VALUENAME1_169       ""
+#define PLUGIN_VALUENAME2_169       ""
+#define PLUGIN_VALUENAME3_169       ""
 
-#define Plugin_124_RESET_Pin        4
-#define Plugin_124_DIO0_Pin         5
-#define Plugin_124_SPI_CS_Pin       15
+#define Plugin_169_RESET_Pin        4
+#define Plugin_169_DIO0_Pin         5
+#define Plugin_169_SPI_CS_Pin       15
 
-#define PAYLOAD_SIZE                22
+#define PAYLOAD_SIZE                17
 
 enum instanceTypes { INSTANCE_TH,
                      INSTANCE_WIND,
                      INSTANCE_RAIN,
                      INSTANCE_UV,
-                     INSTANCE_LIGHTNING,
+                     INSTANCE_LIGHT,
                      INSTANCE_BATTERY,
                      NUMBER_OF_INSTANCES
                    };
@@ -95,20 +94,24 @@ uint16_t timer3600s = 0;
 
 uint8_t humidity = 0;
 float temperature = 0;
-float windDIR = 0;
+uint16_t windDIR = 0;
 float windAVG = 0;
 float windGUST = 0;
 float rainTotal = 0;
 float uv = 0;
-int16_t strikesDistance = -1;
-uint16_t strikesTotal = 0;
+float light = 0;
+float WStrength = 0;
+float UVI = 0;
+float RSSI = 0;
+uint16_t WattperMeter = 0;
 int8_t batteryLow = -1;
 
 // statisitcs variables
 float rainLevelOneHourAgoe = 0;
 float rainLevelPastHour = 0;
-uint16_t strikes5minutesAgoe = 0;
-uint16_t strikesPast5minutes = 0;
+float rainLevel24HourAgoe = 0;
+float rainLevelPast24Hour = 0;
+
 
 // ******************************************************
 
@@ -872,6 +875,8 @@ uint16_t strikesPast5minutes = 0;
 #define RF_BITRATELSB_300000                          0x6B
 #define RF_BITRATEMSB_32768                           0x03
 #define RF_BITRATELSB_32768                           0xD1
+#define RF_BITRATEMSB_17241                           0x07	// WH24 Weather Station
+#define RF_BITRATELSB_17241                           0x40	// WH24 Weather Station
 
 // RegFdev - frequency deviation (Hz)
 #define RF_FDEVMSB_2000                               0x00
@@ -963,20 +968,20 @@ uint16_t strikesPast5minutes = 0;
 
 void RFM69_writeReg(uint8_t address, uint8_t data)
 {
-  digitalWrite(Plugin_124_SPI_CS_Pin, LOW);
+  digitalWrite(Plugin_169_SPI_CS_Pin, LOW);
   SPI.transfer(address | 0x80);
   SPI.transfer(data);
-  digitalWrite(Plugin_124_SPI_CS_Pin, HIGH);
+  digitalWrite(Plugin_169_SPI_CS_Pin, HIGH);
 }
 
 uint8_t RFM69_readReg(uint8_t address)
 {
   uint8_t dataRX;
 
-  digitalWrite(Plugin_124_SPI_CS_Pin, LOW);
+  digitalWrite(Plugin_169_SPI_CS_Pin, LOW);
   SPI.transfer(address & ~0x80);
   dataRX = SPI.transfer(0x00);
-  digitalWrite(Plugin_124_SPI_CS_Pin, HIGH);
+  digitalWrite(Plugin_169_SPI_CS_Pin, HIGH);
 
   return dataRX;
 }
@@ -1026,9 +1031,9 @@ void RFM69_setMode(uint8_t newMode)
 
 void RFM69init()
 {  
-  digitalWrite(Plugin_124_RESET_Pin, HIGH);
+  digitalWrite(Plugin_169_RESET_Pin, HIGH);
   delay(10);
-  digitalWrite(Plugin_124_RESET_Pin, LOW);
+  digitalWrite(Plugin_169_RESET_Pin, LOW);
   delay(10);
 
   RFM69_writeReg(RFM69_REG_01_OPMODE, RF_OPMODE_STANDBY |
@@ -1039,14 +1044,14 @@ void RFM69init()
                  RFMODUL_MODULATIONTYPE_FSK |
                  RFMODULMODE_PACKET);
 
-  RFM69_writeReg(RFM69_REG_03_BITRATE_MSB, RF_BITRATEMSB_4800);
-  RFM69_writeReg(RFM69_REG_04_BITRATE_LSB, RF_BITRATELSB_4800);
+  RFM69_writeReg(RFM69_REG_03_BITRATE_MSB, RF_BITRATEMSB_17241);	//WH24 Bit Rate
+  RFM69_writeReg(RFM69_REG_04_BITRATE_LSB, RF_BITRATELSB_17241);
   RFM69_writeReg(RFM69_REG_05_FDEV_MSB, RF_FDEVMSB_60000);
   RFM69_writeReg(RFM69_REG_06_FDEV_LSB, RF_FDEVLSB_60000);
 
-  RFM69_writeReg(RFM69_REG_07_FRF_MSB, 0xE4);      // 870 MHz default
-  RFM69_writeReg(RFM69_REG_08_FRF_MID, 0xC0);
-  RFM69_writeReg(RFM69_REG_09_FRF_LSB, 0x00);
+  RFM69_writeReg(RFM69_REG_07_FRF_MSB, 0x6C);      // 433.92 MHz for WH24
+  RFM69_writeReg(RFM69_REG_08_FRF_MID, 0x7A);
+  RFM69_writeReg(RFM69_REG_09_FRF_LSB, 0xE1);
 
   //RFM69_writeReg(RFM69_REG_0A_OSC1, 0x00);
   RFM69_writeReg(RFM69_REG_0B_AFC_CTRL, 0x00);
@@ -1097,7 +1102,7 @@ void RFM69init()
   RFM69_writeReg(RFM69_REG_2A_RX_TIMEOUT1,  RF_RXTIMEOUT1_RXSTART_VALUE);
   RFM69_writeReg(RFM69_REG_2B_RX_TIMEOUT2,  RF_RXTIMEOUT2_RSSITHRESH_VALUE);
   RFM69_writeReg(RFM69_REG_2C_PREAMBLE_MSB, 0x00);  // 0x00
-  RFM69_writeReg(RFM69_REG_2D_PREAMBLE_LSB, 0x06);  // 0x0F
+  RFM69_writeReg(RFM69_REG_2D_PREAMBLE_LSB, 0x05);  // 0x05 x 0xAA
 
   RFM69_writeReg(RFM69_REG_2E_SYNC_CONFIG,  RF_SYNC_ON |
                  RF_SYNC_FIFOFILL_AUTO |
@@ -1117,10 +1122,12 @@ void RFM69init()
                  RF_PACKET1_DCFREE_OFF |
                  RF_PACKET1_CRC_OFF |
                  RF_PACKET1_CRCAUTOCLEAR_OFF |
-                 RF_PACKET1_ADRSFILTERING_OFF);
+                 RF_PACKET1_ADRSFILTERING_NODE);
   RFM69_writeReg(RFM69_REG_38_PAYLOAD_LENGTH, PAYLOAD_SIZE);
 
   //RFM69_writeReg(RFM69_REG_39_NODE_ADDRESS,
+  RFM69_writeReg(RFM69_REG_39_NODE_ADDRESS, 0x24);
+  
   //RFM69_writeReg(RFM69_REG_3A_BROADCAST_ADDRESS,
   RFM69_writeReg(RFM69_REG_3B_AUTOMODES,  RF_AUTOMODES_ENTER_OFF |
                  RF_AUTOMODES_EXIT_OFF |
@@ -1139,7 +1146,7 @@ void RFM69init()
   RFM69_writeReg(RFM69_REG_6F_TEST_DAGC, RF_DAGC_IMPROVED_LOWBETA0);
   //RFM69_writeReg(RFM69_REG_71_TEST_AFC,
 
-  RFM69_set_frequency(86982);           // 86982 = 869.82MHz Ventus remote unit carrier frequency
+  RFM69_set_frequency(43392);           // 43392 = 433.92MHz WH24 remote unit carrier frequency
 
   RFM69_setMode(RF_OPMODE_RECEIVER);
   while (!(RFM69_readReg(RFM69_REG_27_IRQ_FLAGS1) & RF_IRQFLAGS1_MODEREADY));
@@ -1147,25 +1154,25 @@ void RFM69init()
 
 uint8_t calcCRC(uint8_t *buffer, uint8_t data_size)
 {
-  uint8_t crc = 0xff;                                   // init = 0xff
+  uint8_t crc = 0;
   uint8_t data;
 
   for (uint8_t n = 0; n < data_size; n++)
   {
     data = buffer[n];
-    for (uint8_t i = 0; i < 8; i++)
+    for (uint8_t i = 8; i ; i--)
     {
-      uint8_t tmp = (crc ^ data) & 0x01;
-      crc >>= 1;
-      if (tmp) crc ^= 0x8C;
-      data >>= 1;
+      uint8_t tmp = (crc ^ data) & 0x80;
+      crc <<= 1;
+      if (tmp) crc ^= 0x31;
+      data <<= 1;	
     }
   }
 
   return crc;
 }
 
-boolean Plugin_124(uint8_t function, struct EventStruct *event, String& string)
+boolean Plugin_169(uint8_t function, struct EventStruct *event, String& string)
 {
   boolean success = false;
 
@@ -1173,7 +1180,7 @@ boolean Plugin_124(uint8_t function, struct EventStruct *event, String& string)
   {
     case PLUGIN_DEVICE_ADD:
       {
-        Device[++deviceCount].Number = PLUGIN_ID_124;
+        Device[++deviceCount].Number = PLUGIN_ID_169;
         Device[deviceCount].Type = DEVICE_TYPE_DUMMY;
         Device[deviceCount].VType = SENSOR_TYPE_TRIPLE;
         Device[deviceCount].Ports = 0;
@@ -1187,15 +1194,15 @@ boolean Plugin_124(uint8_t function, struct EventStruct *event, String& string)
 
     case PLUGIN_GET_DEVICENAME:
       {
-        string = F(PLUGIN_NAME_124);
+        string = F(PLUGIN_NAME_169);
         break;
       }
 
     case PLUGIN_GET_DEVICEVALUENAMES:
       {
-        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_VALUENAME1_124));
-        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[1], PSTR(PLUGIN_VALUENAME2_124));
-        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[2], PSTR(PLUGIN_VALUENAME3_124));        
+        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_VALUENAME1_169));
+        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[1], PSTR(PLUGIN_VALUENAME2_169));
+        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[2], PSTR(PLUGIN_VALUENAME3_169));        
         break;
       }
 
@@ -1208,13 +1215,13 @@ boolean Plugin_124(uint8_t function, struct EventStruct *event, String& string)
         instance[INSTANCE_WIND] = F("Wind");
         instance[INSTANCE_RAIN] = F("Rain");
         instance[INSTANCE_UV] = F("UV");
-        instance[INSTANCE_LIGHTNING] = F("Lightning");
+        instance[INSTANCE_LIGHT] = F("Light");
         instance[INSTANCE_BATTERY] = F("Battery");
 
         if (instanceType == INSTANCE_TH)
-          addFormNumericBox(F("Unit ID"), F("plugin_124_unitID"), Settings.TaskDevicePluginConfig[event->TaskIndex][1], 0, 255);
+          addFormNumericBox(F("Unit ID"), F("plugin_169_unitID"), Settings.TaskDevicePluginConfig[event->TaskIndex][1], 0, 255);
           
-        addFormSelector(F("Plugin function"), F("plugin_124_instanceType"), NUMBER_OF_INSTANCES, instance, NULL, instanceType);
+        addFormSelector(F("Plugin function"), F("plugin_169_instanceType"), NUMBER_OF_INSTANCES, instance, NULL, instanceType);
 
         addFormSubHeader(F("Information"));
 
@@ -1226,7 +1233,7 @@ boolean Plugin_124(uint8_t function, struct EventStruct *event, String& string)
               
               addHtml(F("<BR><BR>Value 1: Temperature (1 decimal)"));
               addHtml(F("<BR>Value 2: Humidity (0 decimal)"));
-              addHtml(F("<BR>Value 3: not used"));
+              addHtml(F("<BR>Value 3: Dew Point (1 decimal)"));
               break;
             }
           case INSTANCE_WIND:
@@ -1240,27 +1247,27 @@ boolean Plugin_124(uint8_t function, struct EventStruct *event, String& string)
             {
               addHtml(F("<BR>Value 1: Total rain in mm (1 decimal)"));
               addHtml(F("<BR>Value 2: Rainfall past hour in mm (1 decimal)"));
-              addHtml(F("<BR>Value 3: not used"));              
+              addHtml(F("<BR>Value 3: Rainfall past 24 hours in mm (1 decimal)"));              
               break;
             }
           case INSTANCE_UV:
             {
               addHtml(F("<BR>Value 1: UV (1 decimal)"));
-              addHtml(F("<BR>Value 2: not used"));
+              addHtml(F("<BR>Value 2: UV (0 decimal)"));
               addHtml(F("<BR>Value 3: not used"));
               break;
             }
-          case INSTANCE_LIGHTNING:
+          case INSTANCE_LIGHT:
             {
-              addHtml(F("<BR>Value 1: Strike counter (0 decimal)"));
-              addHtml(F("<BR>Value 2: Strikes past 5 minutes (0 decimal)"));
-              addHtml(F("<BR>Value 3: Distance in km (0 decimal)"));
+              addHtml(F("<BR>Value 1: Light - lux (1 decimal)"));
+              addHtml(F("<BR>Value 2: Watt/m sqr. (1 decimal)"));
+              addHtml(F("<BR>Value 3: not used"));
               break;
             }
           case INSTANCE_BATTERY:
             {
               addHtml(F("<BR>Value 1: Battery low (0 decimal)"));
-              addHtml(F("<BR>Value 2: not used"));
+              addHtml(F("<BR>Value 2: RFM69 RSSI (1 decimal)"));
               addHtml(F("<BR>Value 3: not used"));
               break;
             }
@@ -1272,8 +1279,8 @@ boolean Plugin_124(uint8_t function, struct EventStruct *event, String& string)
 
     case PLUGIN_WEBFORM_SAVE:
       {
-        Settings.TaskDevicePluginConfig[event->TaskIndex][0] = getFormItemInt(F("plugin_124_instanceType"));
-        Settings.TaskDevicePluginConfig[event->TaskIndex][1] = getFormItemInt(F("plugin_124_unitID"));
+        Settings.TaskDevicePluginConfig[event->TaskIndex][0] = getFormItemInt(F("plugin_169_instanceType"));
+        Settings.TaskDevicePluginConfig[event->TaskIndex][1] = getFormItemInt(F("plugin_169_unitID"));
 
         success = true;
         break;
@@ -1287,19 +1294,20 @@ boolean Plugin_124(uint8_t function, struct EventStruct *event, String& string)
         {
           case INSTANCE_TH:
             {
-              pinMode(Plugin_124_RESET_Pin, OUTPUT);
-              pinMode(Plugin_124_DIO0_Pin, INPUT);
-              pinMode(Plugin_124_SPI_CS_Pin, OUTPUT);
+              pinMode(Plugin_169_RESET_Pin, OUTPUT);
+              pinMode(Plugin_169_DIO0_Pin, INPUT);
+              pinMode(Plugin_169_SPI_CS_Pin, OUTPUT);
 
               // initialize SPI
               SPI.setHwCs(false);
               SPI.begin();
-              addLog(LOG_LEVEL_INFO, F("P124 : SPI Init"));
+              SPI.setClockDivider(SPI_CLOCK_DIV2);	// Slow down on ESP8266, this made the SPI more stable
+              addLog(LOG_LEVEL_INFO, F("P169 : SPI Init"));
 
               // initilize RFM69
               RFM69init();
               
-              addLog(LOG_LEVEL_INFO, F("P124 : RFM69 Init"));
+              addLog(LOG_LEVEL_INFO, F("P169 : RFM69 Init"));
 
               break;
             }
@@ -1317,24 +1325,28 @@ boolean Plugin_124(uint8_t function, struct EventStruct *event, String& string)
           newDataPending = false;
           
           // received data pending?
-          if (digitalRead(Plugin_124_DIO0_Pin) == HIGH)
+          if (digitalRead(Plugin_169_DIO0_Pin) == HIGH)
           {
+          	// Read RSSI - Value can only be read on a "Valid" data packet
+          	RSSI = RFM69_readReg(0x24);
+          	RSSI = (RSSI / 2);						// RSSI value is RSSI/2 - page 86 - RSSI = -RssiValue/2 [dBm]
+          	
             uint8_t i = 0;
             uint8_t buffer[PAYLOAD_SIZE];
 
             // fetch FIFO
             // receiver is disabled until FIFO is completely empty -> receiver is auto-enabled when done
-            digitalWrite(Plugin_124_SPI_CS_Pin, LOW);
+            digitalWrite(Plugin_169_SPI_CS_Pin, LOW);
             SPI.transfer(RFM69_REG_00_FIFO & ~0x80);
-            while ((digitalRead(Plugin_124_DIO0_Pin) == HIGH) && (i < PAYLOAD_SIZE))
+            while ((digitalRead(Plugin_169_DIO0_Pin) == HIGH) && (i < PAYLOAD_SIZE))
               buffer[i++] = SPI.transfer(0x00);
-            digitalWrite(Plugin_124_SPI_CS_Pin, HIGH);
+            digitalWrite(Plugin_169_SPI_CS_Pin, HIGH);
 
-#ifdef PLUGIN_124_DEBUG
+#ifdef PLUGIN_169_DEBUG
             // CRC correct?
-            if (buffer[21] == calcCRC((uint8_t*)buffer, (PAYLOAD_SIZE - 1)))
+            if (buffer[15] == calcCRC((uint8_t*)buffer, (PAYLOAD_SIZE - 2)))
             {
-              String log = F("P124 : RX: ");
+              String log = F("P169 : RX: ");
 
               for (i = 0; i < PAYLOAD_SIZE; i++)
               {
@@ -1343,8 +1355,8 @@ boolean Plugin_124(uint8_t function, struct EventStruct *event, String& string)
                 log += F(" ");
               }
 
-              // Ventus ID matches specified unit ID?
-              if (buffer[0] == Settings.TaskDevicePluginConfig[event->TaskIndex][1])
+              // WH24 ID matches specified unit ID?
+              if (buffer[1] == Settings.TaskDevicePluginConfig[event->TaskIndex][1])
                 log += F(" IDs match");
               else
                 log += F(" IDs do not match!");
@@ -1354,35 +1366,54 @@ boolean Plugin_124(uint8_t function, struct EventStruct *event, String& string)
 #endif
 
             // CRC correct and IDs match?
-            if ((buffer[21] == calcCRC((uint8_t*)buffer, (PAYLOAD_SIZE - 1))) && (buffer[0] == Settings.TaskDevicePluginConfig[event->TaskIndex][1]))
+            if ((buffer[15] == calcCRC((uint8_t*)buffer, (PAYLOAD_SIZE - 2))) && (buffer[1] == Settings.TaskDevicePluginConfig[event->TaskIndex][1]))
             {
-              humidity = (buffer[1] & 0x0F) + (buffer[1] >> 4) * 10;                      // %rel LF. (BCD coded)
-              temperature = (float)((int16_t)((buffer[4] << 8) + buffer[3])) / 10.0;      // °C (todo: check offset)
-              batteryLow = buffer[5] & 0x01;                                              // 0=ok, 1=low
-              windDIR = float(buffer[8] & 0x0F) * 22.5;                                   // 0..360°
-              windAVG = float((buffer[10] << 8) + buffer[9]) / 10.0;                      // m/s
-              windGUST = float((buffer[12] << 8) + buffer[11]) / 10.0;                    // m/s
-              rainTotal = float((buffer[14] << 8) + buffer[13]) / 4.0;                    // mm
-              uv = (float)buffer[16] / 10.0;                                              // UV index
-              if (buffer[17] == 0x3F)
-                strikesDistance = -1;
+              if(buffer[3] >> 7 == 1)																																	// check if direction is > 255 deg.
+              	{
+              		windDIR = buffer[2] + 255;	// if > 255, then add 255
+              	}
               else
-                strikesDistance = buffer[17];                                             // km
-              strikesTotal = (buffer[20] << 8) + buffer[19];                              // count
-
-              // Data plausibility check
-              if ((humidity <= 100) &&
-                  (temperature >= -20) && (temperature <= 60) &&
-                  (windDIR <= 360) &&
-                  (windAVG <= 30) &&
-                  (windGUST <= 30) &&
-                  (uv <= 15) &&
-                  (strikesDistance <= 30)
-                 )
-              {
-                dataValid = true;
-                newDataPending = true;
-              }
+              	{
+              		windDIR = buffer[2];		// if NOT > 255 deg., Value is buffer[2]
+              	}
+              	// Correction for Southern Hemisphere
+            		if(windDIR >= 180)
+            			{
+            				windDIR = abs((windDIR % 360) +180);
+            			}
+            		else
+            			{
+            				windDIR =abs((windDIR % 360) -180);
+            			}
+                        
+            batteryLow = (buffer[3] & 0x08);																												// Low Battery - 0=ok, 1 = low
+            temperature =	(((((buffer[3] & 0x07) << 8) + buffer[4])-400) / 10.0);										// Temperature Celcius  
+            humidity = (buffer[5]);																																	// Outdoor Humidity % rel
+            windAVG = float(((buffer[3] & 0x10) << 8) + buffer[6]);
+            windAVG = (windAVG /8) *1.12;																														// Average Wind Speed - m/s
+            windGUST = buffer[7];
+            windGUST = windGUST * 1.12;																															// Gust Wind Speed - m/s
+            rainTotal = float((buffer[8] << 8) + (buffer[9]));
+            rainTotal = rainTotal * 0.3;																														// 0.3mm for every bucket tip
+            uv = float((buffer[10] << 8) + buffer[11]);																							// UV - 0 to 20000
+            light = float((buffer[12]) << 16) + (buffer[13] << 8) + (buffer[14]);
+            light = light / 10.0;																																		// Light in lux
+            WattperMeter = (light / 126.0);																													// 1w/m^2  =  126 lux. from Fine Offset
+            
+            // Data plausibility check
+            if ((humidity <= 100) &&
+            	 (temperature >= -40) &&
+            	 (temperature <= 60) &&
+               (windDIR <= 360) &&
+               (windAVG <= 50) &&
+               (windGUST <= 50) &&
+               (uv <= 20000) &&
+               (light <= 300000)
+               )
+               {
+               	dataValid = true;
+               	newDataPending = true;
+               }
             }
           }
 
@@ -1393,21 +1424,9 @@ boolean Plugin_124(uint8_t function, struct EventStruct *event, String& string)
             {
               // initialize reference values for statistics
               firstrun = false;
-              strikes5minutesAgoe = strikesTotal;
-              rainLevelOneHourAgoe = rainTotal;
+              rainLevelOneHourAgoe = rainTotal;              
             }
-
-            // timer for strikes-statistic
-            if (timer300s-- <= 1)
-            {
-              timer300s = 300;
-              if (strikesTotal >= strikes5minutesAgoe)
-                strikesPast5minutes = strikesTotal - strikes5minutesAgoe;
-              else
-                strikesPast5minutes = (strikesTotal + 0xFFFF) - strikes5minutesAgoe;
-              strikes5minutesAgoe = strikesTotal;
-            }
-
+            
             // timer for rain-statistic
             if (timer3600s-- <= 1)
             {
@@ -1420,15 +1439,13 @@ boolean Plugin_124(uint8_t function, struct EventStruct *event, String& string)
             }
           }
         }
-
+       
         // trigger immediate data forwarding
         if (newDataPending)
-          //timerSensor[event->TaskIndex] = millis() - 1;
-          schedule_task_device_timer(event->TaskIndex, millis() - 1);
+          timerSensor[event->TaskIndex] = millis() - 1;
         else
-          //timerSensor[event->TaskIndex] = millis() + 60000;     // prevent periodic transmission
-          schedule_task_device_timer(event->TaskIndex, millis() + 60000);   // prevent periodic transmission
-        
+          timerSensor[event->TaskIndex] = millis() + 60000;     // prevent periodic transmission
+
         success = true;
         break;
       }
@@ -1462,23 +1479,25 @@ boolean Plugin_124(uint8_t function, struct EventStruct *event, String& string)
             {
               UserVar[event->BaseVarIndex] = rainTotal;
               UserVar[event->BaseVarIndex + 1] = rainLevelPastHour;
+              UserVar[event->BaseVarIndex + 2] = rainLevelPast24Hour;
               break;
             }
           case INSTANCE_UV:
             {
               UserVar[event->BaseVarIndex] = uv;
+              UserVar[event->BaseVarIndex + 1] = UVI;
               break;
             }
-          case INSTANCE_LIGHTNING:
+          case INSTANCE_LIGHT:
             {
-              UserVar[event->BaseVarIndex] = strikesTotal;
-              UserVar[event->BaseVarIndex + 1] = strikesPast5minutes;
-              UserVar[event->BaseVarIndex + 2] = strikesDistance;
+              UserVar[event->BaseVarIndex] = light;
+              UserVar[event->BaseVarIndex + 1] = WattperMeter;
               break;
             }
           case INSTANCE_BATTERY:
             {
               UserVar[event->BaseVarIndex] = batteryLow;
+              UserVar[event->BaseVarIndex + 1] = (-RSSI);
               break;
             }
         }
@@ -1490,4 +1509,3 @@ boolean Plugin_124(uint8_t function, struct EventStruct *event, String& string)
 
   return success;
 }
-

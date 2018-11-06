@@ -27,11 +27,16 @@ unsigned long Plugin_151_last_unlock_time=0;
 unsigned long Plugin_151_invert_time=0; //timestamp after which to automatcily invert unlock status.
 byte unlock_coil_pin=0;
 
+#define LONG_AVERAGE_FACTOR 100
+float Plugin_151_long_average_sense=0;
+
+
 //measure capicitance by pulsing out_pin and measuring response delay of in_pin
+//if capicitance is too high it aborts (1000 cycles for now)
 int Plugin_151_sense(byte out_pin, byte in_pin)
 {
   long count=0;
-  long max_pulses=30;
+  long max_pulses=100;
   long skip_pulses=20;
 
   pinMode(out_pin,OUTPUT);
@@ -130,16 +135,19 @@ boolean Plugin_151(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_WEBFORM_LOAD:
     {
-      addFormCheckBox(string, F("Invert led voltage"), F("led_invert"), CONFIG(4));
+      addFormCheckBox(F("Invert led voltage"), F("led_invert"), CONFIG(4));
 
-      addFormPinSelect(string, F("Sense out pin"), F("sense_out"), CONFIG(0));
-      addFormPinSelect(string, F("Sense in pin"), F("sense_in"), CONFIG(1));
+      addFormPinSelect(F("Sense out pin"), F("sense_out"), CONFIG(0));
+      addFormPinSelect(F("Sense in pin"), F("sense_in"), CONFIG(1));
 
-      addFormNumericBox(string, F("Sense locked minimum"), F("sense_locked"), CONFIG(2), 0, 65535);
-      addFormNumericBox(string, F("Sense hand detect minimum"), F("sense_person"), CONFIG(3), 0, 65535);
+      addFormNumericBox(F("Sense percentage"), F("sense_percentage"), CONFIG(2), 0, 100);
+      addUnit(F("%"));
+      addFormNote(F("15% is a good starting point. Make sure door is locked when you change settings and during reboot."));
 
-      addFormNumericBox(string, F("Unlock delay"), F("unlock_delay"), CONFIG(5), 0, 65535);
-      addUnit(string, F("ms"));
+      // addFormNumericBox(F("Sense hand detect minimum"), F("sense_person"), CONFIG(3), 0, 65535);
+
+      addFormNumericBox(F("Unlock delay"), F("unlock_delay"), CONFIG(5), 0, 65535);
+      addUnit(F("ms"));
 
 
       success = true;
@@ -150,10 +158,12 @@ boolean Plugin_151(byte function, struct EventStruct *event, String& string)
     {
       CONFIG(0) = getFormItemInt(F("sense_out"));
       CONFIG(1) = getFormItemInt(F("sense_in"));
-      CONFIG(2) = getFormItemInt(F("sense_locked"));
-      CONFIG(3) = getFormItemInt(F("sense_person"));
+      CONFIG(2) = getFormItemInt(F("sense_percentage"));
+      // CONFIG(2) = getFormItemInt(F("sense_locked"));
+      // CONFIG(3) = getFormItemInt(F("sense_person"));
       CONFIG(4) = isFormItemChecked(F("led_invert"));
       CONFIG(5) = getFormItemInt(F("unlock_delay"));
+      Plugin_151_long_average_sense=0;
 
       success = true;
       break;
@@ -169,6 +179,25 @@ boolean Plugin_151(byte function, struct EventStruct *event, String& string)
     case PLUGIN_TEN_PER_SECOND:
     {
         int sense=Plugin_151_sense(CONFIG(0), CONFIG(1));
+        int avg_sense=0;
+        int sense_delta=0;
+
+        //keep a long running average to account for drift
+        if (Plugin_151_long_average_sense)
+        {
+          avg_sense=Plugin_151_long_average_sense;
+          //calculate sense change percentage
+          if (avg_sense)
+            sense_delta=(sense-avg_sense)*100/avg_sense;
+
+          //only average when the sense_delta doesnt vary too much (otherwise door is open/hand is detected)
+          if (abs(sense_delta)<CONFIG(2))
+            Plugin_151_long_average_sense=(Plugin_151_long_average_sense*(LONG_AVERAGE_FACTOR-1) + sense ) / LONG_AVERAGE_FACTOR;
+        }
+        else
+          Plugin_151_long_average_sense=sense;
+
+
         unlock_coil_pin=Settings.TaskDevicePin1[event->TaskIndex];
         byte locked_led_pin=Settings.TaskDevicePin2[event->TaskIndex];
         byte unlocked_led_pin=Settings.TaskDevicePin3[event->TaskIndex];
@@ -214,16 +243,16 @@ boolean Plugin_151(byte function, struct EventStruct *event, String& string)
         }
 
 
-        log=log+F(" mechanism: sense=")+sense+F(", ");
+        log=log+F(" mechanism: sense=")+sense+F(" ")+F(" avg=")+avg_sense+F(" perc=")+sense_delta+F(" ");
 
 
-        //STATE: mechanism locked
-        if (sense>CONFIG(2))
+        //STATE: mechanism locked and/or person detected
+        if (sense_delta>-CONFIG(2))
         {
           log=log+F("locked");
 
           //person detected
-          if (sense>CONFIG(3))
+          if (sense_delta>CONFIG(2))
           {
             //allowed to unlock the door?
             if (Plugin_151_want_unlock)
