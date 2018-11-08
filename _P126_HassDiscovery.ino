@@ -4,7 +4,7 @@
 /* by michael baeck
     plugin searches for active mqtt-enabled taskvalues and pushes json payloads 
     for homeassistant to take for discovery.
-    1 value = 1 sensor. whole unit (ESP) = 1 device.
+    1 value = 1 sensor. whole unit (ESP) = 1 device & 1 sensor.
 
     classification of sensor (motion, light, temp, etc.) can be done in webform.
 
@@ -15,7 +15,10 @@
     testing and feedback highly appreciated!
 
 
-    [*] stay tuned for more plugins like (homeassistant-switch, etc)
+    only tested on a couple of 4M ESP12 yet, ESP01 and ESP32 soon. 
+    storage might be short on ESP32 as struct reserves space for all tasks
+
+    [*] stay tuned for more plugins like homeassistant-switch, etc
 
     supported components
       [X] binary_sensor [1/0]
@@ -278,7 +281,9 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
         tmpString = tmpString.substring(0, argIndex);
 
       if (tmpString.equalsIgnoreCase(F("discovery"))) {
-        p126log = F("P[126] command issued: state of string is : ");
+        success = true; 
+
+        p126log = F("P[126] command issued : ");
         p126log += string;
         // Serial.println(p126log);
         addLog(LOG_LEVEL_INFO,p126log);
@@ -295,6 +300,7 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
         argIndex = string.lastIndexOf(',');
         tmpString = string.substring(argIndex + 1);
 
+
         if (tmpString.equalsIgnoreCase(F("update"))) {
           system_config(&discovery, false);
           sensor_config(&discovery, false);
@@ -306,7 +312,6 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
         else if (tmpString.equalsIgnoreCase(F("cleanup"))) {
           cleanup(&discovery);  //function produces lots of MQTT messages; need to find a way to split/slow down
         }
-        success = true; 
       }
       break;
     }
