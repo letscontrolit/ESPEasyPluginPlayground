@@ -2,8 +2,22 @@
 //    HOMEASSISTANT DISCOVERY
 //***********************************************************************************************//
 /* by michael baeck
+    plugin searches for active mqtt-enabled taskvalues and pushes json payloads 
+    for homeassistant to take for discovery.
+    1 value = 1 sensor. whole unit (ESP) = 1 device.
 
-    [*]supported components
+    classification of sensor (motion, light, temp, etc.) can be done in webform.
+
+    devices can also be deleted again but homeassistant refuses to remove them from its store.
+    (but it behaves the same when I publish the messages manually...)
+
+    this is my first arduino work and first commit ever to anything, but it's pretty useful already.
+    testing and feedback highly appreciated!
+
+
+    [*] stay tuned for more plugins like (homeassistant-switch, etc)
+
+    supported components
       [X] binary_sensor [1/0]
           0 - battery [low/norm]
           1 - cold [cold/norm]
@@ -51,6 +65,7 @@
 
 //#ifdef PLUGIN_BUILD_DEVELOPMENT
 //#ifdef PLUGIN_BUILD_TESTING
+
 #define PLUGIN_126
 #define PLUGIN_ID_126     126     
 #define PLUGIN_NAME_126   "Generic - Homeassistant Discovery [DEVELOPMENT]"  
@@ -82,14 +97,6 @@ struct DiscoveryStruct {
       } value[4];
     } task[TASKS_MAX];
   } save;
-
-  void get_id() {
-    for (byte x = 0; x < TASKS_MAX; x++) {
-      LoadTaskSettings(x);
-      byte pluginid = getDeviceIndex(Settings.TaskDeviceNumber[x]);
-      if (pluginid == PLUGIN_ID_126) taskid = x;
-    }
-  }
 
 };
 
@@ -126,23 +133,15 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
 
     case PLUGIN_GET_DEVICEVALUENAMES:
     {
-      //called when the user opens the module configuration page
-      //it allows to add a new row for each output variable of the plugin
-      //strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_VALUENAME1_126));
+      //no values
       break;
     }
 
     case PLUGIN_WEBFORM_LOAD:
     {
-      p126log = F("P[PLUGIN_ID_126] webform loaded");
-      addLog(LOG_LEVEL_DEBUG,p126log);
 
       struct DiscoveryStruct discovery;
       LoadCustomTaskSettings(event->TaskIndex, (byte*)&discovery.save, sizeof(discovery.save));
-
-      p126log = F("P[PLUGIN_ID_126] loaded struct: state of discovery.save.prefix is : ");
-      p126log += String(discovery.save.prefix);
-      addLog(LOG_LEVEL_DEBUG,p126log);
 
       String tmpnote;
       //===================================================================================================================================
@@ -154,7 +153,7 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
       
 
       //===================================================================================================================================
-      addFormSubHeader(F("SETTINGS"));
+      addFormSubHeader(F("Settings"));
       
       if (String(discovery.save.prefix) == "") strncpy(discovery.save.prefix, "homeassistant",14);
 
@@ -167,7 +166,7 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
       //===================================================================================================================================
       addFormSubHeader(F("CONTROL"));
 
-      tmpnote = F("Configs will not be pushed automatically. Once plugin is saved, you can use the buttons below.");
+      tmpnote = F("Configs will NOT be pushed automatically. Once plugin is saved, you can use the buttons below.");
       tmpnote += F("You can trigger actions via these commands as well: \"discovery,update\" and \"discovery,delete\"");
       addFormNote(tmpnote);
 
@@ -181,10 +180,10 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
         tmpnote += WiFi.localIP().toString();
         tmpnote += F("/tools?cmd=discovery%2Cdelete");
         addButton(tmpnote, "Delete Configs");
-        tmpnote = F("http://");
-        tmpnote += WiFi.localIP().toString();
-        tmpnote += F("/tools?cmd=discovery%2Ccleanup");
-        addButton(tmpnote, "Full cleanup");
+        // tmpnote = F("http://");
+        // tmpnote += WiFi.localIP().toString();
+        // tmpnote += F("/tools?cmd=discovery%2Ccleanup");
+        // addButton(tmpnote, "Full cleanup");
         html_BR();
       }
 
@@ -197,9 +196,13 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
       tmpnote += F(", check logs, if this affects you");
       addFormNote(tmpnote);
 
-      tmpnote = F("v0.2.1; struct size: ");
+      tmpnote = F("v0.2.2; struct size: ");
       tmpnote += String(sizeof(discovery.save));
-      tmpnote = F("Byte");
+      tmpnote += F("Byte; event->TaskIndex: ");
+      tmpnote += String(event->TaskIndex);
+      get_id(&discovery);
+      tmpnote += F("; stored TaskIndex: ");
+      tmpnote += discovery.taskid;
       addFormNote(tmpnote);
       //===================================================================================================================================
 
@@ -216,7 +219,11 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
       strncpy(discovery.save.prefix, WebServer.arg(argName).c_str(), sizeof(discovery.save.prefix));
 
       find_sensors(&discovery, true);
-
+      p126log = F("P[126] search for sensor completed: state of event->TaskIndex is : ");
+      p126log += String(event->TaskIndex);
+      addLog(LOG_LEVEL_DEBUG,p126log);
+        //Serial.println(p126log);
+      
       SaveCustomTaskSettings(event->TaskIndex, (byte*)&discovery.save, sizeof(discovery.save));
 
       success = true;
@@ -271,28 +278,35 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
         tmpString = tmpString.substring(0, argIndex);
 
       if (tmpString.equalsIgnoreCase(F("discovery"))) {
-        p126log = F("P[PLUGIN_ID_126] command issued: state of string is : ");
-        p126log += String(string);
+        p126log = F("P[126] command issued: state of string is : ");
+        p126log += string;
+        // Serial.println(p126log);
         addLog(LOG_LEVEL_INFO,p126log);
 
         struct DiscoveryStruct discovery;
-        discovery.get_id();
+        get_id(&discovery);
         get_ctrl(&discovery);
+        // Serial.println(F("taskid:"));
+        // Serial.println(discovery.taskid);
+        // Serial.println(F("event taskid:"));
+        // Serial.println(event->TaskIndex);
         LoadCustomTaskSettings(discovery.taskid, (byte*)&discovery.save, sizeof(discovery.save));
 
         argIndex = string.lastIndexOf(',');
         tmpString = string.substring(argIndex + 1);
 
         if (tmpString.equalsIgnoreCase(F("update"))) {
-          success = (system_config(&discovery, false) && sensor_config(&discovery, false) && system_state(&discovery, false));
+          system_config(&discovery, false);
+          sensor_config(&discovery, false);
+          system_state(&discovery, false);
         } 
         else if (tmpString.equalsIgnoreCase(F("delete"))) {
-          success = delete_configs(&discovery);
+          delete_configs(&discovery);
         }
         else if (tmpString.equalsIgnoreCase(F("cleanup"))) {
-          success = cleanup(&discovery);
+          cleanup(&discovery);  //function produces lots of MQTT messages; need to find a way to split/slow down
         }
-        //success = true;
+        success = true; 
       }
       break;
     }
@@ -324,41 +338,42 @@ void find_sensors(struct DiscoveryStruct *discovery) {
   find_sensors(discovery, false);
 }
 void find_sensors(struct DiscoveryStruct *discovery, bool save) {
-  p126log = F("P[PLUGIN_ID_126] search active tasks: state of save is : ");
+  p126log = F("P[126] search active tasks: state of save is : ");
   p126log += String(save);
   addLog(LOG_LEVEL_DEBUG,p126log);
+        // Serial.println(p126log);
 
   String sensorclass[34];
-  sensorclass[0] = F("------SENSOR-------");
-  sensorclass[1] = F("battery");
-  sensorclass[2] = F("humidity");
-  sensorclass[3] = F("illuminance");
-  sensorclass[4] = F("temperature");
-  sensorclass[5] = F("pressure");
-  sensorclass[10] = F("---BINARY_SENSOR---");
-  sensorclass[11] = F("battery");
-  sensorclass[12] = F("cold");
-  sensorclass[13] = F("connectivity");
-  sensorclass[14] = F("door");
-  sensorclass[15] = F("garage_door");
-  sensorclass[16] = F("gas");
-  sensorclass[17] = F("heat");
-  sensorclass[18] = F("light");
-  sensorclass[19] = F("lock");
-  sensorclass[20] = F("moisture");
-  sensorclass[21] = F("motion");
-  sensorclass[22] = F("moving");
-  sensorclass[23] = F("occupancy");
-  sensorclass[24] = F("opening");
-  sensorclass[25] = F("plug");
-  sensorclass[26] = F("power");
-  sensorclass[27] = F("presence");
-  sensorclass[28] = F("problem");
-  sensorclass[29] = F("safety");
-  sensorclass[30] = F("smoke");
-  sensorclass[31] = F("sound");
-  sensorclass[32] = F("vibration");
-  sensorclass[33] = F("window");
+    sensorclass[0] = F("------SENSOR-------");
+    sensorclass[1] = F("battery");
+    sensorclass[2] = F("humidity");
+    sensorclass[3] = F("illuminance");
+    sensorclass[4] = F("temperature");
+    sensorclass[5] = F("pressure");
+    sensorclass[10] = F("---BINARY_SENSOR---");
+    sensorclass[11] = F("battery");
+    sensorclass[12] = F("cold");
+    sensorclass[13] = F("connectivity");
+    sensorclass[14] = F("door");
+    sensorclass[15] = F("garage_door");
+    sensorclass[16] = F("gas");
+    sensorclass[17] = F("heat");
+    sensorclass[18] = F("light");
+    sensorclass[19] = F("lock");
+    sensorclass[20] = F("moisture");
+    sensorclass[21] = F("motion");
+    sensorclass[22] = F("moving");
+    sensorclass[23] = F("occupancy");
+    sensorclass[24] = F("opening");
+    sensorclass[25] = F("plug");
+    sensorclass[26] = F("power");
+    sensorclass[27] = F("presence");
+    sensorclass[28] = F("problem");
+    sensorclass[29] = F("safety");
+    sensorclass[30] = F("smoke");
+    sensorclass[31] = F("sound");
+    sensorclass[32] = F("vibration");
+    sensorclass[33] = F("window");
 
   byte firstTaskIndex = 0;
   byte lastTaskIndex = TASKS_MAX - 1;
@@ -381,9 +396,10 @@ void find_sensors(struct DiscoveryStruct *discovery, bool save) {
 
         if (ctrlenabled) {
           if (Device[DeviceIndex].ValueCount != 0) {                                              // only tasks with values
-            p126log = F("P[PLUGIN_ID_126] found active task: state of TaskIndex is : ");
+            p126log = F("P[126] found active task with id : ");
             p126log += String(TaskIndex);
             addLog(LOG_LEVEL_DEBUG,p126log);
+            // Serial.println(p126log);
             
             if (!save) {
               String header = F("Task ");
@@ -395,9 +411,10 @@ void find_sensors(struct DiscoveryStruct *discovery, bool save) {
             }
 
             for (byte x = 0; x < Device[DeviceIndex].ValueCount; x++) {                           // for each value
-              p126log = F("P[PLUGIN_ID_126] found value: state of ExtraTaskSettings.TaskDeviceValueNames[x] is : ");
+              p126log = F("P[126] found value with name : ");
               p126log += String(ExtraTaskSettings.TaskDeviceValueNames[x]);
               addLog(LOG_LEVEL_DEBUG,p126log);
+              // Serial.println(p126log);
               
               String enableid = F("P126_");
               enableid += String(TaskIndex);
@@ -427,9 +444,10 @@ void find_sensors(struct DiscoveryStruct *discovery, bool save) {
                 } else {
                   defaultoption = 0;
                 }
-                p126log = F("P[PLUGIN_ID_126] saving settings: state of getFormItemInt(optionid, defaultoption) is : ");
+                p126log = F("P[126] saving Settings: state of getFormItemInt(optionid, defaultoption) is : ");
                 p126log += String(getFormItemInt(optionid, defaultoption));
                 addLog(LOG_LEVEL_DEBUG,p126log);
+                // Serial.println(p126log);
                 
                 discovery->save.task[TaskIndex].value[x].enable = isFormItemChecked(enableid);
                 discovery->save.task[TaskIndex].value[x].option = getFormItemInt(optionid, defaultoption);
@@ -552,23 +570,28 @@ bool system_config(struct DiscoveryStruct *discovery, bool brief) {
 
   String state_topic = String(Settings.Name); 
   state_topic += F("/system/state");
-  p126log = F("P[PLUGIN_ID_126] system status topic defined: state of state_topic is : ");
+  p126log = F("P[126] system status topic defined: state of state_topic is : ");
   p126log += state_topic;
   addLog(LOG_LEVEL_DEBUG,p126log);
+    // Serial.println(p126log);
   
 
   String discovery_topic = String(discovery->save.prefix);
   discovery_topic += F("/sensor/");   
   discovery_topic += String(Settings.Name); 
   discovery_topic += F("/config");
-  p126log = F("P[PLUGIN_ID_126] system status config topic defined: state of discovery_topic is : ");
+  p126log = F("P[126] system status config topic defined: state of discovery_topic is : ");
   p126log += discovery_topic;
   addLog(LOG_LEVEL_DEBUG,p126log);
+    // Serial.println(p126log);
   
 
   String uniquestr = WiFi.macAddress();
   uniquestr.replace(F(":"),F(""));
   uniquestr += F("_state");
+  p126log = F("P[126] unique id created : ");
+  p126log += discovery_topic;
+  addLog(LOG_LEVEL_DEBUG,p126log);
 
   //entity data
   String payload = F("{");
@@ -591,12 +614,13 @@ bool system_config(struct DiscoveryStruct *discovery, bool brief) {
   if (check_length(discovery_topic, payload)) {
     return (publish(discovery->ctrlid, discovery_topic, payload));
   } else if (!brief) {
-    addLog(LOG_LEVEL_ERROR, F("P[PLUGIN_ID_126] Payload exceeds limits. Trying again with reduced content."));
+    addLog(LOG_LEVEL_ERROR, F("P[126] Payload exceeds limits. Trying again with reduced content."));
     return (system_config(discovery, true));
   } else {
-    p126log = F("P[PLUGIN_ID_126] Cannot publish config, because payload exceeds limits. You can publish the message manually from other client.: state of payload is : ");
+    p126log = F("P[126] Cannot publish config, because payload exceeds limits. You can publish the message manually from other client.: state of payload is : ");
     p126log += payload;
     addLog(LOG_LEVEL_ERROR,p126log);
+      // Serial.println(p126log);
     
     return false;
   }
@@ -733,10 +757,10 @@ bool sensor_config(struct DiscoveryStruct *discovery, bool brief) {
                 if (check_length(discovery_topic, payload)) {
                   success = publish(discovery->ctrlid, discovery_topic, payload);
                 } else if (!brief) {
-                  addLog(LOG_LEVEL_ERROR, F("P[PLUGIN_ID_126] Payload exceeds limits. Trying again with reduced content."));
+                  addLog(LOG_LEVEL_ERROR, F("P[126] Payload exceeds limits. Trying again with reduced content."));
                   success = system_config(discovery, true);
                 } else {
-                  p126log = F("P[PLUGIN_ID_126] Cannot publish config, because payload exceeds limits. You can publish the message manually from other client.: state of payload is : ");
+                  p126log = F("P[126] Cannot publish config, because payload exceeds limits. You can publish the message manually from other client.: state of payload is : ");
                   p126log += payload;
                   addLog(LOG_LEVEL_ERROR,p126log);
                   
@@ -986,12 +1010,14 @@ bool check_length(const String& topic, const String& payload) {
   int plength = payload.length();
   int flength = 5 + 2 + tlength + plength;
 
-  p126log = F("P[PLUGIN_ID_126] checking payload size: state of flength is : ");
+  p126log = F("P[126] checking payload size: state of flength is : ");
   p126log += String(flength);
   addLog(LOG_LEVEL_DEBUG,p126log);
-  p126log = F("P[PLUGIN_ID_126] state of MQTT_MAX_PACKET_SIZE is : ");
+    // Serial.println(p126log);
+  p126log = F("P[126] state of MQTT_MAX_PACKET_SIZE is : ");
   p126log += String(MQTT_MAX_PACKET_SIZE);
   addLog(LOG_LEVEL_DEBUG,p126log);
+    // Serial.println(p126log);
   
 
   if (MQTT_MAX_PACKET_SIZE >= flength) {
@@ -1004,14 +1030,16 @@ bool check_length(const String& topic, const String& payload) {
 
 bool publish(int ctrlid, const String& topic, const String& payload) {
   bool success = false;
-  p126log = F("P[PLUGIN_ID_126] trying to publish payload: state of topic is : ");
+  p126log = F("P[126] trying to publish payload: state of topic is : ");
   p126log += topic;
   addLog(LOG_LEVEL_DEBUG,p126log);
+    // Serial.println(p126log);
   
   if (MQTTCheck(ctrlid)) {
-    p126log = F("P[PLUGIN_ID_126] controller check ok: state of payload is : ");
+    p126log = F("P[126] controller check ok: state of payload is : ");
     p126log += payload;
     addLog(LOG_LEVEL_DEBUG,p126log);
+      // Serial.println(p126log);
     
     if (ctrlid >= 0) {
       success = MQTTpublish(ctrlid, topic.c_str(), payload.c_str(), Settings.MQTTRetainFlag);
@@ -1033,5 +1061,30 @@ void get_ctrl(struct DiscoveryStruct *discovery) {
   discovery->lwttopic.replace(F("%sysname%"), Settings.Name);
   discovery->lwtup = ControllerSettings.LWTMessageConnect;
   discovery->lwtdown = ControllerSettings.LWTMessageDisconnect;
+}
+
+void get_id(struct DiscoveryStruct *discovery) {
+  for (byte x = 0; x < TASKS_MAX; x++) {
+    LoadTaskSettings(x);
+    int pluginid = Settings.TaskDeviceNumber[x];
+      // p126log = F("P[126] searching for pluginid 126: state of task ");
+      // p126log += String(x);
+      // p126log += F(" is : ");
+      // p126log += String(pluginid);
+      // addLog(LOG_LEVEL_DEBUG,p126log);
+        // Serial.println(p126log);
+    if (pluginid == 126) {
+      discovery->taskid = x;
+      p126log = F("P[126] found correct taskid: state of x is : ");
+      p126log += String(x);
+      addLog(LOG_LEVEL_DEBUG,p126log);
+        // Serial.println(p126log);
+      break;        
+    } 
+      p126log = F("P[126] couldn't fetch taskid: state of x is : ");
+      p126log += String(x);
+      addLog(LOG_LEVEL_ERROR,p126log);
+        // Serial.println(p126log);
+  }
 }
 //#endif
