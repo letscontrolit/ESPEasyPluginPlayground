@@ -6,6 +6,7 @@
 /* by michael baeck
     plugin searches for active mqtt-enabled taskvalues and pushes json payloads 
     for homeassistant to take for discovery.
+    https://www.letscontrolit.com/forum/viewtopic.php?f=18&t=6061
 
     [!] MAJOR ISSUE:  by espeasy default MQTT_MAX_PACKET_SIZE in pubsubclient.h is set to 384
     [!]               most payloads will be 500-600
