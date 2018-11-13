@@ -348,7 +348,7 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
         html_BR();
 
         tmpnote = F("Adjust how the entity_ids in homeassistant are named.");
-        tmpnote += F(" Click submit to preview your settings before _P126_publishing.");
+        tmpnote += F(" Click submit to preview your settings before publishing.");
         addFormNote(tmpnote);
 
         //=======================================================================================//
@@ -466,7 +466,7 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
 
         tmpnote = F("<br>- On update, <font color=\"#07D\">");
         tmpnote += String(msgcount);
-        tmpnote += F("</font> messages will be _P126_published.");
+        tmpnote += F("</font> messages will be published.");
 
         if (discovery.qsize < 2 * msgcount) {
           tmpnote += F("Your message queue is set to: <font color=\"#07D\">");
@@ -617,7 +617,7 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
           addLog(LOG_LEVEL_ERROR, F("[P126] no valid settings found!"));
           success = false;
         } else {
-      // _P126_publish system state
+      // publish system state
           _P126_get_ctrl(&discovery);
           success = _P126_system_state(&discovery, false);
         }
@@ -1158,14 +1158,14 @@ bool _P126_system_config(struct DiscoveryStruct *discovery, bool brief) {
         addLog(LOG_LEVEL_DEBUG,_P126_log);
     }
 
-  //  check payload size and _P126_publish                     
+  //  check payload size and publish                     
     if (_P126_check_length(discovery_topic, payload)) {
       return (_P126_publish(discovery->ctrlid, discovery_topic, payload));
     } else if (!brief) {
       addLog(LOG_LEVEL_ERROR, F("P[126] Payload exceeds limits. Trying with reduced content."));
       return (_P126_system_config(discovery, true)); // start over with brief-flag
     } else {
-      _P126_log = F("P[126] payload exceeds limits. You can _P126_publish the message manually from other client. topic : ");
+      _P126_log = F("P[126] payload exceeds limits. You can publish the message manually from other client. topic : ");
       _P126_log += discovery_topic;
       addLog(LOG_LEVEL_ERROR,_P126_log);
       _P126_log = F("P[126] payload : ");
@@ -1324,20 +1324,20 @@ bool _P126_sensor_config(struct DiscoveryStruct *discovery, bool brief) {
               payload += _P126_add_device(brief);
               payload += F("}");
               
-            } else {                                                            // if disabled, _P126_publish empty payload to delete
+            } else {                                                            // if disabled, publish empty payload to delete
               payload = F("");
             }
           //=======================================================================================//
 
           //=======================================================================================//    
-          //  check and _P126_publish payload
+          //  check and publish payload
             if (_P126_check_length(discovery_topic, payload)) {
               success = _P126_publish(discovery->ctrlid, discovery_topic, payload);
             } else if (!brief) {
               addLog(LOG_LEVEL_ERROR, F("P[126] Payload exceeds limits. Trying again with reduced content."));
               success = _P126_sensor_config(discovery, true);
             } else {
-              _P126_log = F("P[126] Cannot _P126_publish config, because payload exceeds limits. You can _P126_publish the message manually from other client.: state of payload is : ");
+              _P126_log = F("P[126] Cannot publish config, because payload exceeds limits. You can publish the message manually from other client.: state of payload is : ");
               _P126_log += payload;
               addLog(LOG_LEVEL_ERROR,_P126_log);
               
@@ -1635,13 +1635,13 @@ bool _P126_check_length(const String& topic, const String& payload) {
 
 bool _P126_publish(int ctrlid, const String& topic, const String& payload) {
   bool success = false;
-  _P126_log = F("P[126] _P126_publish : topic : ");
+  _P126_log = F("P[126] publish : topic : ");
   _P126_log += topic;
   addLog(LOG_LEVEL_DEBUG,_P126_log);
     // Serial.println(_P126_log);
   
   if (MQTTCheck(ctrlid)) {
-    _P126_log = F("P[126] _P126_publish : controller check ok");
+    _P126_log = F("P[126] publish : controller check ok");
     //_P126_log += payload;
     addLog(LOG_LEVEL_DEBUG,_P126_log);
       // Serial.println(_P126_log);
@@ -1650,7 +1650,7 @@ bool _P126_publish(int ctrlid, const String& topic, const String& payload) {
       success = MQTTpublish(ctrlid, topic.c_str(), payload.c_str(), Settings.MQTTRetainFlag);
     }
   } else {
-    addLog(LOG_LEVEL_DEBUG, F("[P126] _P126_publish : controller check failed"));
+    addLog(LOG_LEVEL_DEBUG, F("[P126] publish : controller check failed"));
   }
 
 
@@ -1700,7 +1700,7 @@ void _P126_debug(struct DiscoveryStruct *discovery) {
   debug += String(discovery->ctrlid);
   debug += F("\n");
 
-  debug += F("discovery->_P126_publish : ");
+  debug += F("discovery->publish : ");
   debug += String(discovery->publish);
   debug += F("\n");
 
