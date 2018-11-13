@@ -292,11 +292,16 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
 
         String errnote = F("<br>");
         if (discovery.save.init != _P126_VERSION) {
-          errnote = F("<font color=\"red\">Loaded settings with ID ");
-          errnote += String(discovery.save.init);
-          errnote += F(" not matching v");
-          errnote += String(_P126_VERSION);
-          errnote += F(". Loading default settings.</font><br><br>");        
+          if (discovery.save.init == 0) {
+            errnote = F("No settings found.")
+          } else {
+            errnote = F("<font color=\"red\">Loaded settings with ID ");
+            errnote += String(discovery.save.init);
+            errnote += F(" not matching v");
+            errnote += String(_P126_VERSION);
+            errnote += F(".</font>")
+          }
+          errnote += F(" Loading defaults.<br><br>");        
 
           strncpy(discovery.save.prefix, "homeassistant", sizeof(discovery.save.prefix));
           strncpy(discovery.save.custom, "customstring", sizeof(discovery.save.custom));
