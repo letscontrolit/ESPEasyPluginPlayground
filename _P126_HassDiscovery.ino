@@ -21,8 +21,8 @@
 
     classification of sensor (motion, light, temp, etc.) can be done in webform.
 
-    devices can also be deleted again but homeassistant refuses to remove them from its store.
-    (but it behaves the same when I publish the messages manually...)
+    devices can also be deleted but homeassistant refuses to remove them from its store.
+    (it's an issue with HA not removing entries from core.entity_registry/core.device_registry and not related to this plugin)
 
     this is my first arduino code and first commit ever to anything, but it's pretty useful already.
     testing and feedback highly appreciated!
@@ -71,11 +71,11 @@
               battery
               humimdity
               illuminance
-                [ ] unit_of_measurement lx or lm //[todo]
+                [x] unit_of_measurement lx or lm
               temperature
-                [ ] unit_of_measurement °C or °F //[todo]
+                [x] unit_of_measurement °C or °F
               ppressure
-                [ ] unit_of_measurement hPa or mbar //[todo]
+                [x] unit_of_measurement hPa or mbar
         [ ] camera
         [ ] cover
               damper
@@ -175,12 +175,20 @@
 #define PLUGIN_NAME_126   "Generic - Homeassistant Discovery [DEVELOPMENT]"  
 
 //#define _P126_DEBUG
-#define PLUGIN_126_VERSION 47
+#define _P126_VERSION 48
 #define _P126_INTERVAL 5000
-bool _P126_cleanup = false;
+bool _P126_cleaning = false;
 unsigned long _P126_time;
 byte _P126_increment;
 String _P126_log;
+
+#define _P126_CLASSCOUNT 35
+String _P126_class[_P126_CLASSCOUNT];
+String _P126_unit[9];
+String _P126_lightunit[2];
+String _P126_tempunit[2];
+String _P126_loadunit[4];
+String _P126_pressunit[2];
 
 struct DiscoveryStruct {
   int taskid;
@@ -283,11 +291,11 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
         #endif
 
         String errnote = F("<br>");
-        if (discovery.save.init != PLUGIN_126_VERSION) {
+        if (discovery.save.init != _P126_VERSION) {
           errnote = F("<font color=\"red\">Loaded settings with ID ");
           errnote += String(discovery.save.init);
           errnote += F(" not matching v");
-          errnote += String(PLUGIN_126_VERSION);
+          errnote += String(_P126_VERSION);
           errnote += F(". Loading default settings.</font><br><br>");        
 
           strncpy(discovery.save.prefix, "homeassistant", sizeof(discovery.save.prefix));
@@ -340,7 +348,7 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
         html_BR();
 
         tmpnote = F("Adjust how the entity_ids in homeassistant are named.");
-        tmpnote += F(" Click submit to preview your settings before publishing.");
+        tmpnote += F(" Click submit to preview your settings before _P126_publishing.");
         addFormNote(tmpnote);
 
         //=======================================================================================//
@@ -406,7 +414,7 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
 
       //=======================================================================================//
       // device settings
-        int msgcount = find_sensors(&discovery);
+        int msgcount = _P126_find_sensors(&discovery);
         if (Settings.TaskDeviceTimer[event->TaskIndex] > 0) msgcount++;
       //=======================================================================================//
     
@@ -421,7 +429,7 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
 
         //html_BR();
 
-        if (Settings.TaskDeviceEnabled[event->TaskIndex] && !_P126_cleanup) {
+        if (Settings.TaskDeviceEnabled[event->TaskIndex] && !_P126_cleaning) {
           html_BR();
           
           addButton(F("/tools?cmd=discovery%2Cupdate"), "Update Configs");
@@ -431,7 +439,7 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
 
           int duration = TASKS_MAX * 2 * _P126_INTERVAL /1000/60;
           int payloads = TASKS_MAX * 2 * 4;
-          tmpnote = F("<br><font color=\"red\">Warning! Cleanup will send ");
+          tmpnote = F("<br><font color=\"red\">Warning! cleanup will send ");
           tmpnote += String(payloads);
           tmpnote += F(" empty payloads in about ");
           tmpnote += String(duration);
@@ -439,10 +447,10 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
           addFormNote(tmpnote);
         }
 
-        if (_P126_cleanup) {
+        if (_P126_cleaning) {
           html_BR();
           int duration = (TASKS_MAX * 2 - (_P126_increment + 1)) * _P126_INTERVAL / 1000;
-          String message = F("<font color=\"red\">CLEANUP IN PROGESS!</font> Remaining time: about ");
+          String message = F("<font color=\"red\">cleanup IN PROGESS!</font> Remaining time: about ");
           message += String(duration);
           message += F(" seconds");
           addHtml(message);
@@ -454,11 +462,11 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
       // notes
         addFormSubHeader(F("NOTES"));
 
-        get_ctrl(&discovery);
+        _P126_get_ctrl(&discovery);
 
         tmpnote = F("<br>- On update, <font color=\"#07D\">");
         tmpnote += String(msgcount);
-        tmpnote += F("</font> messages will be published.");
+        tmpnote += F("</font> messages will be _P126_published.");
 
         if (discovery.qsize < 2 * msgcount) {
           tmpnote += F("Your message queue is set to: <font color=\"#07D\">");
@@ -489,7 +497,7 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
         tmpnote += F(" Changes and deletions require homeassistant to be rebooted.");
 
         tmpnote += F("<br><br>v");
-        tmpnote += PLUGIN_126_VERSION;
+        tmpnote += _P126_VERSION;
         tmpnote += F("; struct size: ");
         tmpnote += String(sizeof(discovery));
         tmpnote += F("Byte memory / ");
@@ -513,7 +521,7 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
           Serial.println(F("--------------- WEBSAVE INIT ---------------------------"));
           Serial.println(F("Filling empty struct"));
         #endif
-        discovery.save.init = PLUGIN_126_VERSION;
+        discovery.save.init = _P126_VERSION;
         strncpy(discovery.save.prefix, "homeassistant", sizeof(discovery.save.prefix));
         discovery.save.usecustom = false;
         discovery.save.usename = true;
@@ -570,7 +578,7 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
             Serial.println(toString(discovery.save.usevalue));
           #endif
 
-        find_sensors(&discovery, true);
+        _P126_find_sensors(&discovery, true);
       //=======================================================================================//
 
 
@@ -588,18 +596,32 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
       break;
     }
 
+    case PLUGIN_INIT:
+    {
+      _P126_make_classes();
+
+      success = true;
+      break;
+
+    }
+
     case PLUGIN_READ:
     {
-      struct DiscoveryStruct discovery;
-      LoadCustomTaskSettings(event->TaskIndex, (byte*)&discovery.save, sizeof(discovery.save));
+      //=======================================================================================//
+      // load settings
+        struct DiscoveryStruct discovery;
+        LoadCustomTaskSettings(event->TaskIndex, (byte*)&discovery.save, sizeof(discovery.save));
       
-      if (discovery.save.init != PLUGIN_126_VERSION) {
-        addLog(LOG_LEVEL_ERROR, F("[P126] no valid settings found!"));
-        success = false;
-      } else {
-        get_ctrl(&discovery);
-        success = system_state(&discovery, false);
-      }
+      // valid check
+        if (discovery.save.init != _P126_VERSION) {
+          addLog(LOG_LEVEL_ERROR, F("[P126] no valid settings found!"));
+          success = false;
+        } else {
+      // _P126_publish system state
+          _P126_get_ctrl(&discovery);
+          success = _P126_system_state(&discovery, false);
+        }
+      //=======================================================================================//
 
       break;
     }
@@ -619,21 +641,21 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
         _P126_log += string;
         addLog(LOG_LEVEL_INFO,_P126_log);
 
-        if (_P126_cleanup) {
+        if (_P126_cleaning) {
           addLog(LOG_LEVEL_ERROR, F("[P126] cleanup in progress, ignoring command"));
         } else {
           //=======================================================================================//
           // load settings
             struct DiscoveryStruct discovery;
-            get_id(&discovery);   // search for taskid (not given with event)
+            _P126_get_id(&discovery);   // search for taskid (not given with event)
             LoadCustomTaskSettings(discovery.taskid, (byte*)&discovery.save, sizeof(discovery.save));
 
-            if (discovery.save.init != PLUGIN_126_VERSION) {
+            if (discovery.save.init != _P126_VERSION) {
               addLog(LOG_LEVEL_ERROR, F("[P126] no valid settings found!"));
               break;
             } 
 
-            get_ctrl(&discovery);
+            _P126_get_ctrl(&discovery);
           //=======================================================================================//
 
           argIndex = string.lastIndexOf(',');
@@ -641,12 +663,15 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
 
           if (tmpString.equalsIgnoreCase(F("update"))) {
 
-            system_config(&discovery, false);
-            sensor_config(&discovery, false);
-            system_state(&discovery, false);
+            _P126_system_config(&discovery, false);
+            _P126_sensor_config(&discovery, false);
+            _P126_system_state(&discovery, false);
           } 
           else if (tmpString.equalsIgnoreCase(F("delete"))) {
-            delete_configs(&discovery);
+            _P126_delete_configs(&discovery);
+          }
+          else if (tmpString.equalsIgnoreCase(F("debug"))) {
+            _P126_debug(&discovery);
           }
           else if (tmpString.equalsIgnoreCase(F("cleanup"))) {
             int duration = TASKS_MAX * 2 * _P126_INTERVAL / 1000 / 60;
@@ -655,14 +680,15 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
             _P126_log += F(" minutes");
             addLog(LOG_LEVEL_INFO, _P126_log);
 
-            _P126_cleanup = true;   // enable cleanup-mode
+            _P126_cleaning = true;   // enable cleanup-mode
             _P126_time = millis();
             _P126_increment = 0;
 
-            delete_system(&discovery);   // run once
+            _P126_delete_system(&discovery);   // run once
 
-            cleanup(&discovery);  // run first time
+            _P126_cleanup(&discovery);  // run first time
           }
+          else {success = false;}
         }
       }
       break;
@@ -670,8 +696,8 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
 
   	case PLUGIN_EXIT:
   	{
-      //get_ctrl(ctrlid, ctrldat);
-      //success = delete_configs(event->TaskIndex, ctrlid, ctrldat);
+      //_P126_get_ctrl(ctrlid, ctrldat);
+      //success = _P126_delete_configs(event->TaskIndex, ctrlid, ctrldat);
   	  //perform cleanup tasks here. For example, free memory
 
   	  break;
@@ -680,23 +706,23 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
 
     case PLUGIN_ONCE_A_SECOND:
     {
-      if (_P126_cleanup && timeOutReached(_P126_time + _P126_INTERVAL)) {
+      if (_P126_cleaning && timeOutReached(_P126_time + _P126_INTERVAL)) {
         _P126_time = millis();
 
         struct DiscoveryStruct discovery;
         LoadCustomTaskSettings(event->TaskIndex, (byte*)&discovery.save, sizeof(discovery.save));
 
-        if (discovery.save.init != PLUGIN_126_VERSION) {
+        if (discovery.save.init != _P126_VERSION) {
           addLog(LOG_LEVEL_ERROR, F("[P126] no valid settings found!"));
           break;
         } 
 
-        get_ctrl(&discovery);
+        _P126_get_ctrl(&discovery);
 
-        cleanup(&discovery);  // run 2nd to nth time
+        _P126_cleanup(&discovery);  // run 2nd to nth time
 
         if (_P126_increment >= TASKS_MAX * 2 - 1) {
-          _P126_cleanup = false;
+          _P126_cleaning = false;
           _P126_increment = 0;
 
           addLog(LOG_LEVEL_INFO, F("[P126] cleanup completed"));
@@ -719,86 +745,89 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
 }
 
 //=======================================================================================//
-int find_sensors(struct DiscoveryStruct *discovery) {
-  int msgcount = find_sensors(discovery, false);
+void _P126_make_classes() {
+
+  //=======================================================================================//
+  // declare classes and units
+    _P126_class[0] = F("------SENSOR-------");        //  %   raw   K
+    _P126_class[1] = F("battery");                    //  %   
+    _P126_class[2] = F("humidity");                   //  %
+    _P126_class[3] = F("illuminance");                //  lx  lm
+    _P126_class[4] = F("temperature");                //  °C  °F
+    _P126_class[5] = F("pressure");                   //  hPa mbar
+    _P126_class[6] = F("plant");                      //  %
+    _P126_class[7] = F("radio/RF");                      //  none
+    _P126_class[8] = F("scale/load/weight");          //  kg
+
+    _P126_class[10] = F("---BINARY_SENSOR---");
+    _P126_class[11] = F("battery"); 
+    _P126_class[12] = F("cold");
+    _P126_class[13] = F("connectivity");
+    _P126_class[14] = F("door");
+    _P126_class[15] = F("garage_door");
+    _P126_class[16] = F("gas");
+    _P126_class[17] = F("heat");
+    _P126_class[18] = F("light");
+    _P126_class[19] = F("lock");
+    _P126_class[20] = F("moisture");
+    _P126_class[21] = F("motion");
+    _P126_class[22] = F("moving");
+    _P126_class[23] = F("occupancy");
+    _P126_class[24] = F("opening");
+    _P126_class[25] = F("plug");
+    _P126_class[26] = F("power");
+    _P126_class[27] = F("presence");
+    _P126_class[28] = F("problem");
+    _P126_class[29] = F("safety");
+    _P126_class[30] = F("smoke");
+    _P126_class[31] = F("sound");
+    _P126_class[32] = F("vibration");
+    _P126_class[33] = F("water");
+    _P126_class[34] = F("window");
+
+    _P126_unit[0] = F("raw");
+    _P126_unit[1] = F("%");
+    _P126_unit[2] = F("K");     // Kelvin
+    _P126_unit[3] = F("dB");
+    _P126_unit[4] = F("V");     // Volt
+    _P126_unit[5] = F("A");     // Ampere
+    _P126_unit[6] = F("h");     // hours
+    _P126_unit[7] = F("m");     // minutes
+    _P126_unit[8] = F("s");     // seconds
+
+    _P126_lightunit[0] = F("lx");
+    _P126_lightunit[1] = F("lm");
+
+    _P126_tempunit[0] = F("°C");
+    _P126_tempunit[1] = F("°F");
+
+    _P126_loadunit[0] = F("g");
+    _P126_loadunit[1] = F("kg");
+    _P126_loadunit[2] = F("lb");
+    _P126_loadunit[3] = F("raw");
+
+    _P126_pressunit[0] = F("hPa");
+    _P126_pressunit[1] = F("mbar");
+  //=======================================================================================//
+
+}
+
+int _P126_find_sensors(struct DiscoveryStruct *discovery) {
+  int msgcount = _P126_find_sensors(discovery, false);
   return msgcount;
 }
 
-#define _P126_CLASSCOUNT 35
-int find_sensors(struct DiscoveryStruct *discovery, bool save) {
+int _P126_find_sensors(struct DiscoveryStruct *discovery, bool save) {
   _P126_log = F("P[126] search active tasks: state of save is : ");
   _P126_log += String(save);
   addLog(LOG_LEVEL_DEBUG,_P126_log);
   // Serial.println(_P126_log);
 
   int msgcount = 0;
-
-  String sensorclass[_P126_CLASSCOUNT];
-    sensorclass[0] = F("------SENSOR-------");        //  %   raw   K
-    sensorclass[1] = F("battery");                    //  %   
-    sensorclass[2] = F("humidity");                   //  %
-    sensorclass[3] = F("illuminance");                //  lx  lm
-    sensorclass[4] = F("temperature");                //  °C  °F
-    sensorclass[5] = F("pressure");                   //  hPa mbar
-    sensorclass[6] = F("plant");                      //  %
-    sensorclass[7] = F("radio/RF");                      //  none
-    sensorclass[8] = F("scale/load/weight");          //  kg
-
-    sensorclass[10] = F("---BINARY_SENSOR---");
-    sensorclass[11] = F("battery"); 
-    sensorclass[12] = F("cold");
-    sensorclass[13] = F("connectivity");
-    sensorclass[14] = F("door");
-    sensorclass[15] = F("garage_door");
-    sensorclass[16] = F("gas");
-    sensorclass[17] = F("heat");
-    sensorclass[18] = F("light");
-    sensorclass[19] = F("lock");
-    sensorclass[20] = F("moisture");
-    sensorclass[21] = F("motion");
-    sensorclass[22] = F("moving");
-    sensorclass[23] = F("occupancy");
-    sensorclass[24] = F("opening");
-    sensorclass[25] = F("plug");
-    sensorclass[26] = F("power");
-    sensorclass[27] = F("presence");
-    sensorclass[28] = F("problem");
-    sensorclass[29] = F("safety");
-    sensorclass[30] = F("smoke");
-    sensorclass[31] = F("sound");
-    sensorclass[32] = F("vibration");
-    sensorclass[33] = F("water");
-    sensorclass[34] = F("window");
-
-  String sensorunit[9];
-    sensorunit[0] = F("raw");
-    sensorunit[1] = F("%");
-    sensorunit[2] = F("K");     // Kelvin
-    sensorunit[3] = F("dB");
-    sensorunit[4] = F("V");     // Volt
-    sensorunit[5] = F("A");     // Ampere
-    sensorunit[6] = F("h");     // hours
-    sensorunit[7] = F("m");     // minutes
-    sensorunit[8] = F("s");     // seconds
-
-  String lightunit[2];
-    lightunit[0] = F("lx");
-    lightunit[1] = F("lm");
-  String tempunit[2];
-    tempunit[0] = F("°C");
-    tempunit[1] = F("°F");
-  String loadunit[4];
-    loadunit[0] = F("g");
-    loadunit[1] = F("kg");
-    loadunit[2] = F("lb");
-    loadunit[3] = F("raw");
-  String pressunit[2];
-    pressunit[0] = F("hPa");
-    pressunit[1] = F("mbar");
-
   byte firstTaskIndex = 0;
   byte lastTaskIndex = TASKS_MAX - 1;
   byte lastActiveTaskIndex = 0;
+
 
   if (save) {
     lastActiveTaskIndex = lastTaskIndex;
@@ -930,23 +959,23 @@ int find_sensors(struct DiscoveryStruct *discovery, bool save) {
                       }
 
                     // add user input
-                      addFormSelector(F("type"), optionid, _P126_CLASSCOUNT, sensorclass, NULL, discovery->save.task[TaskIndex].value[x].option);
+                      addFormSelector(F("type"), optionid, _P126_CLASSCOUNT, _P126_class, NULL, discovery->save.task[TaskIndex].value[x].option);
 
                       switch (discovery->save.task[TaskIndex].value[x].option) {
                         case 0:
-                          addFormSelector(F("unit"), unitid, 9, sensorunit, NULL, discovery->save.task[TaskIndex].value[x].unit);
+                          addFormSelector(F("unit"), unitid, 9, _P126_unit, NULL, discovery->save.task[TaskIndex].value[x].unit);
                           break;
                         case 3:
-                          addFormSelector(F("unit"), unitid, 2, lightunit, NULL, discovery->save.task[TaskIndex].value[x].unit);
+                          addFormSelector(F("unit"), unitid, 2, _P126_lightunit, NULL, discovery->save.task[TaskIndex].value[x].unit);
                           break;
                         case 4:
-                          addFormSelector(F("unit"), unitid, 2, tempunit, NULL, discovery->save.task[TaskIndex].value[x].unit);
+                          addFormSelector(F("unit"), unitid, 2, _P126_tempunit, NULL, discovery->save.task[TaskIndex].value[x].unit);
                           break;
                         case 5:
-                          addFormSelector(F("unit"), unitid, 2, pressunit, NULL, discovery->save.task[TaskIndex].value[x].unit);
+                          addFormSelector(F("unit"), unitid, 2, _P126_pressunit, NULL, discovery->save.task[TaskIndex].value[x].unit);
                           break;
                         case 8:
-                          addFormSelector(F("unit"), unitid, 4, loadunit, NULL, discovery->save.task[TaskIndex].value[x].unit);
+                          addFormSelector(F("unit"), unitid, 4, _P126_loadunit, NULL, discovery->save.task[TaskIndex].value[x].unit);
                           break;
                       }
 
@@ -961,8 +990,8 @@ int find_sensors(struct DiscoveryStruct *discovery, bool save) {
                     } else {
                       defaultoption = 0;
                     }
-                    _P126_log = F("P[126] saving sensorclass : ");
-                    _P126_log += sensorclass[getFormItemInt(optionid, defaultoption)];
+                    _P126_log = F("P[126] saving _P126_class : ");
+                    _P126_log += _P126_class[getFormItemInt(optionid, defaultoption)];
                     addLog(LOG_LEVEL_DEBUG,_P126_log);
 
                     if (String(ExtraTaskSettings.TaskDeviceValueNames[x]).length() == 0) {
@@ -987,7 +1016,7 @@ int find_sensors(struct DiscoveryStruct *discovery, bool save) {
   return msgcount;
 }
 
-bool system_config(struct DiscoveryStruct *discovery, bool brief) {
+bool _P126_system_config(struct DiscoveryStruct *discovery, bool brief) {
 
   /*  home-assistant parameters
     'aux_cmd_t':           'aux_command_topic',
@@ -1098,7 +1127,7 @@ bool system_config(struct DiscoveryStruct *discovery, bool brief) {
   //  create topics
     //  prefix/component/device/entity/[config|state]
     //  %prefix% / %component% / %mac% / %mac%_system / [config|state]
-    String discovery_topic = make_topic(discovery->save.prefix, F("sensor"), make_unique());
+    String discovery_topic = _P126_make_topic(discovery->save.prefix, F("sensor"), _P126_make_unique());
 
     String state_topic = discovery_topic;
     state_topic.replace(F("/config"),F("/state"));
@@ -1109,34 +1138,34 @@ bool system_config(struct DiscoveryStruct *discovery, bool brief) {
       payload = "";
     } else {
       payload = F("{");
-      payload += add_line(F("name"), String(Settings.Name));
-      payload += add_line(F("ic"), F("mdi:chip"));
-      payload += add_line(F("stat_t"), state_topic);
-      payload += add_line(F("val_tpl"), F("{{ value_json.state }}"));
-      payload += add_line(F("uniq_id"), make_unique());
-      payload += add_line(F("avty_t"), discovery->lwttopic);
-      payload += add_line(F("pl_avail"), discovery->lwtup);
-      payload += add_line(F("pl_not_avail"), discovery->lwtdown);
+      payload += _P126_add_line(F("name"), String(Settings.Name));
+      payload += _P126_add_line(F("ic"), F("mdi:chip"));
+      payload += _P126_add_line(F("stat_t"), state_topic);
+      payload += _P126_add_line(F("val_tpl"), F("{{ value_json.state }}"));
+      payload += _P126_add_line(F("uniq_id"), _P126_make_unique());
+      payload += _P126_add_line(F("avty_t"), discovery->lwttopic);
+      payload += _P126_add_line(F("pl_avail"), discovery->lwtup);
+      payload += _P126_add_line(F("pl_not_avail"), discovery->lwtdown);
       if (brief) {
         payload += F("\"json_attr\":[\"plugin\",\"unit\",\"uptime\",\"ip\",\"rssi\"],");
       } else {
         payload += F("\"json_attr\":[\"plugin\",\"unit\",\"version\",\"uptime\",\"cpu\",\"hostname\",\"ip\",\"mac\",\"ssid\",\"bssid\",\"rssi\",\"last_disconnect\",\"last_boot_cause\"],");
       }
-      payload += add_device(brief);
+      payload += _P126_add_device(brief);
       payload += F("}");
         _P126_log = F("P[126] payload created : ");
         _P126_log += payload;
         addLog(LOG_LEVEL_DEBUG,_P126_log);
     }
 
-  //  check payload size and publish                     
-    if (check_length(discovery_topic, payload)) {
-      return (publish(discovery->ctrlid, discovery_topic, payload));
+  //  check payload size and _P126_publish                     
+    if (_P126_check_length(discovery_topic, payload)) {
+      return (_P126_publish(discovery->ctrlid, discovery_topic, payload));
     } else if (!brief) {
       addLog(LOG_LEVEL_ERROR, F("P[126] Payload exceeds limits. Trying with reduced content."));
-      return (system_config(discovery, true)); // start over with brief-flag
+      return (_P126_system_config(discovery, true)); // start over with brief-flag
     } else {
-      _P126_log = F("P[126] payload exceeds limits. You can publish the message manually from other client. topic : ");
+      _P126_log = F("P[126] payload exceeds limits. You can _P126_publish the message manually from other client. topic : ");
       _P126_log += discovery_topic;
       addLog(LOG_LEVEL_ERROR,_P126_log);
       _P126_log = F("P[126] payload : ");
@@ -1147,72 +1176,8 @@ bool system_config(struct DiscoveryStruct *discovery, bool brief) {
     }
 }  
 
-bool sensor_config(struct DiscoveryStruct *discovery, bool brief) {
+bool _P126_sensor_config(struct DiscoveryStruct *discovery, bool brief) {
   bool success = false;
-
-  
-  String sensorclass[_P126_CLASSCOUNT];
-    sensorclass[0] = F("------SENSOR-------");        //  %   raw   K
-    sensorclass[1] = F("battery");                    //  %   
-    sensorclass[2] = F("humidity");                   //  %
-    sensorclass[3] = F("illuminance");                //  lx  lm
-    sensorclass[4] = F("temperature");                //  °C  °F
-    sensorclass[5] = F("pressure");                   //  hPa mbar
-    sensorclass[6] = F("plant");                      //  %
-    sensorclass[7] = F("radio/RF");                      //  none
-    sensorclass[8] = F("scale/load/weight");          //  kg
-
-    sensorclass[10] = F("---BINARY_SENSOR---");
-    sensorclass[11] = F("battery"); 
-    sensorclass[12] = F("cold");
-    sensorclass[13] = F("connectivity");
-    sensorclass[14] = F("door");
-    sensorclass[15] = F("garage_door");
-    sensorclass[16] = F("gas");
-    sensorclass[17] = F("heat");
-    sensorclass[18] = F("light");
-    sensorclass[19] = F("lock");
-    sensorclass[20] = F("moisture");
-    sensorclass[21] = F("motion");
-    sensorclass[22] = F("moving");
-    sensorclass[23] = F("occupancy");
-    sensorclass[24] = F("opening");
-    sensorclass[25] = F("plug");
-    sensorclass[26] = F("power");
-    sensorclass[27] = F("presence");
-    sensorclass[28] = F("problem");
-    sensorclass[29] = F("safety");
-    sensorclass[30] = F("smoke");
-    sensorclass[31] = F("sound");
-    sensorclass[32] = F("vibration");
-    sensorclass[33] = F("water");
-    sensorclass[34] = F("window");
-  String sensorunit[9];
-    sensorunit[0] = F("raw");
-    sensorunit[1] = F("%");
-    sensorunit[2] = F("K");     // Kelvin
-    sensorunit[3] = F("dB");
-    sensorunit[4] = F("V");     // Volt
-    sensorunit[5] = F("A");     // Ampere
-    sensorunit[6] = F("h");     // hours
-    sensorunit[7] = F("m");     // minutes
-    sensorunit[8] = F("s");     // seconds
-  String lightunit[2];
-    lightunit[0] = F("lx");
-    lightunit[1] = F("lm");
-  String tempunit[2];
-    tempunit[0] = F("°C");
-    tempunit[1] = F("°F");
-  String loadunit[4];
-    loadunit[0] = F("g");
-    loadunit[1] = F("kg");
-    loadunit[2] = F("lb");
-    loadunit[3] = F("raw");
-  String pressunit[2];
-    pressunit[0] = F("hPa");
-    pressunit[1] = F("mbar");
-
-
 
   byte lastTaskIndex = TASKS_MAX - 1;
   
@@ -1288,9 +1253,9 @@ bool sensor_config(struct DiscoveryStruct *discovery, bool brief) {
               component = F("binary_sensor");
             }
 
-            String uniquestr = make_unique(TaskIndex, x);                 // eg 00AA11BB22CC_1_1
+            String uniquestr = _P126_make_unique(TaskIndex, x);                 // eg 00AA11BB22CC_1_1
 
-            String discovery_topic = make_topic(discovery->save.prefix, component, uniquestr);   // eg homeasistant/sensor/00AA11BB22CC/00AA11BB22CC_1_1/config
+            String discovery_topic = _P126_make_topic(discovery->save.prefix, component, uniquestr);   // eg homeasistant/sensor/00AA11BB22CC/00AA11BB22CC_1_1/config
           //=======================================================================================//
 
           //=======================================================================================//
@@ -1300,7 +1265,7 @@ bool sensor_config(struct DiscoveryStruct *discovery, bool brief) {
             if (discovery->save.task[TaskIndex].value[x].enable) {              // if enabled, create json
 
               payload = F("{");
-              payload += add_line(F("name"), entity_id);
+              payload += _P126_add_line(F("name"), entity_id);
 
               //=======================================================================================//
               // assign class/icon/unit
@@ -1309,70 +1274,70 @@ bool sensor_config(struct DiscoveryStruct *discovery, bool brief) {
                 // no unit will result in String in HA
                 switch (discovery->save.task[TaskIndex].value[x].option) {
                   case 0:   //sensor
-                    payload += add_line(F("unit_of_meas"), sensorunit[discovery->save.task[TaskIndex].value[x].unit]);
+                    payload += _P126_add_line(F("unit_of_meas"), _P126_unit[discovery->save.task[TaskIndex].value[x].unit]);
                     break;
                   case 1:   //battery (same logic as humidity)
                   case 2:   //humidity
-                    payload += add_line(F("unit_of_meas"), F("%"));
-                    payload += add_line(F("dev_cla"), sensorclass[discovery->save.task[TaskIndex].value[x].option]);
+                    payload += _P126_add_line(F("unit_of_meas"), F("%"));
+                    payload += _P126_add_line(F("dev_cla"), _P126_class[discovery->save.task[TaskIndex].value[x].option]);
                     break;
                   case 3:   //illuminance
-                    payload += add_line(F("unit_of_meas"), lightunit[discovery->save.task[TaskIndex].value[x].unit]);
-                    payload += add_line(F("dev_cla"), sensorclass[discovery->save.task[TaskIndex].value[x].option]);
+                    payload += _P126_add_line(F("unit_of_meas"), _P126_lightunit[discovery->save.task[TaskIndex].value[x].unit]);
+                    payload += _P126_add_line(F("dev_cla"), _P126_class[discovery->save.task[TaskIndex].value[x].option]);
                     break;
                   case 4:   //temp
-                    payload += add_line(F("unit_of_meas"), tempunit[discovery->save.task[TaskIndex].value[x].unit]);
-                    payload += add_line(F("dev_cla"), sensorclass[discovery->save.task[TaskIndex].value[x].option]);
+                    payload += _P126_add_line(F("unit_of_meas"), _P126_tempunit[discovery->save.task[TaskIndex].value[x].unit]);
+                    payload += _P126_add_line(F("dev_cla"), _P126_class[discovery->save.task[TaskIndex].value[x].option]);
                     break;
                   case 5:   //pressure
-                    payload += add_line(F("unit_of_meas"), pressunit[discovery->save.task[TaskIndex].value[x].unit]);
-                    payload += add_line(F("dev_cla"), sensorclass[discovery->save.task[TaskIndex].value[x].option]);
+                    payload += _P126_add_line(F("unit_of_meas"), _P126_pressunit[discovery->save.task[TaskIndex].value[x].unit]);
+                    payload += _P126_add_line(F("dev_cla"), _P126_class[discovery->save.task[TaskIndex].value[x].option]);
                     break;
                   case 6:   //plant
-                    payload += add_line(F("ic"), F("mdi:leaf"));
-                    payload += add_line(F("unit_of_meas"), F("%"));
+                    payload += _P126_add_line(F("ic"), F("mdi:leaf"));
+                    payload += _P126_add_line(F("unit_of_meas"), F("%"));
                     break;
                   case 7:   //RF
-                    payload += add_line(F("ic"), F("mdi:radio-tower"));
+                    payload += _P126_add_line(F("ic"), F("mdi:radio-tower"));
                     break;
                   case 8:   //scale
-                    payload += add_line(F("ic"), F("mdi:scale"));
-                    payload += add_line(F("unit_of_meas"), loadunit[discovery->save.task[TaskIndex].value[x].unit]);
+                    payload += _P126_add_line(F("ic"), F("mdi:scale"));
+                    payload += _P126_add_line(F("unit_of_meas"), _P126_loadunit[discovery->save.task[TaskIndex].value[x].unit]);
                   case 9:
                   case 10:
                     break;
                   case 33:    //water
-                    payload += add_line(F("ic"), F("mdi:cup-water"));
+                    payload += _P126_add_line(F("ic"), F("mdi:cup-water"));
                     break;
                   default:
-                    payload += add_line(F("dev_cla"), sensorclass[discovery->save.task[TaskIndex].value[x].option]);
+                    payload += _P126_add_line(F("dev_cla"), _P126_class[discovery->save.task[TaskIndex].value[x].option]);
                     break;
                 }
               //=======================================================================================//
 
-              payload += add_line(F("stat_t"), state_topic);
-              payload += add_line(F("uniq_id"), uniquestr);
-              payload += add_line(F("avty_t"), discovery->lwttopic);
-              payload += add_line(F("pl_avail"), discovery->lwtup);
-              payload += add_line(F("pl_not_avail"), discovery->lwtdown);
-              if (!brief) payload += add_line(F("frc_upd"), F("true"));
-              payload += add_device(brief);
+              payload += _P126_add_line(F("stat_t"), state_topic);
+              payload += _P126_add_line(F("uniq_id"), uniquestr);
+              payload += _P126_add_line(F("avty_t"), discovery->lwttopic);
+              payload += _P126_add_line(F("pl_avail"), discovery->lwtup);
+              payload += _P126_add_line(F("pl_not_avail"), discovery->lwtdown);
+              if (!brief) payload += _P126_add_line(F("frc_upd"), F("true"));
+              payload += _P126_add_device(brief);
               payload += F("}");
               
-            } else {                                                            // if disabled, publish empty payload to delete
+            } else {                                                            // if disabled, _P126_publish empty payload to delete
               payload = F("");
             }
           //=======================================================================================//
 
           //=======================================================================================//    
-          //  check and publish payload
-            if (check_length(discovery_topic, payload)) {
-              success = publish(discovery->ctrlid, discovery_topic, payload);
+          //  check and _P126_publish payload
+            if (_P126_check_length(discovery_topic, payload)) {
+              success = _P126_publish(discovery->ctrlid, discovery_topic, payload);
             } else if (!brief) {
               addLog(LOG_LEVEL_ERROR, F("P[126] Payload exceeds limits. Trying again with reduced content."));
-              success = sensor_config(discovery, true);
+              success = _P126_sensor_config(discovery, true);
             } else {
-              _P126_log = F("P[126] Cannot publish config, because payload exceeds limits. You can publish the message manually from other client.: state of payload is : ");
+              _P126_log = F("P[126] Cannot _P126_publish config, because payload exceeds limits. You can _P126_publish the message manually from other client.: state of payload is : ");
               _P126_log += payload;
               addLog(LOG_LEVEL_ERROR,_P126_log);
               
@@ -1389,7 +1354,7 @@ bool sensor_config(struct DiscoveryStruct *discovery, bool brief) {
   return success;
 } 
 
-String make_topic(char* prefix, String component, String unique) {
+String _P126_make_topic(char* prefix, String component, String unique) {
     
     String topic = String(prefix);
     topic += F("/");
@@ -1407,7 +1372,7 @@ String make_topic(char* prefix, String component, String unique) {
     return topic;
 }
 
-String make_unique() {
+String _P126_make_unique() {
     String unique = WiFi.macAddress();
     unique.replace(F(":"),F(""));
     unique += F("_system");
@@ -1415,7 +1380,7 @@ String make_unique() {
     return unique;
 }
 
-String make_unique(byte task, byte value) {
+String _P126_make_unique(byte task, byte value) {
 
     String unique = WiFi.macAddress();
     unique.replace(F(":"),F(""));
@@ -1427,10 +1392,10 @@ String make_unique(byte task, byte value) {
     return unique;
 }
 
-bool system_state(struct DiscoveryStruct *discovery, bool brief) {
+bool _P126_system_state(struct DiscoveryStruct *discovery, bool brief) {
 
   //  define topic
-    String state_topic = make_topic(discovery->save.prefix, F("sensor"), make_unique());
+    String state_topic = _P126_make_topic(discovery->save.prefix, F("sensor"), _P126_make_unique());
     state_topic.replace(F("/config"),F("/state"));
 
   //  define payload
@@ -1443,40 +1408,40 @@ bool system_state(struct DiscoveryStruct *discovery, bool brief) {
 
     String payload = F("{");
     #if defined(ESP8266)
-    payload += add_line(F("hostname"), WiFi.hostname());
+    payload += _P126_add_line(F("hostname"), WiFi.hostname());
     #endif
-    payload += add_line(F("state"),  discovery->lwtup);
-    payload += add_line(F("plugin"), String(PLUGIN_126_VERSION));
-    payload += add_line(F("version"), versionstr);
-    payload += add_line(F("unit"), String(Settings.Unit));
-    payload += add_line(F("uptime"), String(wdcounter / 2));
-    payload += add_line(F("last_boot_cause"), getLastBootCauseString());
-    payload += add_line(F("cpu"), String(getCPUload()));
-    payload += add_line(F("ip"), WiFi.localIP().toString());
-    payload += add_line(F("mac"), WiFi.macAddress());
-    payload += add_line(F("ssid"), WiFi.SSID());
-    payload += add_line(F("bssid"), WiFi.BSSIDstr());
-    payload += add_line(F("last_disconnect"), getLastDisconnectReason());
-    payload += add_line(F("rssi"), String(WiFi.RSSI()), true);
+    payload += _P126_add_line(F("state"),  discovery->lwtup);
+    payload += _P126_add_line(F("plugin"), String(_P126_VERSION));
+    payload += _P126_add_line(F("version"), versionstr);
+    payload += _P126_add_line(F("unit"), String(Settings.Unit));
+    payload += _P126_add_line(F("uptime"), String(wdcounter / 2));
+    payload += _P126_add_line(F("last_boot_cause"), getLastBootCauseString());
+    payload += _P126_add_line(F("cpu"), String(getCPUload()));
+    payload += _P126_add_line(F("ip"), WiFi.localIP().toString());
+    payload += _P126_add_line(F("mac"), WiFi.macAddress());
+    payload += _P126_add_line(F("ssid"), WiFi.SSID());
+    payload += _P126_add_line(F("bssid"), WiFi.BSSIDstr());
+    payload += _P126_add_line(F("last_disconnect"), getLastDisconnectReason());
+    payload += _P126_add_line(F("rssi"), String(WiFi.RSSI()), true);
 
-    //add_line(F("Subnet Mask"), WiFi.subnetMask().toString());
-    //add_line(F("Gateway IP"), WiFi.gatewayIP().toString());
-    //add_line(F("DNS 1"), WiFi.dnsIP(0).toString());
-    //add_line(F("DNS 2"), WiFi.dnsIP(1).toString());
-    //add_line(F("IP config"), useStaticIP() ? F("Static") : F("DHCP"));
-    //add_line(F("Number reconnects"), String(wifi_reconnects));
+    //_P126_add_line(F("Subnet Mask"), WiFi.subnetMask().toString());
+    //_P126_add_line(F("Gateway IP"), WiFi.gatewayIP().toString());
+    //_P126_add_line(F("DNS 1"), WiFi.dnsIP(0).toString());
+    //_P126_add_line(F("DNS 2"), WiFi.dnsIP(1).toString());
+    //_P126_add_line(F("IP config"), useStaticIP() ? F("Static") : F("DHCP"));
+    //_P126_add_line(F("Number reconnects"), String(wifi_reconnects));
 
-  return (publish(discovery->ctrlid, state_topic, payload));
+  return (_P126_publish(discovery->ctrlid, state_topic, payload));
 }
 
-bool delete_system(struct DiscoveryStruct *discovery) {
+bool _P126_delete_system(struct DiscoveryStruct *discovery) {
 
-  String discovery_topic = make_topic(discovery->save.prefix, F("sensor"), make_unique());
+  String discovery_topic = _P126_make_topic(discovery->save.prefix, F("sensor"), _P126_make_unique());
 
-  return (publish(discovery->ctrlid, discovery_topic, ""));
+  return (_P126_publish(discovery->ctrlid, discovery_topic, ""));
 }
 
-bool cleanup(struct DiscoveryStruct *discovery) {
+bool _P126_cleanup(struct DiscoveryStruct *discovery) {
   bool success;
 
   byte lasttaskid = TASKS_MAX - 1;
@@ -1491,18 +1456,18 @@ bool cleanup(struct DiscoveryStruct *discovery) {
     for (byte x = 0; x <= 3; x++) {                       // for each value
       success = false;
 
-      String uniquestr = make_unique(taskid, x);
+      String uniquestr = _P126_make_unique(taskid, x);
 
-      String discovery_topic = make_topic(discovery->save.prefix, component, uniquestr);
-      success = publish(discovery->ctrlid, discovery_topic, "");
+      String discovery_topic = _P126_make_topic(discovery->save.prefix, component, uniquestr);
+      success = _P126_publish(discovery->ctrlid, discovery_topic, "");
     }   
 
   return success;
 }
 
-bool delete_configs(struct DiscoveryStruct *discovery) {
+bool _P126_delete_configs(struct DiscoveryStruct *discovery) {
 
-  bool success1 = delete_system(discovery);
+  bool success1 = _P126_delete_system(discovery);
   bool success2 = false;
 
   byte firstTaskIndex = 0;
@@ -1530,7 +1495,7 @@ bool delete_configs(struct DiscoveryStruct *discovery) {
             for (byte x = 0; x < Device[DeviceIndex].ValueCount; x++) {                           // for each value
               success2 = false;
 
-              String uniquestr = make_unique(TaskIndex, x);
+              String uniquestr = _P126_make_unique(TaskIndex, x);
 
               String sensorname = String(ExtraTaskSettings.TaskDeviceName);
               sensorname += F("_");
@@ -1543,9 +1508,9 @@ bool delete_configs(struct DiscoveryStruct *discovery) {
                 component = F("binary_sensor");
               }
 
-              String discovery_topic = make_topic(discovery->save.prefix, component, uniquestr);
+              String discovery_topic = _P126_make_topic(discovery->save.prefix, component, uniquestr);
 
-              success2 = publish(discovery->ctrlid, discovery_topic, F(""));
+              success2 = _P126_publish(discovery->ctrlid, discovery_topic, F(""));
             }
           }
         }
@@ -1560,7 +1525,7 @@ bool delete_configs(struct DiscoveryStruct *discovery) {
     
 }
 
-String add_device(bool brief) {
+String _P126_add_device(bool brief) {
   String buildstr = "EspEasy";
   buildstr += BUILD_NOTES;
   //buildstr.replace(F(" - "),"");
@@ -1593,9 +1558,9 @@ String add_device(bool brief) {
   //device data
   String device = F("\"device\":{");
     if (!brief) { 
-      device += add_line(F("sw_version"), buildstr);
-      device += add_line(F("manufacturer"), F("letscontrolit.com"));
-      device += add_line(F("model"), ARDUINO_BOARD);
+      device += _P126_add_line(F("sw_version"), buildstr);
+      device += _P126_add_line(F("manufacturer"), F("letscontrolit.com"));
+      device += _P126_add_line(F("model"), ARDUINO_BOARD);
       //connections
       device += F("\"connections\":[");
         device += F("[\"mac\",\""); 
@@ -1603,7 +1568,7 @@ String add_device(bool brief) {
         device += F("\"]");
         device += F("],");  
     }
-    device += add_line(F("name"), String(Settings.Name));                    
+    device += _P126_add_line(F("name"), String(Settings.Name));                    
     //IDs
     device += F("\"identifiers\":[");
       // if (!brief) {
@@ -1623,12 +1588,12 @@ String add_device(bool brief) {
     return device;
 }
 
-String add_line(const String& object, const String& value) {
-  String line = add_line(object, value, false);
+String _P126_add_line(const String& object, const String& value) {
+  String line = _P126_add_line(object, value, false);
   return line;
 }
 
-String add_line(const String& object, const String& value, bool last) {
+String _P126_add_line(const String& object, const String& value, bool last) {
 
   String line = F("\"");
   line += object;
@@ -1648,7 +1613,7 @@ String add_line(const String& object, const String& value, bool last) {
   return line;
 }
 
-bool check_length(const String& topic, const String& payload) {
+bool _P126_check_length(const String& topic, const String& payload) {
   int tlength = topic.length();
   int plength = payload.length();
   int flength = 5 + 2 + tlength + plength;
@@ -1668,15 +1633,15 @@ bool check_length(const String& topic, const String& payload) {
   
 }
 
-bool publish(int ctrlid, const String& topic, const String& payload) {
+bool _P126_publish(int ctrlid, const String& topic, const String& payload) {
   bool success = false;
-  _P126_log = F("P[126] publish : topic : ");
+  _P126_log = F("P[126] _P126_publish : topic : ");
   _P126_log += topic;
   addLog(LOG_LEVEL_DEBUG,_P126_log);
     // Serial.println(_P126_log);
   
   if (MQTTCheck(ctrlid)) {
-    _P126_log = F("P[126] publish : controller check ok");
+    _P126_log = F("P[126] _P126_publish : controller check ok");
     //_P126_log += payload;
     addLog(LOG_LEVEL_DEBUG,_P126_log);
       // Serial.println(_P126_log);
@@ -1685,14 +1650,14 @@ bool publish(int ctrlid, const String& topic, const String& payload) {
       success = MQTTpublish(ctrlid, topic.c_str(), payload.c_str(), Settings.MQTTRetainFlag);
     }
   } else {
-    addLog(LOG_LEVEL_DEBUG, F("[P126] publish : controller check failed"));
+    addLog(LOG_LEVEL_DEBUG, F("[P126] _P126_publish : controller check failed"));
   }
 
 
   return success;
 }
 
-void get_ctrl(struct DiscoveryStruct *discovery) {
+void _P126_get_ctrl(struct DiscoveryStruct *discovery) {
   discovery->ctrlid = firstEnabledMQTTController();
   MakeControllerSettings(ControllerSettings);
   LoadControllerSettings(discovery->ctrlid, ControllerSettings);
@@ -1707,7 +1672,7 @@ void get_ctrl(struct DiscoveryStruct *discovery) {
   discovery->pubinterval = ControllerSettings.MinimalTimeBetweenMessages;
 }
 
-void get_id(struct DiscoveryStruct *discovery) {
+void _P126_get_id(struct DiscoveryStruct *discovery) {
   for (byte x = 0; x < TASKS_MAX; x++) {
     LoadTaskSettings(x);
     int pluginid = Settings.TaskDeviceNumber[x];
@@ -1722,5 +1687,162 @@ void get_id(struct DiscoveryStruct *discovery) {
       _P126_log += String(x);
       addLog(LOG_LEVEL_ERROR,_P126_log);
   }
+}
+
+void _P126_debug(struct DiscoveryStruct *discovery) {
+  String debug;
+ 
+  debug = F("discovery.taskid : ");
+  debug += String(discovery->taskid);
+  debug += F("\n");
+
+  debug += F("discovery->ctrlid : ");
+  debug += String(discovery->ctrlid);
+  debug += F("\n");
+
+  debug += F("discovery->_P126_publish : ");
+  debug += String(discovery->publish);
+  debug += F("\n");
+
+  debug += F("discovery->lwttopic : ");
+  debug += String(discovery->lwttopic);
+  debug += F("\n");
+
+  debug += F("discovery->lwtup : ");
+  debug += String(discovery->lwtup);
+  debug += F("\n");
+
+  debug += F("discovery->lwtdown : ");
+  debug += String(discovery->lwtdown);
+  debug += F("\n");
+
+  debug += F("discovery->qsize : ");
+  debug += String(discovery->qsize);
+  debug += F("\n");
+
+  debug += F("discovery->pubinterval : ");
+  debug += String(discovery->pubinterval);
+  debug += F("\n");
+
+  debug += F("discovery->save.init : ");
+  debug += String(discovery->save.init);
+  debug += F("\n");
+
+  debug += F("discovery->save.prefix : ");
+  debug += String(discovery->save.prefix);
+  debug += F("\n");
+
+  debug += F("discovery->save.custom : ");
+  debug += String(discovery->save.custom);
+  debug += F("\n");
+
+  debug += F("discovery->save.usename : ");
+  debug += String(discovery->save.usename);
+  debug += F("\n");
+
+  debug += F("discovery->save.usecustom : ");
+  debug += String(discovery->save.usecustom);
+  debug += F("\n");
+
+  debug += F("discovery->save.usetask : ");
+  debug += String(discovery->save.usetask);
+  debug += F("\n");
+
+  debug += F("discovery->save.usevalue : ");
+  debug += String(discovery->save.usevalue);
+  debug += F("\n");
+
+  debug += F("discovery->save.moved : ");
+  debug += String(discovery->save.moved);
+  debug += F("\n");
+
+  String topic = F("debug/");
+  topic += String(Settings.Name);
+
+  Serial.println(debug);
+  _P126_publish(discovery->ctrlid, topic, debug);
+
+  for (byte i = 0; i < TASKS_MAX; i++) {
+    debug = F("discovery->save.task[");
+    debug += String(i);
+    debug += F("].enable : ");
+    debug += toString(discovery->save.task[i].enable);
+    debug += F("\n");
+    for (byte j = 0; j < 4; j++) {
+      debug += F("discovery->save.task[");
+      debug += String(i);
+      debug += F("].value[");
+      debug += String(j);
+      debug += F("].enable : ");
+      debug += toString(discovery->save.task[i].value[j].enable);
+      debug += F("\n");
+      
+      debug += F("discovery->save.task[");
+      debug += String(i);
+      debug += F("].value[");
+      debug += String(j);
+      debug += F("].option : ");
+      debug += String(discovery->save.task[i].value[j].option);
+      debug += F(" : ");
+      debug += _P126_class[discovery->save.task[i].value[j].option];
+      debug += F("\n");
+      
+      debug += F("discovery->save.task[");
+      debug += String(i);
+      debug += F("].value[");
+      debug += String(j);
+      debug += F("].unit : ");
+      debug += String(discovery->save.task[i].value[j].unit);
+      debug += F(" : ");
+
+      switch (discovery->save.task[i].value[j].option) {
+        case 0:   //sensor
+          debug += _P126_unit[discovery->save.task[i].value[j].unit];
+          break;
+        case 1:   //battery (same logic as humidity)
+        case 2:   //humidity
+          debug += F("%");
+          break;
+        case 3:   //illuminance
+          debug += _P126_lightunit[discovery->save.task[i].value[j].unit];
+          break;
+        case 4:   //temp
+          debug += _P126_tempunit[discovery->save.task[i].value[j].unit];
+          break;
+        case 5:   //pressure
+          debug += _P126_pressunit[discovery->save.task[i].value[j].unit];
+          break;
+        case 6:   //plant
+          debug += F("mdi:leaf : ");
+          debug += F("%");
+          break;
+        case 7:   //RF
+          debug += F("mdi:radio-tower");
+          break;
+        case 8:   //scale
+          debug += F("mdi:scale : ");
+          debug += _P126_loadunit[discovery->save.task[i].value[j].unit];
+        case 9:
+        case 10:
+          break;
+        case 33:    //water
+          debug += F("mdi:cup-water");
+          break;
+        default:
+          break;
+      }
+      debug += F("\n");
+
+    }
+
+      topic = F("debug/");
+      topic += String(Settings.Name);
+      topic += F("/task");
+      topic += String(i);
+
+      Serial.println(debug);
+      _P126_publish(discovery->ctrlid, topic, debug);
+  } 
+
 }
 //#endif
