@@ -157,14 +157,6 @@
 
 */  
 
-//=======================================================================================//
-  // store these values
-  // prefix
-  // task[12]
-    // value[4]
-      // bool enable
-      // byte option
-
 //#ifdef USES_P126
 //#ifdef PLUGIN_BUILD_DEVELOPMENT
 //#ifdef PLUGIN_BUILD_TESTING
@@ -174,52 +166,64 @@
 #define PLUGIN_ID_126     126     
 #define PLUGIN_NAME_126   "Generic - Homeassistant Discovery [DEVELOPMENT]"  
 
-//#define _P126_DEBUG
-#define _P126_VERSION 48
-#define _P126_INTERVAL 5000
-bool _P126_cleaning = false;
-unsigned long _P126_time;
-byte _P126_increment;
-String _P126_log;
-
-#define _P126_CLASSCOUNT 35
-String _P126_class[_P126_CLASSCOUNT];
-String _P126_unit[9];
-String _P126_lightunit[2];
-String _P126_tempunit[2];
-String _P126_loadunit[4];
-String _P126_pressunit[2];
-
-struct DiscoveryStruct {
-  int taskid;
-  int ctrlid;
-  String publish;
-  String lwttopic;
-  String lwtup;
-  String lwtdown;
-  int qsize;
-  int pubinterval;
-  struct savestruct {
-    byte init;
-    char prefix[21];
-    char custom[41];
-    bool usename;
-    bool usecustom;
-    bool usetask;
-    bool usevalue;
-    bool moved;
-    struct taskstruct {
-      bool enable;
-      struct valuestruct {
-        bool enable;
-        byte option;
-        byte unit;
-      } value[4];
-    } task[TASKS_MAX];
-  } save;
-};
 
 //=======================================================================================//
+// struct + global vars
+
+  #define _P126_VERSION 49
+  #define _P126_INTERVAL 5000
+  #define _P126_CLASSCOUNT 35
+  //#define _P126_DEVICE  // saves another string to flash shown in HA frontend for device "D1mini bedroom", etc
+  //#define _P126_DEBUG
+
+  struct DiscoveryStruct {
+    // temporary
+    int taskid;
+    int ctrlid;
+    String publish;
+    String lwttopic;
+    String lwtup;
+    String lwtdown;
+    int qsize;
+    int pubinterval;
+    // save to flash
+    struct savestruct {
+      byte init;
+      char prefix[21];
+      char custom[41];
+      #ifdef _P126_DEVICE
+      char device[21];
+      #endif
+      bool usename;
+      bool usecustom;
+      bool usetask;
+      bool usevalue;
+      bool moved;
+      struct taskstruct {
+        bool enable;
+        struct valuestruct {
+          bool enable;
+          byte option;
+          byte unit;
+        } value[4];
+      } task[TASKS_MAX];
+    } save;
+  };
+
+  bool _P126_cleaning = false;
+  unsigned long _P126_time;
+  byte _P126_increment;
+  String _P126_log;
+
+  String _P126_class[_P126_CLASSCOUNT];
+  String _P126_unit[9];
+  String _P126_lightunit[2];
+  String _P126_tempunit[2];
+  String _P126_loadunit[4];
+  String _P126_pressunit[2];
+
+//=======================================================================================//
+
 boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
 
   boolean success = false;
@@ -275,7 +279,7 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
           Serial.print(F("discovery.save.custom "));
           Serial.println(String(discovery.save.custom));
           for (byte i = 0; i < TASKS_MAX; i++) {
-            for (byte j = 0; j < 4; j++) {
+            for (byte j = 0; j < VARS_PER_TASK; j++) {
               Serial.print(F("TASK : "));
               Serial.print(String(i));
               Serial.print(F(" - VALUE : "));
@@ -311,7 +315,7 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
           discovery.save.usevalue = true;
           for (byte i = 0; i < TASKS_MAX; i++) {
             discovery.save.task[i].enable = false;
-            for (byte j = 0; j < 4; j++) {
+            for (byte j = 0; j < VARS_PER_TASK; j++) {
               discovery.save.task[i].value[j].enable = false;
               discovery.save.task[i].value[j].option = 10;
               discovery.save.task[i].value[j].unit = 0;
@@ -335,8 +339,10 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
       //=======================================================================================//
       // global settings
         addFormSubHeader(F("GLOBAL SETTINGS"));
-        
-        addFormTextBox(String(F("discovery prefix ")), String(F("Plugin_126_prefix")), discovery.save.prefix, 20);
+        #ifdef _P126_DEVICE
+        addFormTextBox(String(F("hardware model")), String(F("Plugin_126_device")), discovery.save.device, 20);
+        #endif
+        addFormTextBox(String(F("discovery prefix")), String(F("Plugin_126_prefix")), discovery.save.prefix, 20);
         addFormNote(F("Change discovery topic here, if done in home-assistant. Defaults to \"homeassistant\"."));
         
         html_BR();
@@ -444,11 +450,11 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
 
           int duration = TASKS_MAX * 2 * _P126_INTERVAL /1000/60;
           int payloads = TASKS_MAX * 2 * 4;
-          tmpnote = F("<br><font color=\"red\">Warning! cleanup will send ");
+          tmpnote = F("<br><font color=\"red\">Warning!</font> Cleanup will send ");
           tmpnote += String(payloads);
           tmpnote += F(" empty payloads in about ");
           tmpnote += String(duration);
-          tmpnote += F(" minutes. This might slow down or even crash the unit.</font>");
+          tmpnote += F(" minutes. This might slow down or even crash the unit.");
           addFormNote(tmpnote);
         }
 
@@ -535,7 +541,7 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
         discovery.save.moved = false;
         for (byte i = 0; i < TASKS_MAX; i++) {
           discovery.save.task[i].enable = false;
-          for (byte j = 0; j < 4; j++) {
+          for (byte j = 0; j < VARS_PER_TASK; j++) {
             discovery.save.task[i].value[j].enable = false;
             discovery.save.task[i].value[j].option = 10;
             discovery.save.task[i].value[j].unit = 0;
@@ -546,6 +552,9 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
 
       //=======================================================================================//
       // copy settings from webserver to settings struct
+        #ifdef _P126_DEVICE
+        strncpy(discovery.save.device, WebServer.arg(F("Plugin_126_device")).c_str(), sizeof(discovery.save.device));
+        #endif
         strncpy(discovery.save.prefix, WebServer.arg(F("Plugin_126_prefix")).c_str(), sizeof(discovery.save.prefix));
           #ifdef _P126_DEBUG
             Serial.print(F("prefix from form: "));
@@ -862,7 +871,7 @@ int _P126_find_sensors(struct DiscoveryStruct *discovery, bool save) {
               addFormSubHeader(header);
             }
 
-            for (byte x = 0; x < 4; x++) {                           // for each value
+            for (byte x = 0; x < VARS_PER_TASK; x++) {                           // for each value
               if (x < Device[DeviceIndex].ValueCount) {
                 if (String(ExtraTaskSettings.TaskDeviceValueNames[x]).length() > 0) {
                   _P126_log = F("P[126] found value with name : ");
@@ -1149,6 +1158,9 @@ bool _P126_system_config(struct DiscoveryStruct *discovery, bool brief) {
         payload += F("\"json_attr\":[\"plugin\",\"unit\",\"version\",\"uptime\",\"cpu\",\"hostname\",\"ip\",\"mac\",\"ssid\",\"bssid\",\"rssi\",\"last_disconnect\",\"last_boot_cause\"],");
       }
       payload += _P126_add_device(brief);
+      #ifdef _P126_DEVICE
+      payload.replace(ARDUINO_BOARD,discovery->save.device);
+      #endif
       payload += F("}");
         _P126_log = F("P[126] payload created : ");
         _P126_log += payload;
@@ -1321,6 +1333,9 @@ bool _P126_sensor_config(struct DiscoveryStruct *discovery, bool brief) {
               payload += _P126_add_line(F("pl_not_avail"), discovery->lwtdown);
               if (!brief) payload += _P126_add_line(F("frc_upd"), F("true"));
               payload += _P126_add_device(brief);
+              #ifdef _P126_DEVICE
+              payload.replace(ARDUINO_BOARD,discovery->save.device);
+              #endif
               payload += F("}");
               
             } else {                                                            // if disabled, publish empty payload to delete
@@ -1452,7 +1467,7 @@ bool _P126_cleanup(struct DiscoveryStruct *discovery) {
     component = F("binary_sensor");
   } 
 
-    for (byte x = 0; x <= 3; x++) {                       // for each value
+    for (byte x = 0; x < VARS_PER_TASK; x++) {                       // for each value
       success = false;
 
       String uniquestr = _P126_make_unique(taskid, x);
@@ -1769,7 +1784,7 @@ void _P126_debug(struct DiscoveryStruct *discovery) {
     debug += F("].enable : ");
     debug += toString(discovery->save.task[i].enable);
     debug += F("\n");
-    for (byte j = 0; j < 4; j++) {
+    for (byte j = 0; j < VARS_PER_TASK; j++) {
       debug += F("discovery->save.task[");
       debug += String(i);
       debug += F("].value[");
