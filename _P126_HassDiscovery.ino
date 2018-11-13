@@ -601,15 +601,6 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
       break;
     }
 
-    case PLUGIN_INIT:
-    {
-      _P126_make_classes();
-
-      success = true;
-      break;
-
-    }
-
     case PLUGIN_READ:
     {
       //=======================================================================================//
@@ -833,6 +824,7 @@ int _P126_find_sensors(struct DiscoveryStruct *discovery, bool save) {
   byte lastTaskIndex = TASKS_MAX - 1;
   byte lastActiveTaskIndex = 0;
 
+  _P126_make_classes();
 
   if (save) {
     lastActiveTaskIndex = lastTaskIndex;
@@ -1185,7 +1177,9 @@ bool _P126_sensor_config(struct DiscoveryStruct *discovery, bool brief) {
   bool success = false;
 
   byte lastTaskIndex = TASKS_MAX - 1;
-  
+
+  _P126_make_classes();
+
   for (byte TaskIndex = 0; TaskIndex <= lastTaskIndex; TaskIndex++) {   // for each task
 
     if (discovery->save.task[TaskIndex].enable) {
@@ -1696,7 +1690,9 @@ void _P126_get_id(struct DiscoveryStruct *discovery) {
 
 void _P126_debug(struct DiscoveryStruct *discovery) {
   String debug;
- 
+
+  _P126_make_classes();
+
   debug = F("discovery.taskid : ");
   debug += String(discovery->taskid);
   debug += F("\n");
