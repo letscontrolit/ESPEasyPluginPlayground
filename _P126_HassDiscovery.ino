@@ -1,213 +1,273 @@
-//=======================================================================================//
-//                                                                                       //
-//                              HOMEASSISTANT DISCOVERY                                  //
-//                                                                                       //
-//=======================================================================================//
+//---------------------------------------------------------------------------//
+//                                                                           //
+//                          HOMEASSISTANT DISCOVERY                          //
+//                                                                           //
+//---------------------------------------------------------------------------//
 /* by michael baeck
-    plugin searches for active mqtt-enabled taskvalues and pushes json payloads 
-    for homeassistant to take for discovery.
-    https://www.letscontrolit.com/forum/viewtopic.php?f=18&t=6061
+  plugin searches for active mqtt-enabled taskvalues and pushes json payloads 
+  for homeassistant to take for discovery.
+  https://www.letscontrolit.com/forum/viewtopic.php?f=18&t=6061
 
-    [!] MAJOR ISSUE:  by espeasy default MQTT_MAX_PACKET_SIZE in pubsubclient.h is set to 384
-    [!]               most payloads will be 500-600
-    [!]               section in lib\pubsubclient\src\PubSubClient.h:
-                      // MQTT_MAX_PACKET_SIZE : Maximum packet size
-                      #ifndef MQTT_MAX_PACKET_SIZE
-                      #define MQTT_MAX_PACKET_SIZE 384 // need to fix this here, because this define cannot be overruled within the Arduino sketch...
-                      #endif
-
-    1 value = 1 entity. 
-    whole unit (ESP) = 1 device & 1 entity.
-
-    classification of sensor (motion, light, temp, etc.) can be done in webform.
-
-    devices can also be deleted but homeassistant refuses to remove them from its store.
-    (it's an issue with HA not removing entries from core.entity_registry/core.device_registry and not related to this plugin)
-
-    this is my first arduino code and first commit ever to anything, but it's pretty useful already.
-    testing and feedback highly appreciated!
-
-
-    only tested on a couple of 4M ESP12 yet, ESP01 and ESP32 soon. 
-    storage might be short on ESP32 as struct reserves space for all tasks
-
-    [*] stay tuned for more plugins like homeassistant-switch, etc
-
-    supported components
-      custom                  //[todo]
-        binary_sensor
-          [x] water
-          [ ] door
-        sensor
-          [x] plant
-          [x] radio
-          [x] scale
-      homeassistant native
-        [X] binary_sensor     [1/0]
-              battery           [low/norm]
-              cold              [cold/norm]
-              connectivity      [conn/disco]
-              door              [open/close]
-              garage_door       [open/close]
-              gas               [gas/clear]
-              heat              [hot/norm]
-              light             [light/dark]
-              lock              [unlocked/locked]
-              moisture          [wet/dry]
-              motion            [motion/clear]
-              moving            [moving/stopped]
-              occupancy         [occ/clear]
-              opening           [open/close]
-              plug              [plug/unplug]
-              power             [power/none]
-              presesnce         [home/away]
-              problem           [problem/ok]
-              safety            [unsafe/safe]
-              smoke             [smoke/clear]
-              sound             [sound/clear]
-              vibration         [vibration/clear]
-              window            [open/close]
-        [X] sensor
-              battery
-              humimdity
-              illuminance
-                [x] unit_of_measurement lx or lm
-              temperature
-                [x] unit_of_measurement °C or °F
-              ppressure
-                [x] unit_of_measurement hPa or mbar
-        [ ] camera
-        [ ] cover
-              damper
-              garage
-              window
-        [ ] fan
-        [ ] climate
-        [ ] light
-        [ ] lock
-        [ ] switch
+  * REQUIRES P128 (Homeassistant Output Device) to be included!
+  * P126 + P128 are dependend on each other (at least to compile, may be changed later)
     
-    naming conventions
-      entity_id               COMPONENT.SYSNAME_TASK_VALUE  (adjustable)
+  [!] MAJOR ISSUE:  by espeasy default MQTT_MAX_PACKET_SIZE in pubsubclient.h is set to 384
+  [!]               most payloads will be 500-600, please increase for testing this plugin.
+  [!]               section in lib\pubsubclient\src\PubSubClient.h:
+                    // MQTT_MAX_PACKET_SIZE : Maximum packet size
+                    #ifndef MQTT_MAX_PACKET_SIZE
+                    #define MQTT_MAX_PACKET_SIZE 384
+                    #endif
 
-      last-will-topic         -> controller settings
+  1 value = 1 entity. 
+  whole unit (ESP) = 1 device & 1 entity.
 
-      sensor-discovery-topic  PREFIX / COMPONENT / MAC / MAC_TASKID_VALUEID /config
-      sensor-state-topic      -> controller settings
+  classification of sensor (motion, light, temp, etc.) can be done in webform.
 
-      system-discovery-topic  PREFIX / COMPONENT / MAC / MAC_system /config
-      system-state-topic      PREFIX / COMPONENT / MAC / MAC_system /state
+  devices can also be deleted but homeassistant refuses to remove them from its store.
+  (it's an issue with HA, that should be fixed soon)
 
-      observation-this-unit   PREFIX / + / MAC / + /config       
-      observation-all-units   PREFIX / + / + / + /config
+  this is my first arduino code and first commit ever to anything, but it's pretty useful already.
+  However, it's all done learning by doing and code might be ugly...
+  testing and feedback highly appreciated!
 
-      example payload:
-      {
+
+  only tested on a couple of 4M ESP12 yet, ESP01 soon, ESP32 doesn't compile. 
+  storage might be short on ESP32 as struct reserves space for all tasks
+
+  * stay tuned for more plugins like homeassistant-switch, etc
+
+  supported components
+    binary_sensor
+      [X] homeassistant native  [1/0]
+        [X] battery           [low/norm]
+        [X] cold              [cold/norm]
+        [X] connectivity      [conn/disco]
+        [X] door              [open/close]
+        [X] garage_door       [open/close]
+        [X] gas               [gas/clear]
+        [X] heat              [hot/norm]
+        [X] light             [light/dark]
+        [X] lock              [unlocked/locked]
+        [X] moisture          [wet/dry]
+        [X] motion            [motion/clear]
+        [X] moving            [moving/stopped]
+        [X] occupancy         [occ/clear]
+        [X] opening           [open/close]
+        [X] plug              [plug/unplug]
+        [X] power             [power/none]
+        [X] presesnce         [home/away]
+        [X] problem           [problem/ok]
+        [X] safety            [unsafe/safe]
+        [X] smoke             [smoke/clear]
+        [X] sound             [sound/clear]
+        [X] vibration         [vibration/clear]
+        [X] window            [open/close]
+      [x] custom
+        [x] water
+    sensor
+      [X] homeassistant native
+        [x] battery
+        [x] humimdity
+        [x] illuminance
+          [x] unit_of_measurement lx or lm
+        [x] temperature
+          [x] unit_of_measurement °C or °F
+        [x] pressure
+          [x] unit_of_measurement hPa or mbar
+      [x] custom
+        [x] plant
+        [x] radio
+        [x] scale
+      [ ] camera
+      [ ] cover
+            damper
+            garage
+            window
+
+      [ ] fan
+      [ ] climate
+      [ ] light
+      [ ] lock
+    output
+      [dev] switch
+        [test] simple gpio switch (included)
+        [dev] complex switch (via P128)
+  
+  naming conventions
+    entity_id               COMPONENT.SYSNAME_TASK_VALUE    (adjustable)
+                            COMPONENT.char[26]_char[41]_char[41]
+
+    last-will-topic         -> controller settings
+
+    sensor-discovery-topic  PREFIX / COMPONENT / MAC / MAC_TASKID_VALUEID /config
+    sensor-state-topic      -> controller settings
+
+    system-discovery-topic  PREFIX / COMPONENT / MAC / MAC_system /config
+    system-state-topic      PREFIX / COMPONENT / MAC / MAC_system /state
+
+    observation-this-unit   PREFIX / + / MAC / + /config       
+    observation-all-units   PREFIX / + / + / + /config
+
+    example payload:
+    {
+      "name":"esp22",
+      "ic":"mdi:chip",
+      "stat_t":"dev/sensor/807D3A6EA0C5/807D3A6EA0C5_system/state",
+      "val_tpl":"{{ value_json.state }}",
+      "uniq_id":"807D3A6EA0C5_system",
+      "avty_t":"esp22/state",
+      "pl_avail":"online",
+      "pl_not_avail":"offline",
+      "json_attr":["plugin","unit","version","uptime","cpu","hostname","ip","mac","ssid","bssid","rssi","last_disconnect","last_boot_cause" ],
+      "device":{
+        "sw_version":"EspEasy - Mega (Nov 12 2018)",
+        "manufacturer":"letscontrolit.com",
+        "model":"PLATFORMIO_ESP12E",
+        "connections":[["mac","80:7D:3A:6E:A0:C5"]],
         "name":"esp22",
-        "ic":"mdi:chip",
-        "stat_t":"dev/sensor/807D3A6EA0C5/807D3A6EA0C5_system/state",
-        "val_tpl":"{{ value_json.state }}",
-        "uniq_id":"807D3A6EA0C5_system",
-        "avty_t":"esp22/state",
-        "pl_avail":"online",
-        "pl_not_avail":"offline",
-        "json_attr":["plugin","unit","version","uptime","cpu","hostname","ip","mac","ssid","bssid","rssi","last_disconnect","last_boot_cause" ],
-        "device":{
-          "sw_version":"EspEasy - Mega (Nov 12 2018)",
-          "manufacturer":"letscontrolit.com",
-          "model":"PLATFORMIO_ESP12E",
-          "connections":[["mac","80:7D:3A:6E:A0:C5"]],
-          "name":"esp22",
-          "identifiers":["7250117","807D3A6EA0C5"]
-        }
+        "identifiers":["7250117","807D3A6EA0C5"]
       }
+    }
 
-    bugs/todo
-      [!] no command return (commands working though)
-      [todo] simple/advanced mode
-      [test] unit choice
-      [?] assign unit by Pxxx
+  bugs/todo
+    [!] no command return (commands working though)
+    [todo] simple/advanced mode
+    [test] unit choice
+    [test] assign settings by Pxxx
 
-    build results [20181112]
-      [!]  Environment esp-wrover-kit_test_1M8_partition   [ERROR]
-      [!]  Environment esp32dev                            [ERROR]
-      [!]  Environment esp32test_1M8_partition             [ERROR]
-      [x]  Environment normal_ESP8266_1024                 [SUCCESS]
-      [x]  Environment normal_core_241_ESP8266_1024        [SUCCESS]
-      [x]  Environment normal_ESP8285_1024                 [SUCCESS]
-      [x]  Environment normal_WROOM02_2048                 [SUCCESS]
-      [x]  Environment normal_ESP8266_4096                 [SUCCESS]
-      [x]  Environment normal_core_241_ESP8266_4096        [SUCCESS]
-      [x]  Environment normal_IR_ESP8266_4096              [SUCCESS]
-      [x]  Environment test_ESP8266_1024                   [SUCCESS]
-      [x]  Environment test_ESP8285_1024                   [SUCCESS]
-      [x]  Environment test_WROOM02_2048                   [SUCCESS]
-      [x]  Environment test_ESP8266_4096                   [SUCCESS]
-      [x]  Environment test_ESP8266_4096_VCC               [SUCCESS]
-      [x]  Environment dev_ESP8266_1024                    [SUCCESS]
-      [x]  Environment dev_ESP8285_1024                    [SUCCESS]
-      [x]  Environment dev_WROOM02_2048                    [SUCCESS]
-      [x]  Environment dev_ESP8266_4096                    [SUCCESS]
-      [x]  Environment dev_ESP8266PUYA_1024                [SUCCESS]
-      [x]  Environment dev_ESP8266PUYA_1024_VCC            [SUCCESS]
-      [x]  Environment hard_SONOFF_POW                     [SUCCESS]
-      [x]  Environment hard_SONOFF_POW_R2_4M               [SUCCESS]
-      [x]  Environment hard_Shelly_1                       [SUCCESS]
-      [x]  Environment hard_Ventus_W266                    [SUCCESS]
-
+  build results [20181112]
+    [!]  Environment esp-wrover-kit_test_1M8_partition   [ERROR]
+    [!]  Environment esp32dev                            [ERROR]
+    [!]  Environment esp32test_1M8_partition             [ERROR]
+    [x]  Environment normal_ESP8266_1024                 [SUCCESS]
+    [x]  Environment normal_core_241_ESP8266_1024        [SUCCESS]
+    [x]  Environment normal_ESP8285_1024                 [SUCCESS]
+    [x]  Environment normal_WROOM02_2048                 [SUCCESS]
+    [x]  Environment normal_ESP8266_4096                 [SUCCESS]
+    [x]  Environment normal_core_241_ESP8266_4096        [SUCCESS]
+    [x]  Environment normal_IR_ESP8266_4096              [SUCCESS]
+    [x]  Environment test_ESP8266_1024                   [SUCCESS]
+    [x]  Environment test_ESP8285_1024                   [SUCCESS]
+    [x]  Environment test_WROOM02_2048                   [SUCCESS]
+    [x]  Environment test_ESP8266_4096                   [SUCCESS]
+    [x]  Environment test_ESP8266_4096_VCC               [SUCCESS]
+    [x]  Environment dev_ESP8266_1024                    [SUCCESS]
+    [x]  Environment dev_ESP8285_1024                    [SUCCESS]
+    [x]  Environment dev_WROOM02_2048                    [SUCCESS]
+    [x]  Environment dev_ESP8266_4096                    [SUCCESS]
+    [x]  Environment dev_ESP8266PUYA_1024                [SUCCESS]
+    [x]  Environment dev_ESP8266PUYA_1024_VCC            [SUCCESS]
+    [x]  Environment hard_SONOFF_POW                     [SUCCESS]
+    [x]  Environment hard_SONOFF_POW_R2_4M               [SUCCESS]
+    [x]  Environment hard_Shelly_1                       [SUCCESS]
+    [x]  Environment hard_Ventus_W266                    [SUCCESS]
 */  
+
 
 //#ifdef USES_P126
 //#ifdef PLUGIN_BUILD_DEVELOPMENT
 //#ifdef PLUGIN_BUILD_TESTING
 //#define PLUGIN_119_DEBUG  true
 
+// force using discovery plugin when using this one
+#ifndef USES_P128
+ #define USES_P128
+#endif
+
 #define PLUGIN_126
 #define PLUGIN_ID_126     126     
 #define PLUGIN_NAME_126   "Generic - Homeassistant Discovery [DEVELOPMENT]"  
 
-
-//=======================================================================================//
+//---------------------------------------------------------------------------//
 // struct + global vars
+  #define _P126_VERSION             53
 
-  #define _P126_VERSION 49
-  #define _P126_INTERVAL 5000
-  #define _P126_CLASSCOUNT 35
-  //#define _P126_DEVICE  // saves another string to flash shown in HA frontend for device "D1mini bedroom", etc
+  #define _P126_HASWITCH            128
+  #define _P128_F(taskid,mode) (_P128_make_config(discovery,taskid,mode))            
+  #define _P128_WEB             1
+  #define _P128_COMPONENT       2
+  #define _P128_ENTITYID        3
+  #define _P128_PAYLOAD         4
+  #define _P128_TOPIC           5
+  #define _P128_COMPCOUNT       7 // 9
+
+  #define _P126_INTERVAL            5000
+  #define _P126_CLASSCOUNT          9
+  #define _P126_BINCLASSCOUNT       26
+
+  #define _P126_GENERIC         0         //  %   raw   K
+  #define _P126_BATTERY         1   
+  #define _P126_HUMIDITY        2
+  #define _P126_LIGHT           3
+  #define _P126_TEMP            4
+  #define _P126_PRESSURE        5
+  #define _P126_PLANT           6
+  #define _P126_RADIO           7
+  #define _P126_LOAD            8
+
+  #define _P126_UNITMAP             1
+  #define _P126_LIGHTUNITMAP        2
+  #define _P126_TEMPUNITMAP         3
+  #define _P126_LOADUNITMAP         4
+  #define _P126_PRESSUNITMAP        5
+  #define _P126_COLORUNITMAP        6
+  #define _P126_DISTANCEUNITMAP     7
+  #define _P126_PARTICLEUNITMAP     8
+  #define _P126_ENERGYUNITMAP       9
+  #define _P126_PERCENTUNITMAP      10
+
+  #define _P126_UNITCOUNT           9
+  #define _P126_LIGHTUNITCOUNT      4
+  #define _P126_TEMPUNITCOUNT       2
+  #define _P126_LOADUNITCOUNT       4
+  #define _P126_PRESSUNITCOUNT      2
+  #define _P126_COLORUNITCOUNT      8
+  #define _P126_DISTANCEUNITCOUNT   4
+  #define _P126_PARTICLEUNITCOUNT   3
+  #define _P126_ENERGYUNITCOUNT     4
+
+  #define _P126_MAXCLASS            _P126_BINCLASSCOUNT
+  #define _P126_MAXUNIT             _P126_UNITCOUNT
+
+  //#define _P126_DEVICE  // saves another char to flash shown in HA frontend for device "D1mini bedroom", etc
   //#define _P126_DEBUG
 
   struct DiscoveryStruct {
     // temporary
-    int taskid;
-    int ctrlid;
-    String publish;
-    String lwttopic;
-    String lwtup;
-    String lwtdown;
-    int qsize;
-    int pubinterval;
+      int taskid;
+      int ctrlid;
+      String cmdtopic;
+      String publish;
+      String lwttopic;
+      String lwtup;
+      String lwtdown;
+      int qsize;
+      int pubinterval;
     // save to flash
-    struct savestruct {
-      byte init;
-      char prefix[21];
-      char custom[41];
-      #ifdef _P126_DEVICE
-      char device[21];
-      #endif
-      bool usename;
-      bool usecustom;
-      bool usetask;
-      bool usevalue;
-      bool moved;
-      struct taskstruct {
-        bool enable;
-        struct valuestruct {
+      struct savestruct {
+        byte init;
+        char prefix[21];
+        char custom[41];
+        #ifdef _P126_DEVICE
+        char device[21];
+        #endif
+        bool usename;
+        bool usecustom;
+        bool usetask;
+        bool usevalue;
+        bool moved;
+        struct taskstruct {
           bool enable;
-          byte option;
-          byte unit;
-        } value[4];
-      } task[TASKS_MAX];
-    } save;
+          struct valuestruct {
+            bool enable;
+            bool binary;
+            byte type;
+            byte unit;
+            byte unitmap;
+          } value[4];
+        } task[TASKS_MAX];
+      } save;
   };
 
   bool _P126_cleaning = false;
@@ -216,13 +276,18 @@
   String _P126_log;
 
   String _P126_class[_P126_CLASSCOUNT];
-  String _P126_unit[9];
-  String _P126_lightunit[2];
-  String _P126_tempunit[2];
-  String _P126_loadunit[4];
-  String _P126_pressunit[2];
+  String _P126_binclass[_P126_BINCLASSCOUNT];
+  String _P126_unit[_P126_UNITCOUNT];
+  String _P126_lightunit[_P126_LIGHTUNITCOUNT];
+  String _P126_tempunit[_P126_TEMPUNITCOUNT];
+  String _P126_loadunit[_P126_LOADUNITCOUNT];
+  String _P126_pressunit[_P126_PRESSUNITCOUNT];
+  String _P126_colorunit[_P126_COLORUNITCOUNT];
+  String _P126_distanceunit[_P126_DISTANCEUNITCOUNT];
+  String _P126_particleunit[_P126_PARTICLEUNITCOUNT];
+  String _P126_energyunit[_P126_ENERGYUNITCOUNT];
 
-//=======================================================================================//
+//---------------------------------------------------------------------------//
 
 boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
 
@@ -257,8 +322,7 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
 
     case PLUGIN_WEBFORM_LOAD:
     {
-
-      //=======================================================================================//
+      //---------------------------------------------------------------------------//
       // load user setting
         struct DiscoveryStruct discovery;
           discovery.ctrlid = 0;
@@ -268,36 +332,15 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
 
         LoadCustomTaskSettings(event->TaskIndex, (byte*)&discovery.save, sizeof(discovery.save));
 
-        #ifdef _P126_DEBUG
-          Serial.print(F("loaded struct for TaskIndex : "));
-          Serial.println(String(event->TaskIndex));
-          Serial.println(F("--------------- LOAD ---------------------------"));
-          Serial.print(F("discovery.save.init : "));
-          Serial.println(String(discovery.save.init));  
-          Serial.print(F("discovery.save.prefix "));
-          Serial.println(String(discovery.save.prefix));
-          Serial.print(F("discovery.save.custom "));
-          Serial.println(String(discovery.save.custom));
-          for (byte i = 0; i < TASKS_MAX; i++) {
-            for (byte j = 0; j < VARS_PER_TASK; j++) {
-              Serial.print(F("TASK : "));
-              Serial.print(String(i));
-              Serial.print(F(" - VALUE : "));
-              Serial.print(String(j));
-              Serial.print(F(" - ENABLE : "));
-              Serial.print(String(discovery.save.task[i].value[j].enable));
-              Serial.print(F(" - OPTION : "));
-              Serial.print(String(discovery.save.task[i].value[j].option));
-              Serial.print(F(" - UNIT : "));
-              Serial.println(String(discovery.save.task[i].value[j].unit));
-            }
-          }
-        #endif
-
         String errnote = F("<br>");
         if (discovery.save.init != _P126_VERSION) {
+        //---------------------------------------------------------------------------//
+        // clean settings, if major changes in plugin to avoid corrupt config
           if (discovery.save.init == 0) {
+            // set default strings, if new config (and keep if older config)
             errnote = F("No settings found.");
+            strncpy(discovery.save.prefix, "homeassistant", sizeof(discovery.save.prefix));
+            strncpy(discovery.save.custom, "customstring", sizeof(discovery.save.custom));
           } else {
             errnote = F("<font color=\"red\">Loaded settings with ID ");
             errnote += String(discovery.save.init);
@@ -307,8 +350,6 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
           }
           errnote += F(" Loading defaults.<br><br>");        
 
-          strncpy(discovery.save.prefix, "homeassistant", sizeof(discovery.save.prefix));
-          strncpy(discovery.save.custom, "customstring", sizeof(discovery.save.custom));
           discovery.save.usecustom = false;
           discovery.save.usename = true;
           discovery.save.usetask = true;
@@ -317,26 +358,26 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
             discovery.save.task[i].enable = false;
             for (byte j = 0; j < VARS_PER_TASK; j++) {
               discovery.save.task[i].value[j].enable = false;
-              discovery.save.task[i].value[j].option = 10;
+              discovery.save.task[i].value[j].binary = false;
+              discovery.save.task[i].value[j].type = 0;
               discovery.save.task[i].value[j].unit = 0;
+              discovery.save.task[i].value[j].unitmap = 0;
             }
           } 
         }        
-      //=======================================================================================//
-    
 
-      //=======================================================================================//
+
+      //---------------------------------------------------------------------------//
       // introduction
         html_BR();
         tmpnote += errnote;
-        tmpnote += F("This plugin will push sensor configs that are compliant to home-assistant's discovery feature.");
-        tmpnote += F("<br>There will be one additional sensor for the ESP node itself which contains system info like wifi-signal, ip-address, etc.");
+        tmpnote += F("This plugin pushes configs that are compliant to home-assistant's discovery feature.");
+        tmpnote += F("<br>It creates one additional sensor for the ESP node itself which contains system info like wifi-signal, ip-address, etc.");
         tmpnote += F(" Interval setting on bottom defines update frequency of that sensor. Set to 0 to disable.");
         addFormNote(tmpnote);
-      //=======================================================================================//
       
 
-      //=======================================================================================//
+      //---------------------------------------------------------------------------//
       // global settings
         addFormSubHeader(F("GLOBAL SETTINGS"));
         #ifdef _P126_DEVICE
@@ -350,11 +391,11 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
         addFormCheckBox(String(F("include sysname")), String(F("Plugin_126_usename")), discovery.save.usename);
         addFormCheckBox(String(F("include custom")), String(F("Plugin_126_usecustom")), discovery.save.usecustom);
         addFormCheckBox(String(F("include taskname")), String(F("Plugin_126_usetask")), discovery.save.usetask);
-        //addFormCheckBox(String(F("use value name")), String(F("Plugin_126_usevalue")), discovery.save.usevalue);
-        //if (discovery.save.usecustom) {
+        //.addFormCheckBox(String(F("use value name")), String(F("Plugin_126_usevalue")), discovery.save.usevalue);
+        //.if (discovery.save.usecustom) {
         addFormTextBox(String(F("custom string ")), String(F("Plugin_126_custom")), discovery.save.custom, 40);
         addFormCheckBox(String(F("move custom to end")), String(F("Plugin_126_moved")), discovery.save.moved);
-        //}
+        //.}
 
         html_BR();
 
@@ -362,7 +403,7 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
         tmpnote += F(" Click submit to preview your settings before publishing.");
         addFormNote(tmpnote);
 
-        //=======================================================================================//
+        //---------------------------------------------------------------------------//
         // show example entity_id based on settings
           bool b1 = discovery.save.usename;
           String s1 = Settings.Name;
@@ -370,7 +411,7 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
           String s2 = discovery.save.custom;
           bool b3 = discovery.save.usetask;
           String s3 = F("%tskname%");
-          bool b4 = true; //discovery.save.usevalue;
+          bool b4 = true; //.discovery.save.usevalue;
           String s4 = F("%valname%");
           if (discovery.save.moved) {
             b4 = discovery.save.usecustom;
@@ -402,49 +443,33 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
           entity_id.toLowerCase();
           addHtml(entity_id);
 
-          #ifdef _P126_DEBUG
-            Serial.print(F("customstr(String()) "));
-            Serial.println(String(discovery.save.custom));
-            String tmpcustom = String(discovery.save.custom);
-            Serial.print(F("customstr(String tmpcustom) "));
-            Serial.println(tmpcustom);
-            Serial.print(F("customstr(char) "));
-            Serial.println(discovery.save.custom);
-          #endif
 
-          // if (discovery.save.custom == "") {
-          //   Serial.print(F("custom string empty turning false "));
-          //   b2 = false;
-          //   Serial.print(F("b2 usecustom "));
-          //   Serial.println(toString(b2));
-          // }
-        //=======================================================================================//
-
-      //=======================================================================================//
-
-
-      //=======================================================================================//
+      //---------------------------------------------------------------------------//
       // device settings
         int msgcount = _P126_find_sensors(&discovery);
+        
+        SaveCustomTaskSettings(event->TaskIndex, (byte*)&discovery.save, sizeof(discovery.save)); // need to save unit-map here
+
         if (Settings.TaskDeviceTimer[event->TaskIndex] > 0) msgcount++;
-      //=======================================================================================//
     
 
-      //=======================================================================================//
+      //---------------------------------------------------------------------------//
       // command buttons
         addFormSubHeader(F("CONTROL"));
 
-        tmpnote = F("<br>Configs will NOT be pushed automatically. Once plugin is saved, you can use the buttons below.<br>");
-        tmpnote += F("You can trigger actions via these commands as well: \"<b>discovery,update</b>\", \"<b>discovery,delete</b>\" and \"<b>discovery,cleanup</b>\" ");
+        tmpnote =  F("<br>Configs will NOT be pushed automatically. ");
+        tmpnote += F("Once plugin is saved, you can use the buttons below.<br>");
+        tmpnote += F("You can trigger actions via these commands as well: ");
+        tmpnote += F("\"<b>discovery,update</b>\", \"<b>discovery,delete</b>\" and \"<b>discovery,cleanup</b>\" ");
         addFormNote(tmpnote);
 
-        //html_BR();
+        //.html_BR();
 
         if (Settings.TaskDeviceEnabled[event->TaskIndex] && !_P126_cleaning) {
           html_BR();
           
-          addButton(F("/tools?cmd=discovery%2Cupdate"), "Update Configs");
-          addButton(F("/tools?cmd=discovery%2Cdelete"), "Delete Configs");
+          addButton(F("/tools?cmd=discovery%2Cupdate"), F("Update Configs"));
+          addButton(F("/tools?cmd=discovery%2Cdelete"), F("Delete Configs"));
           addButton(F("/tools?cmd=discovery%2Ccleanup"), F("Full cleanup"));
           html_BR();
 
@@ -454,22 +479,21 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
           tmpnote += String(payloads);
           tmpnote += F(" empty payloads in about ");
           tmpnote += String(duration);
-          tmpnote += F(" minutes. This might slow down or even crash the unit.");
+          tmpnote += F(" minutes.");
           addFormNote(tmpnote);
         }
 
         if (_P126_cleaning) {
           html_BR();
           int duration = (TASKS_MAX * 2 - (_P126_increment + 1)) * _P126_INTERVAL / 1000;
-          String message = F("<font color=\"red\">cleanup IN PROGESS!</font> Remaining time: about ");
+          String message = F("<font color=\"red\">CLEANUP IN PROGESS!</font> Remaining time: about ");
           message += String(duration);
           message += F(" seconds");
           addHtml(message);
         }
-      //=======================================================================================//
 
 
-      //=======================================================================================//
+      //---------------------------------------------------------------------------//
       // notes
         addFormSubHeader(F("NOTES"));
 
@@ -486,15 +510,29 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
           tmpnote += F(". Consider increasing it, if not all configs reach homeassistant.");
         }
 
+        if (discovery.lwtup.length() > 10) {
+          tmpnote += F("Your LWT Connect Message is <font color=\"#07D\">");
+          tmpnote += String(discovery.lwtup.length());
+          tmpnote += F("</font> charackters long");
+          tmpnote += F(". Consider to shorten it, to reduce payload size.");
+        }
+
+        if (discovery.lwtdown.length() > 10) {
+          tmpnote += F("Your LWT Disconnect Message is <font color=\"#07D\">");
+          tmpnote += String(discovery.lwtdown.length());
+          tmpnote += F("</font> charackters long");
+          tmpnote += F(". Consider to shorten it, to reduce payload size.");
+        }
+
         if (!Settings.MQTTRetainFlag) {
           tmpnote += F("<br>- Retain option is not set. It's highly advised to set it in advanced settings.");
         }
 
-        if (discovery.pubinterval < 500) {
-          tmpnote += F("<br>- Message interval is set to <font color=\"#07D\">");
-          tmpnote += String(discovery.pubinterval);
-          tmpnote += F("</font>ms. Consider increasing it, if not all configs reach homeassistant.");
-        }
+        // if (discovery.pubinterval < 500) {
+        //   tmpnote += F("<br>- Message interval is set to <font color=\"#07D\">");
+        //   tmpnote += String(discovery.pubinterval);
+        //   tmpnote += F("</font>ms. Consider increasing it, if not all configs reach homeassistant.");
+        // }
         
         tmpnote += F("<br>- ESPEasy limits mqtt message size to <font color=\"#07D\">");
         tmpnote += String(MQTT_MAX_PACKET_SIZE);
@@ -505,7 +543,7 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
         tmpnote += F("<br>- Don't forget to submit this form, before using commands.");
 
         tmpnote += F("<br>- New sensors will be added immediately to homeassistant.");
-        tmpnote += F(" Changes and deletions require homeassistant to be rebooted.");
+        tmpnote += F(" Changes and deletions require homeassistant to be restarted.");
 
         tmpnote += F("<br><br>v");
         tmpnote += _P126_VERSION;
@@ -516,7 +554,7 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
         tmpnote += F("Byte flash");
 
         addFormNote(tmpnote);
-      //=======================================================================================//
+      //---------------------------------------------------------------------------//
 
       success = true;
       break;
@@ -524,7 +562,7 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
 
     case PLUGIN_WEBFORM_SAVE:
     {
-      //=======================================================================================//
+      //---------------------------------------------------------------------------//
       // init settings struct
         struct DiscoveryStruct discovery;
 
@@ -543,14 +581,15 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
           discovery.save.task[i].enable = false;
           for (byte j = 0; j < VARS_PER_TASK; j++) {
             discovery.save.task[i].value[j].enable = false;
-            discovery.save.task[i].value[j].option = 10;
+            discovery.save.task[i].value[j].binary = false;
+            discovery.save.task[i].value[j].type = 0;
             discovery.save.task[i].value[j].unit = 0;
+              discovery.save.task[i].value[j].unitmap = 0;
           }
         } 
-      //=======================================================================================//
 
 
-      //=======================================================================================//
+      //---------------------------------------------------------------------------//
       // copy settings from webserver to settings struct
         #ifdef _P126_DEVICE
         strncpy(discovery.save.device, WebServer.arg(F("Plugin_126_device")).c_str(), sizeof(discovery.save.device));
@@ -593,18 +632,16 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
           #endif
 
         _P126_find_sensors(&discovery, true);
-      //=======================================================================================//
 
 
-      //=======================================================================================//
+      //---------------------------------------------------------------------------//
       // save user settings to flash
         SaveCustomTaskSettings(event->TaskIndex, (byte*)&discovery.save, sizeof(discovery.save));
           #ifdef _P126_DEBUG
             Serial.println(F("saved discovery to flash "));
             Serial.println(F("-----------------------------------------------------"));
           #endif
-      //=======================================================================================//
-
+      //---------------------------------------------------------------------------//
 
       success = true;
       break;
@@ -612,21 +649,23 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
 
     case PLUGIN_READ:
     {
-      //=======================================================================================//
+      //---------------------------------------------------------------------------//
       // load settings
         struct DiscoveryStruct discovery;
         LoadCustomTaskSettings(event->TaskIndex, (byte*)&discovery.save, sizeof(discovery.save));
       
+      //---------------------------------------------------------------------------//
       // valid check
         if (discovery.save.init != _P126_VERSION) {
           addLog(LOG_LEVEL_ERROR, F("[P126] no valid settings found!"));
           success = false;
         } else {
+      //---------------------------------------------------------------------------//    
       // publish system state
           _P126_get_ctrl(&discovery);
           success = _P126_system_state(&discovery, false);
         }
-      //=======================================================================================//
+      //---------------------------------------------------------------------------//
 
       break;
     }
@@ -649,7 +688,7 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
         if (_P126_cleaning) {
           addLog(LOG_LEVEL_ERROR, F("[P126] cleanup in progress, ignoring command"));
         } else {
-          //=======================================================================================//
+          //---------------------------------------------------------------------------//
           // load settings
             struct DiscoveryStruct discovery;
             _P126_get_id(&discovery);   // search for taskid (not given with event)
@@ -661,7 +700,7 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
             } 
 
             _P126_get_ctrl(&discovery);
-          //=======================================================================================//
+          //---------------------------------------------------------------------------//
 
           argIndex = string.lastIndexOf(',');
           tmpString = string.substring(argIndex + 1);
@@ -749,71 +788,101 @@ boolean Plugin_126(byte function, struct EventStruct *event, String& string) {
   return success;
 }
 
-//=======================================================================================//
+//---------------------------------------------------------------------------//
+// plugin functions
 void _P126_make_classes() {
 
-  //=======================================================================================//
+  //---------------------------------------------------------------------------//
   // declare classes and units
-    _P126_class[0] = F("------SENSOR-------");        //  %   raw   K
-    _P126_class[1] = F("battery");                    //  %   
-    _P126_class[2] = F("humidity");                   //  %
-    _P126_class[3] = F("illuminance");                //  lx  lm
-    _P126_class[4] = F("temperature");                //  °C  °F
-    _P126_class[5] = F("pressure");                   //  hPa mbar
-    _P126_class[6] = F("plant");                      //  %
-    _P126_class[7] = F("radio/RF");                      //  none
-    _P126_class[8] = F("scale/load/weight");          //  kg
+    _P126_class[_P126_GENERIC] = F("generic sensor");        //  %   raw   K
+    _P126_class[_P126_BATTERY] = F("battery");                    //  %   
+    _P126_class[_P126_HUMIDITY] = F("humidity");                   //  %
+    _P126_class[_P126_LIGHT] = F("illuminance");                //  lx  lm
+    _P126_class[_P126_TEMP] = F("temperature");                //  °C  °F
+    _P126_class[_P126_PRESSURE] = F("pressure");                   //  hPa mbar
+    _P126_class[_P126_PLANT] = F("plant");                      //  %
+    _P126_class[_P126_RADIO] = F("radio/RF");                      //  none
+    _P126_class[_P126_LOAD] = F("scale/load/weight");          //  kg
 
-    _P126_class[10] = F("---BINARY_SENSOR---");
-    _P126_class[11] = F("battery"); 
-    _P126_class[12] = F("cold");
-    _P126_class[13] = F("connectivity");
-    _P126_class[14] = F("door");
-    _P126_class[15] = F("garage_door");
-    _P126_class[16] = F("gas");
-    _P126_class[17] = F("heat");
-    _P126_class[18] = F("light");
-    _P126_class[19] = F("lock");
-    _P126_class[20] = F("moisture");
-    _P126_class[21] = F("motion");
-    _P126_class[22] = F("moving");
-    _P126_class[23] = F("occupancy");
-    _P126_class[24] = F("opening");
-    _P126_class[25] = F("plug");
-    _P126_class[26] = F("power");
-    _P126_class[27] = F("presence");
-    _P126_class[28] = F("problem");
-    _P126_class[29] = F("safety");
-    _P126_class[30] = F("smoke");
-    _P126_class[31] = F("sound");
-    _P126_class[32] = F("vibration");
-    _P126_class[33] = F("water");
-    _P126_class[34] = F("window");
+    _P126_binclass[0] = F("generic binary sensor");
+    _P126_binclass[1] = F("OUTPUT switch");
+    _P126_binclass[2] = F("battery"); 
+    _P126_binclass[3] = F("cold");
+    _P126_binclass[4] = F("connectivity");
+    _P126_binclass[5] = F("door");
+    _P126_binclass[6] = F("garage_door");
+    _P126_binclass[7] = F("gas");
+    _P126_binclass[8] = F("heat");
+    _P126_binclass[9] = F("light");
+    _P126_binclass[10] = F("lock");
+    _P126_binclass[11] = F("moisture");
+    _P126_binclass[12] = F("motion");
+    _P126_binclass[13] = F("moving");
+    _P126_binclass[14] = F("occupancy");
+    _P126_binclass[15] = F("opening");
+    _P126_binclass[16] = F("plug");
+    _P126_binclass[17] = F("power");
+    _P126_binclass[18] = F("presence");
+    _P126_binclass[19] = F("problem");
+    _P126_binclass[20] = F("safety");
+    _P126_binclass[21] = F("smoke");
+    _P126_binclass[22] = F("sound");
+    _P126_binclass[23] = F("vibration");
+    _P126_binclass[24] = F("water");
+    _P126_binclass[25] = F("window");
 
-    _P126_unit[0] = F("raw");
+    _P126_unit[0] = F("NONE ");
     _P126_unit[1] = F("%");
-    _P126_unit[2] = F("K");     // Kelvin
-    _P126_unit[3] = F("dB");
-    _P126_unit[4] = F("V");     // Volt
-    _P126_unit[5] = F("A");     // Ampere
-    _P126_unit[6] = F("h");     // hours
-    _P126_unit[7] = F("m");     // minutes
-    _P126_unit[8] = F("s");     // seconds
+    _P126_unit[2] = F("dB");
+    _P126_unit[3] = F("count"); 
+    _P126_unit[4] = F("total");
+    _P126_unit[5] = F("h");     // hours
+    _P126_unit[6] = F("m");     // minutes
+    _P126_unit[7] = F("s");     // seconds
+    _P126_unit[8] = F("raw");
 
     _P126_lightunit[0] = F("lx");
     _P126_lightunit[1] = F("lm");
+    _P126_lightunit[2] = F("infrared");
+    _P126_lightunit[3] = F("broadband");
 
     _P126_tempunit[0] = F("°C");
     _P126_tempunit[1] = F("°F");
+
+    _P126_energyunit[0] = F("V");
+    _P126_energyunit[1] = F("A");
+    _P126_energyunit[2] = F("W");
+    _P126_energyunit[3] = F("Pulses");
+    _P126_energyunit[4] = F("raw");
 
     _P126_loadunit[0] = F("g");
     _P126_loadunit[1] = F("kg");
     _P126_loadunit[2] = F("lb");
     _P126_loadunit[3] = F("raw");
 
+    _P126_distanceunit[0] = F("mm");
+    _P126_distanceunit[1] = F("cm");
+    _P126_distanceunit[2] = F("m");
+    _P126_distanceunit[3] = F("ft");
+
+    _P126_particleunit[0] = F("pm");
+    _P126_particleunit[1] = F("ppm");
+    _P126_particleunit[2] = F("dust");
+    // _P126_particleunit[1] = F("pm2.5");
+    // _P126_particleunit[2] = F("pm10");
+
     _P126_pressunit[0] = F("hPa");
     _P126_pressunit[1] = F("mbar");
-  //=======================================================================================//
+
+    _P126_colorunit[0] = F("r");
+    _P126_colorunit[1] = F("g");
+    _P126_colorunit[2] = F("b");
+    _P126_colorunit[3] = F("W");
+    _P126_colorunit[4] = F("Y");
+    _P126_colorunit[5] = F("K");
+    _P126_colorunit[6] = F("lx");
+    _P126_colorunit[7] = F("%");
+  //---------------------------------------------------------------------------//
 
 }
 
@@ -826,7 +895,8 @@ int _P126_find_sensors(struct DiscoveryStruct *discovery, bool save) {
   _P126_log = F("P[126] search active tasks: state of save is : ");
   _P126_log += String(save);
   addLog(LOG_LEVEL_DEBUG,_P126_log);
-  // Serial.println(_P126_log);
+
+    _P126_debug2(F("find sensor, save mode : "), save);
 
   int msgcount = 0;
   byte firstTaskIndex = 0;
@@ -845,40 +915,47 @@ int _P126_find_sensors(struct DiscoveryStruct *discovery, bool save) {
   
   for (byte TaskIndex = firstTaskIndex; TaskIndex <= lastActiveTaskIndex; TaskIndex++) {      // for each task
     //discovery->save.task[TaskIndex].enable = false;
-
-    if (Settings.TaskDeviceNumber[TaskIndex]) {                                               // if task exists
-      byte DeviceIndex = getDeviceIndex(Settings.TaskDeviceNumber[TaskIndex]);
+    _P126_debug2(F("find sensor "));
+    _P126_debug2(F("taskindex "), TaskIndex);
+    if (Settings.TaskDeviceNumber[TaskIndex]) {    
+      byte pluginid = Settings.TaskDeviceNumber[TaskIndex];                                         // if task exists
+    _P126_debug2(F("pluginid "),pluginid);
+      byte DeviceIndex = getDeviceIndex(pluginid);
       LoadTaskSettings(TaskIndex);
 
-      if (Settings.TaskDeviceEnabled[TaskIndex]) {                                              // if task enabled
+      if (Settings.TaskDeviceEnabled[TaskIndex]) {                                            // if task enabled
         bool ctrlenabled = false;
-        for (byte x = 0; x < CONTROLLER_MAX; x++) {                                             // if any controller enabled //[TODO] only if specific controller matches
+        _P126_debug2(F("task is enabled "));
+        for (byte x = 0; x < CONTROLLER_MAX; x++) {                                           // if any controller enabled //[TODO] only if specific controller matches
           if (Settings.TaskDeviceSendData[x][TaskIndex]) ctrlenabled = true;
         }
 
         if (ctrlenabled) {
-          if (Device[DeviceIndex].ValueCount != 0) {                                              // only tasks with values
+          if (Device[DeviceIndex].ValueCount != 0) {                                          // only tasks with values
             _P126_log = F("P[126] found active task with id : ");
             _P126_log += String(TaskIndex);
             addLog(LOG_LEVEL_DEBUG,_P126_log);
             // Serial.println(_P126_log);
-            
+            _P126_debug2(F("ctrl enabled and values available "));
             if (!save) {
               String header = F("Task ");
               header += String(TaskIndex + 1);
               header += F(" - ");
               header += getPluginNameFromDeviceIndex(DeviceIndex);
               addFormSubHeader(header);
+              _P126_debug2(F("print header "),header);
             }
 
-            for (byte x = 0; x < VARS_PER_TASK; x++) {                           // for each value
-              if (x < Device[DeviceIndex].ValueCount) {
+                      byte unitmap; //[todo] where to declare? compiler complaining
+
+            for (byte x = 0; x < VARS_PER_TASK; x++) {                                        // for each value
+              if (x < Device[DeviceIndex].ValueCount && !(x > 0 && pluginid == _P126_HASWITCH)) {
                 if (String(ExtraTaskSettings.TaskDeviceValueNames[x]).length() > 0) {
                   _P126_log = F("P[126] found value with name : ");
                   _P126_log += String(ExtraTaskSettings.TaskDeviceValueNames[x]);
                   addLog(LOG_LEVEL_DEBUG,_P126_log);
                   // Serial.println(_P126_log);
-                  
+                  _P126_debug2(F("starting with value "),x);
                   msgcount++;
 
                   String enableid = F("P126_");
@@ -886,30 +963,45 @@ int _P126_find_sensors(struct DiscoveryStruct *discovery, bool save) {
                   enableid += F("_");
                   enableid += String(x);
                   enableid += F("_enable");
+                  _P126_debug2(F("enableid "),enableid);
 
-                  String optionid = F("P126_");
-                  optionid += String(TaskIndex);
-                  optionid += F("_");
-                  optionid += String(x);
-                  optionid += F("_option");
+                  String classid = F("P126_");
+                  classid += String(TaskIndex);
+                  classid += F("_");
+                  classid += String(x);
+                  classid += F("_type");
+                  _P126_debug2(F("classid "),classid);
 
                   String unitid = F("P126_");
-                  optionid += String(TaskIndex);
-                  optionid += F("_");
-                  optionid += String(x);
-                  optionid += F("_unit");
+                  unitid += String(TaskIndex);
+                  unitid += F("_");
+                  unitid += String(x);
+                  unitid += F("_unit");
+                  _P126_debug2(F("unitid: "),unitid);
+
+                  String outputid = F("P126_");
+                  outputid += String(TaskIndex);
+                  outputid += F("_");
+                  outputid += String(x);
+                  outputid += F("_output");
+                  _P126_debug2(F("outputid: "),outputid);
 
                   if (!save) {  // if loading webform
-                    // add value header                  
+                    //---------------------------------------------------------------------------//
+                    // print value header                  
                       String valuename = F("<font color=\"#07D\"><b>");
                       valuename += String(ExtraTaskSettings.TaskDeviceName);
-                      valuename += F(" ");
-                      valuename += String(ExtraTaskSettings.TaskDeviceValueNames[x]);
-                      valuename += F("</b></font>");
+                      if (pluginid != _P126_HASWITCH) {
+                        valuename += F(" ");
+                        valuename += String(ExtraTaskSettings.TaskDeviceValueNames[x]);
+                        valuename += F("</b></font>");
+                      }
                       
                       html_TR_TD();
                       addHtml(valuename);
-                    // add full entity_id
+                      _P126_debug2(F("valuename: "),valuename);
+                    //---------------------------------------------------------------------------//
+                    // print entity_id
                       bool b1 = discovery->save.usename;
                       String s1 = Settings.Name;
                       bool b2 = discovery->save.usecustom;
@@ -918,7 +1010,12 @@ int _P126_find_sensors(struct DiscoveryStruct *discovery, bool save) {
                       String s3 = ExtraTaskSettings.TaskDeviceName;
                       bool b4 = discovery->save.usevalue;
                       String s4 = ExtraTaskSettings.TaskDeviceValueNames[x];
-                      if (String(discovery->save.custom).length() == 0) b2 = false;
+
+                      if (s1.length() == 0) b1 = false;
+                      if (s2.length() == 0) b2 = false;
+                      if (s3.length() == 0) b3 = false;
+                      if (s4.length() == 0) b4 = false;
+
                       // change order if set
                         if (discovery->save.moved) {
                           b4 = discovery->save.usecustom;
@@ -930,84 +1027,357 @@ int _P126_find_sensors(struct DiscoveryStruct *discovery, bool save) {
                         }
 
                       String entity_id = F("<span class='note'>");
-                      if (discovery->save.task[TaskIndex].value[x].option < 10) {
-                        entity_id += F("sensor.");
+                      if (pluginid == _P126_HASWITCH) {
+                        entity_id += _P128_F(TaskIndex, _P128_COMPONENT);
+                        entity_id += F(".");
+                        b3 = true;
+                        b4 = false;
                       } else {
-                        entity_id += F("binary_sensor.");
+                        if (discovery->save.task[TaskIndex].value[x].binary) {
+                          if (discovery->save.task[TaskIndex].value[x].type == 1) {
+                            entity_id += F("switch.");
+                          } else {
+                            entity_id += F("binary_sensor.");
+                          }
+                        } else {
+                          entity_id += F("sensor.");
+                        }
                       }
 
-                      if (b1) {
-                        entity_id += String(s1);
-                        if (b2 || b3 || b4) entity_id += F("_");
-                      }
+                        if (b1) {
+                          entity_id += String(s1);
+                          if (b2 || b3 || b4) entity_id += F("_");
+                        }
 
-                      if (b2) {
-                        entity_id += String(s2); 
-                        if (b3 || b4) entity_id += F("_");
-                      }
+                        if (b2) {
+                          entity_id += String(s2); 
+                          if (b3 || b4) entity_id += F("_");
+                        }
 
-                      if (b3) {
-                        entity_id += String(s3);
-                        if (b4) entity_id += F("_");
-                      }
+                        if (b3) {
+                          entity_id += String(s3);
+                          if (b4) entity_id += F("_");
+                        }
 
-                      if (b4) {
-                      entity_id += String(s4);
-                      }
+                        if (b4) {
+                        entity_id += String(s4);
+                        }
+                      
+
                       entity_id += F("</span>");
                       entity_id.toLowerCase();
                       
                       html_TD();
                       addHtml(entity_id);
+                      _P126_debug2(F("entityid "),entity_id);
 
                       if (String(ExtraTaskSettings.TaskDeviceValueNames[x]).length() == 0) {
                         addFormNote(F("No valuename set in device options!"));
+                        _P126_debug2(F("no valuename set "));
                       }
 
-                    // add user input
-                      addFormSelector(F("type"), optionid, _P126_CLASSCOUNT, _P126_class, NULL, discovery->save.task[TaskIndex].value[x].option);
+                    //---------------------------------------------------------------------------//
+                    // define settings by plugin
+                      int pluginid = Settings.TaskDeviceNumber[TaskIndex];
 
-                      switch (discovery->save.task[TaskIndex].value[x].option) {
-                        case 0:
-                          addFormSelector(F("unit"), unitid, 9, _P126_unit, NULL, discovery->save.task[TaskIndex].value[x].unit);
+                      int classcount = 0;
+                      String *classdropdown[_P126_MAXCLASS];
+                      int classpreselect = 0;
+
+                      int unitcount = 0;
+                      String *unitdropdown[_P126_MAXUNIT];
+                      String singleunit;
+                      _P126_debug2(F("search settings for plugin "),pluginid);
+
+                      // by default make float-sensor choice 
+                      for (byte y = 0; y < _P126_CLASSCOUNT; y++) {
+                        classdropdown[y] = &_P126_class[y];
+                      }
+
+
+                      switch (pluginid) {
+                        case _P126_HASWITCH:
+                        // if task is HA-Device plugin make vars to skip next steps 
+                          classcount = -2;
+                          unitcount = -2;
+                          _P126_debug2(F("plugin is HAswitch, break "));
                           break;
-                        case 3:
-                          addFormSelector(F("unit"), unitid, 2, _P126_lightunit, NULL, discovery->save.task[TaskIndex].value[x].unit);
+                        case 1: //switch
+                        case 9:
+                        case 19:
+                        // if task is binary, overwrite choice with binary options
+                        // for binary no unit required...
+                          _P126_debug2(F("binary sensor found "));
+                          classcount = _P126_BINCLASSCOUNT;
+                          for (byte y = 0; y < _P126_BINCLASSCOUNT; y++) {
+                            classdropdown[y] = &_P126_binclass[y];
+                          }
                           break;
-                        case 4:
-                          addFormSelector(F("unit"), unitid, 2, _P126_tempunit, NULL, discovery->save.task[TaskIndex].value[x].unit);
+
+                        case 4:   //temp
+                        case 24:   //temp
+                        case 39:   //temp
+                        case 69:   //temp
+                        case 5:   //temp/humidity
+                        case 14:  //temp/humidity
+                        case 31:  //temp/humidity
+                        case 34:  //temp/humidity
+                        case 51:  //temp/humidity
+                        case 68:  //temp/humidity
+                        case 72:  //temp/humidity
+                        case 28:  //temp/humidity/pressure
+                          _P126_debug2(F("temp/hum/press found "));
+                          switch (x) {
+                            case 0:
+                              classpreselect = _P126_TEMP;
+                              unitcount = _P126_TEMPUNITCOUNT;
+                              unitmap = _P126_TEMPUNITMAP;
+                              for (byte y = 0; y < _P126_TEMPUNITCOUNT; y++) {
+                                unitdropdown[y] = &_P126_tempunit[y];
+                              }
+                              break;
+                            case 1:
+                              classpreselect = _P126_HUMIDITY;
+                              unitcount = 1;
+                              singleunit = F("%");
+                              unitdropdown[0] = &singleunit;
+                              unitmap = _P126_PERCENTUNITMAP;
+                              break;
+                            case 2:
+                              classpreselect = _P126_PRESSURE;
+                              unitcount = _P126_PRESSUNITCOUNT;
+                              unitmap = _P126_PRESSUNITMAP;
+                              for (byte y = 0; y < _P126_PRESSUNITCOUNT; y++) {
+                                unitdropdown[y] = &_P126_pressunit[y];
+                              }
+                              break;
+                          }
                           break;
-                        case 5:
-                          addFormSelector(F("unit"), unitid, 2, _P126_pressunit, NULL, discovery->save.task[TaskIndex].value[x].unit);
+
+                        case 6:  //temp/pressure
+                        case 30:  //temp/pressure
+                        case 32:  //temp/pressure
+                          switch (x) {
+                            case 0:
+                              classpreselect = _P126_TEMP;
+                              unitcount = _P126_TEMPUNITCOUNT;
+                              unitmap = _P126_TEMPUNITMAP;
+                              for (byte y = 0; y < _P126_TEMPUNITCOUNT; y++) {
+                                unitdropdown[y] = &_P126_tempunit[y];
+                              }
+                              break;
+                            case 1:
+                              classpreselect = _P126_PRESSURE;
+                              unitcount = _P126_PRESSUNITCOUNT;
+                              unitmap = _P126_PRESSUNITMAP;
+                              for (byte y = 0; y < _P126_PRESSUNITCOUNT; y++) {
+                                unitdropdown[y] = &_P126_pressunit[y];
+                              }
+                              break;
+                          }
                           break;
-                        case 8:
-                          addFormSelector(F("unit"), unitid, 4, _P126_loadunit, NULL, discovery->save.task[TaskIndex].value[x].unit);
+
+                        case 47:  //temp/moisture/light
+                          switch (x) {
+                            case 0:
+                              classpreselect = _P126_TEMP;
+                              unitcount = _P126_TEMPUNITCOUNT;
+                              unitmap = _P126_TEMPUNITMAP;
+                              for (byte y = 0; y < _P126_TEMPUNITCOUNT; y++) {
+                                unitdropdown[y] = &_P126_tempunit[y];
+                              }
+                              break;
+                            case 1:
+                              unitcount = 1;
+                              singleunit = F("%");
+                              unitdropdown[0] = &singleunit;
+                              unitmap = _P126_PERCENTUNITMAP;
+                              break;
+                            case 2:
+                              classpreselect = _P126_LIGHT;
+                              unitcount = _P126_LIGHTUNITCOUNT;
+                              unitmap = _P126_LIGHTUNITMAP;
+                              for (byte y = 0; y < _P126_LIGHTUNITCOUNT; y++) {
+                                unitdropdown[y] = &_P126_lightunit[y];
+                              }
+                              break;
+                          }
                           break;
+                        case 10: //light
+                        case 15:
+                          classpreselect = _P126_LIGHT;
+                          unitcount = _P126_LIGHTUNITCOUNT;
+                          unitmap = _P126_LIGHTUNITMAP;
+                          for (byte y = 0; y < _P126_LIGHTUNITCOUNT; y++) {
+                            unitdropdown[y] = &_P126_lightunit[y];
+                          }
+                          break;
+
+                        case 13: //distance
+                        // has no class, to be skipped
+                          classcount = -1;
+                          unitcount = _P126_DISTANCEUNITCOUNT;
+                          unitmap = _P126_DISTANCEUNITMAP;
+                          for (byte y = 0; y < _P126_DISTANCEUNITCOUNT; y++) {
+                            unitdropdown[y] = &_P126_distanceunit[y];
+                          }
+                          break;
+
+                        case 49:  //dust/temp
+                          switch (x) {
+                            case 0:
+                            // has no class, to be skipped
+                              classcount = -1;
+                              unitcount = _P126_PARTICLEUNITCOUNT;
+                              unitmap = _P126_PARTICLEUNITMAP;
+                              for (byte y = 0; y < _P126_PARTICLEUNITCOUNT; y++) {
+                                unitdropdown[y] = &_P126_particleunit[y];
+                              }
+                              break;
+                            case 1:
+                              classpreselect = _P126_TEMP;
+                              unitcount = _P126_TEMPUNITCOUNT;
+                              unitmap = _P126_TEMPUNITMAP;
+                              for (byte y = 0; y < _P126_TEMPUNITCOUNT; y++) {
+                                unitdropdown[y] = &_P126_tempunit[y];
+                              }
+                              break;
+                          }
+                          break;
+
+                        case 18:
+                        case 56: //dust/dust
+                        case 53: //dust/dust/dust
+                        // has no class, to be skipped
+                          classcount = -1;
+                          unitcount = _P126_PARTICLEUNITCOUNT;
+                          unitmap = _P126_PARTICLEUNITMAP;
+                          for (byte y = 0; y < _P126_PARTICLEUNITCOUNT; y++) {
+                            unitdropdown[y] = &_P126_particleunit[y];
+                          }
+                          break;
+
+                        case 66: //color
+                        case 50:
+                          classpreselect = _P126_LIGHT;
+                          unitcount = _P126_COLORUNITCOUNT;
+                          unitmap = _P126_COLORUNITMAP;
+                          for (byte y = 0; y < _P126_COLORUNITCOUNT; y++) {
+                            unitdropdown[y] = &_P126_colorunit[y];
+                          }
+                          break;
+
+                        case 67: //hx711 customclass
+                          classpreselect = _P126_LOAD;
+                          unitcount = _P126_LOADUNITCOUNT;
+                          unitmap = _P126_LOADUNITMAP;
+                          for (byte y = 0; y < _P126_LOADUNITCOUNT; y++) {
+                            unitdropdown[y] = &_P126_loadunit[y];
+                          }
+                          break;
+
+                        case 78: //energy variable
+                        case 76:
+                        case 77:
+                        case 27:
+                        // has no class, to be skipped
+                          classcount = -1;
+                          unitcount = _P126_ENERGYUNITCOUNT;
+                          unitmap = _P126_ENERGYUNITMAP;
+                          for (byte y = 0; y < _P126_ENERGYUNITCOUNT; y++) {
+                            unitdropdown[y] = &_P126_energyunit[y];
+                          }
+                          break;
+
+                        default: //anything else
+                        // no class found, let user choose
+                          classcount = _P126_CLASSCOUNT;
+                          unitcount = -1;
+                          break;
+                      }
+
+                      // no class found, let user choose
+                      if (classcount > 0) { 
+                        addFormSelector(F("type"), classid, classcount, *classdropdown, NULL, discovery->save.task[TaskIndex].value[x].type);
+                      // class found and preselected
+                      } else if (classcount == 0) { 
+                        addFormSelector(F("type"), classid, _P126_CLASSCOUNT, *classdropdown, NULL, classpreselect);
+                      }
+                      // for classified and classless, give unit choice
+                      if (unitcount > 0) addFormSelector(F("unit"), unitid, unitcount, *unitdropdown, NULL, discovery->save.task[TaskIndex].value[x].unit);
+
+                    //---------------------------------------------------------------------------//
+                    // if no plugin settings defined (anything else), take user input
+                      if (unitcount == -1) {
+                        switch (discovery->save.task[TaskIndex].value[x].type) {
+                          case 0: //generic
+                            unitcount = _P126_UNITCOUNT;
+                            unitmap = _P126_UNITMAP;
+                            for (byte y = 0; y < _P126_UNITCOUNT; y++) {
+                              unitdropdown[y] = &_P126_unit[y];
+                            }
+                            break;
+                          case 3:
+                            unitcount = _P126_LIGHTUNITCOUNT;
+                            unitmap = _P126_LIGHTUNITMAP;
+                            for (byte y = 0; y < _P126_LIGHTUNITCOUNT; y++) {
+                              unitdropdown[y] = &_P126_lightunit[y];
+                            }
+                            break;
+                          case 4:
+                            unitcount = _P126_TEMPUNITCOUNT;
+                            unitmap = _P126_TEMPUNITMAP;
+                              for (byte y = 0; y < _P126_TEMPUNITCOUNT; y++) {
+                                unitdropdown[y] = &_P126_tempunit[y];
+                              }
+                            break;
+                          case 5:
+                            unitcount = _P126_PRESSUNITCOUNT;
+                            unitmap = _P126_PRESSUNITMAP;
+                            for (byte y = 0; y < _P126_PRESSUNITCOUNT; y++) {
+                              unitdropdown[y] = &_P126_pressunit[y];
+                            }
+                            break;
+                          case 1: //battery
+                          case 2: //humidity
+                          case 6: //plant
+                              unitcount = 1;
+                              singleunit = F("%");
+                              unitdropdown[0] = &singleunit;
+                              unitmap = _P126_PERCENTUNITMAP;
+                              break;
+                          case 8: //load
+                            unitcount = _P126_LOADUNITCOUNT;
+                            unitmap = _P126_LOADUNITMAP;
+                            for (byte y = 0; y < _P126_LOADUNITCOUNT; y++) {
+                              unitdropdown[y] = &_P126_loadunit[y];
+                            }
+                            break;
+                        }
+
+                        addFormSelector(F("unit"), unitid, unitcount, *unitdropdown, NULL, discovery->save.task[TaskIndex].value[x].unit);
                       }
 
                       addFormCheckBox(F("enable"), enableid, discovery->save.task[TaskIndex].value[x].enable);
 
+                      discovery->save.task[TaskIndex].value[x].unitmap = unitmap;
+
                       html_BR();
+                    //---------------------------------------------------------------------------//
 
-                  } else {      // if saving webform
-                    int defaultoption;
-                    if (DeviceIndex == 1) {
-                      defaultoption = 10;
-                    } else {
-                      defaultoption = 0;
-                    }
-                    _P126_log = F("P[126] saving _P126_class : ");
-                    _P126_log += _P126_class[getFormItemInt(optionid, defaultoption)];
-                    addLog(LOG_LEVEL_DEBUG,_P126_log);
+                  } else {    // if saving webform
+                    int pluginid = Settings.TaskDeviceNumber[TaskIndex];
 
-                    if (String(ExtraTaskSettings.TaskDeviceValueNames[x]).length() == 0) {
+                    if (pluginid == (1 || 9 || 19)) discovery->save.task[TaskIndex].value[x].binary = true;
+
+                    if (String(ExtraTaskSettings.TaskDeviceValueNames[x]).length() == 0) {    // disable if empty value name
                       discovery->save.task[TaskIndex].value[x].enable = false;
                     } else {
-                      discovery->save.task[TaskIndex].value[x].enable = isFormItemChecked(enableid);
-                      if (discovery->save.task[TaskIndex].value[x].enable) discovery->save.task[TaskIndex].enable = true;
+                      discovery->save.task[TaskIndex].value[x].enable = isFormItemChecked(enableid);    // else use user input
+                      if (discovery->save.task[TaskIndex].value[x].enable) discovery->save.task[TaskIndex].enable = true;   // if value enabled, enable task as well
                     }
 
-                    discovery->save.task[TaskIndex].value[x].option = getFormItemInt(optionid, defaultoption);
+                    discovery->save.task[TaskIndex].value[x].type = getFormItemInt(classid, 0);
 
                     discovery->save.task[TaskIndex].value[x].unit = getFormItemInt(unitid, 0);
                   }
@@ -1023,112 +1393,6 @@ int _P126_find_sensors(struct DiscoveryStruct *discovery, bool save) {
 }
 
 bool _P126_system_config(struct DiscoveryStruct *discovery, bool brief) {
-
-  /*  home-assistant parameters
-    'aux_cmd_t':           'aux_command_topic',
-    'aux_stat_tpl':        'aux_state_template',
-    'aux_stat_t':          'aux_state_topic',
-    'avty_t':              'availability_topic',
-    'away_mode_cmd_t':     'away_mode_command_topic',
-    'away_mode_stat_tpl':  'away_mode_state_template',
-    'away_mode_stat_t':    'away_mode_state_topic',
-    'bri_cmd_t':           'brightness_command_topic',
-    'bri_scl':             'brightness_scale',
-    'bri_stat_t':          'brightness_state_topic',
-    'bri_val_tpl':         'brightness_value_template',
-    'clr_temp_cmd_t':      'color_temp_command_topic',
-    'clr_temp_stat_t':     'color_temp_state_topic',
-    'clr_temp_val_tpl':    'color_temp_value_template',
-    'cmd_t':               'command_topic',
-    'curr_temp_t':         'current_temperature_topic',
-    'dev_cla':             'device_class',
-    'fx_cmd_t':            'effect_command_topic',
-    'fx_list':             'effect_list',
-    'fx_stat_t':           'effect_state_topic',
-    'fx_val_tpl':          'effect_value_template',
-    'exp_aft':             'expire_after',
-    'fan_mode_cmd_t':      'fan_mode_command_topic',
-    'fan_mode_stat_tpl':   'fan_mode_state_template',
-    'fan_mode_stat_t':     'fan_mode_state_topic',
-    'frc_upd':             'force_update',
-    'hold_cmd_t':          'hold_command_topic',
-    'hold_stat_tpl':       'hold_state_template',
-    'hold_stat_t':         'hold_state_topic',
-    'ic':                  'icon',
-    'init':                'initial',
-    'json_attr':           'json_attributes',
-    'max_temp':            'max_temp',
-    'min_temp':            'min_temp',
-    'mode_cmd_t':          'mode_command_topic',
-    'mode_stat_tpl':       'mode_state_template',
-    'mode_stat_t':         'mode_state_topic',
-    'name':                'name',
-    'on_cmd_type':         'on_command_type',
-    'opt':                 'optimistic',
-    'osc_cmd_t':           'oscillation_command_topic',
-    'osc_stat_t':          'oscillation_state_topic',
-    'osc_val_tpl':         'oscillation_value_template',
-    'pl_arm_away':         'payload_arm_away',
-    'pl_arm_home':         'payload_arm_home',
-    'pl_avail':            'payload_available',
-    'pl_cls':              'payload_close',
-    'pl_disarm':           'payload_disarm',
-    'pl_hi_spd':           'payload_high_speed',
-    'pl_lock':             'payload_lock',
-    'pl_lo_spd':           'payload_low_speed',
-    'pl_med_spd':          'payload_medium_speed',
-    'pl_not_avail':        'payload_not_available',
-    'pl_off':              'payload_off',
-    'pl_on':               'payload_on',
-    'pl_open':             'payload_open',
-    'pl_osc_off':          'payload_oscillation_off',
-    'pl_osc_on':           'payload_oscillation_on',
-    'pl_stop':             'payload_stop',
-    'pl_unlk':             'payload_unlock',
-    'pow_cmd_t':           'power_command_topic',
-    'ret':                 'retain',
-    'rgb_cmd_tpl':         'rgb_command_template',
-    'rgb_cmd_t':           'rgb_command_topic',
-    'rgb_stat_t':          'rgb_state_topic',
-    'rgb_val_tpl':         'rgb_value_template',
-    'send_if_off':         'send_if_off',
-    'set_pos_tpl':         'set_position_template',
-    'set_pos_t':           'set_position_topic',
-    'spd_cmd_t':           'speed_command_topic',
-    'spd_stat_t':          'speed_state_topic',
-    'spd_val_tpl':         'speed_value_template',
-    'spds':                'speeds',
-    'stat_clsd':           'state_closed',
-    'stat_off':            'state_off',
-    'stat_on':             'state_on',
-    'stat_open':           'state_open',
-    'stat_t':              'state_topic',
-    'stat_val_tpl':        'state_value_template',
-    'swing_mode_cmd_t':    'swing_mode_command_topic',
-    'swing_mode_stat_tpl': 'swing_mode_state_template',
-    'swing_mode_stat_t':   'swing_mode_state_topic',
-    'temp_cmd_t':          'temperature_command_topic',
-    'temp_stat_tpl':       'temperature_state_template',
-    'temp_stat_t':         'temperature_state_topic',
-    'tilt_clsd_val':       'tilt_closed_value',
-    'tilt_cmd_t':          'tilt_command_topic',
-    'tilt_inv_stat':       'tilt_invert_state',
-    'tilt_max':            'tilt_max',
-    'tilt_min':            'tilt_min',
-    'tilt_opnd_val':       'tilt_opened_value',
-    'tilt_status_opt':     'tilt_status_optimistic',
-    'tilt_status_t':       'tilt_status_topic',
-    't':                   'topic',
-    'uniq_id':             'unique_id',
-    'unit_of_meas':        'unit_of_measurement',
-    'val_tpl':             'value_template',
-    'whit_val_cmd_t':      'white_value_command_topic',
-    'whit_val_stat_t':     'white_value_state_topic',
-    'whit_val_tpl':        'white_value_template',
-    'xy_cmd_t':            'xy_command_topic',
-    'xy_stat_t':           'xy_state_topic',
-    'xy_val_tpl':          'xy_value_template',
-  */
 
   //  create topics
     //  prefix/component/device/entity/[config|state]
@@ -1161,7 +1425,6 @@ bool _P126_system_config(struct DiscoveryStruct *discovery, bool brief) {
       #ifdef _P126_DEVICE
       payload.replace(ARDUINO_BOARD,discovery->save.device);
       #endif
-      payload += F("}");
         _P126_log = F("P[126] payload created : ");
         _P126_log += payload;
         addLog(LOG_LEVEL_DEBUG,_P126_log);
@@ -1194,179 +1457,273 @@ bool _P126_sensor_config(struct DiscoveryStruct *discovery, bool brief) {
 
   for (byte TaskIndex = 0; TaskIndex <= lastTaskIndex; TaskIndex++) {   // for each task
 
-    if (discovery->save.task[TaskIndex].enable) {
+    if (discovery->save.task[TaskIndex].enable) {   // if task enabled
       LoadTaskSettings(TaskIndex);
 
       String tasktopic = String(discovery->publish);
       tasktopic.replace(F("%tskname%"), ExtraTaskSettings.TaskDeviceName);
 
-      byte DeviceIndex = getDeviceIndex(Settings.TaskDeviceNumber[TaskIndex]);
+      byte pluginid = Settings.TaskDeviceNumber[TaskIndex];
+      byte DeviceIndex = getDeviceIndex(pluginid);
 
       for (byte x = 0; x < Device[DeviceIndex].ValueCount; x++) {   // for each value
 
-        if (discovery->save.task[TaskIndex].value[x].enable) {
+        if (discovery->save.task[TaskIndex].value[x].enable && !(x > 0 && pluginid == _P126_HASWITCH)) {    // if value enabled
           success = false;
-          //=======================================================================================//
+
+          //---------------------------------------------------------------------------//
           //  get state topic from controller settings
             String state_topic = tasktopic;
             state_topic.replace(F("%valname%"), ExtraTaskSettings.TaskDeviceValueNames[x]);
-          //=======================================================================================//
 
-          //=======================================================================================//
-          //  define entity_id
-            bool b1 = discovery->save.usename;
-            String s1 = Settings.Name;
-            bool b2 = discovery->save.usecustom;
-            String s2 = discovery->save.custom;
-            bool b3 = discovery->save.usetask;
-            String s3 = ExtraTaskSettings.TaskDeviceName;
-            bool b4 = discovery->save.usevalue;
-            String s4 = ExtraTaskSettings.TaskDeviceValueNames[x];
-            // change order if set
-              if (discovery->save.moved) {
-                b4 = discovery->save.usecustom;
-                s4 = discovery->save.custom;
-                b2 = discovery->save.usetask;
-                s2 = ExtraTaskSettings.TaskDeviceName;
-                b3 = discovery->save.usevalue;
-                s3 = ExtraTaskSettings.TaskDeviceValueNames[x];
-              }
-            //
 
-            String entity_id = F("");
-            if (b1) {
-              entity_id += String(s1);
-              if (b2 || b3 || b4) entity_id += F("_");
-            }
-
-            if (b2) {
-              entity_id += String(s2); 
-              if (b3 || b4) entity_id += F("_");
-            }
-
-            if (b3) {
-              entity_id += String(s3);
-              if (b4) entity_id += F("_");
-            }
-
-            if (b4) {
-            entity_id += String(s4);
-            }
-            entity_id.toLowerCase();
-          //=======================================================================================//
-
-          //=======================================================================================//
-          //  define discovery topic
+          //---------------------------------------------------------------------------//
+          //  define component, entity_id, topic
             String component;
-            if (discovery->save.task[TaskIndex].value[x].option < 10) {
-              component = F("sensor");
+            String entity_id;
+            String uniquestr;
+            String discovery_topic;
+
+            if (pluginid == _P126_HASWITCH) {
+              component = _P128_F(TaskIndex, _P128_COMPONENT);
+              //entity_id = _P128_F(TaskIndex, _P128_ENTITYID);
+              discovery_topic = _P128_F(TaskIndex, _P128_TOPIC);
             } else {
-              component = F("binary_sensor");
+
+              entity_id = _P126_make_entity(discovery,TaskIndex, x);
+
+              if (discovery->save.task[TaskIndex].value[x].binary) {
+                if (discovery->save.task[TaskIndex].value[x].type == 1) {
+                  component = F("switch");
+                } else {
+                  component = F("binary_sensor");
+                }
+              } else {
+                component = F("sensor");
+              }
+
+              uniquestr = _P126_make_unique(TaskIndex, x);   // eg 00AA11BB22CC_1_1
+
+              discovery_topic = _P126_make_topic(discovery->save.prefix, component, uniquestr); 
             }
 
-            String uniquestr = _P126_make_unique(TaskIndex, x);                 // eg 00AA11BB22CC_1_1
 
-            String discovery_topic = _P126_make_topic(discovery->save.prefix, component, uniquestr);   // eg homeasistant/sensor/00AA11BB22CC/00AA11BB22CC_1_1/config
-          //=======================================================================================//
 
-          //=======================================================================================//
+          //---------------------------------------------------------------------------//
           //  create payload
             String payload;
+            String unit_of_meas;
+            String cmdtopic;
+            //String payloadon;
+            //String payloadoff;
 
-            if (discovery->save.task[TaskIndex].value[x].enable) {              // if enabled, create json
+            if (pluginid == _P126_HASWITCH) {
+              payload = _P128_F(TaskIndex, _P128_PAYLOAD);
+            } else if (discovery->save.task[TaskIndex].value[x].enable) {    // if enabled, create json
 
               payload = F("{");
               payload += _P126_add_line(F("name"), entity_id);
 
-              //=======================================================================================//
-              // assign class/icon/unit
-                // every sensor should contain   (class || icon) + unit
-                // every binary_sensor should contain   (class || icon)
-                // no unit will result in String in HA
-                switch (discovery->save.task[TaskIndex].value[x].option) {
-                  case 0:   //sensor
-                    payload += _P126_add_line(F("unit_of_meas"), _P126_unit[discovery->save.task[TaskIndex].value[x].unit]);
-                    break;
-                  case 1:   //battery (same logic as humidity)
-                  case 2:   //humidity
-                    payload += _P126_add_line(F("unit_of_meas"), F("%"));
-                    payload += _P126_add_line(F("dev_cla"), _P126_class[discovery->save.task[TaskIndex].value[x].option]);
-                    break;
-                  case 3:   //illuminance
-                    payload += _P126_add_line(F("unit_of_meas"), _P126_lightunit[discovery->save.task[TaskIndex].value[x].unit]);
-                    payload += _P126_add_line(F("dev_cla"), _P126_class[discovery->save.task[TaskIndex].value[x].option]);
-                    break;
-                  case 4:   //temp
-                    payload += _P126_add_line(F("unit_of_meas"), _P126_tempunit[discovery->save.task[TaskIndex].value[x].unit]);
-                    payload += _P126_add_line(F("dev_cla"), _P126_class[discovery->save.task[TaskIndex].value[x].option]);
-                    break;
-                  case 5:   //pressure
-                    payload += _P126_add_line(F("unit_of_meas"), _P126_pressunit[discovery->save.task[TaskIndex].value[x].unit]);
-                    payload += _P126_add_line(F("dev_cla"), _P126_class[discovery->save.task[TaskIndex].value[x].option]);
-                    break;
-                  case 6:   //plant
-                    payload += _P126_add_line(F("ic"), F("mdi:leaf"));
-                    payload += _P126_add_line(F("unit_of_meas"), F("%"));
-                    break;
-                  case 7:   //RF
-                    payload += _P126_add_line(F("ic"), F("mdi:radio-tower"));
-                    break;
-                  case 8:   //scale
-                    payload += _P126_add_line(F("ic"), F("mdi:scale"));
-                    payload += _P126_add_line(F("unit_of_meas"), _P126_loadunit[discovery->save.task[TaskIndex].value[x].unit]);
-                  case 9:
-                  case 10:
-                    break;
-                  case 33:    //water
-                    payload += _P126_add_line(F("ic"), F("mdi:cup-water"));
-                    break;
-                  default:
-                    payload += _P126_add_line(F("dev_cla"), _P126_class[discovery->save.task[TaskIndex].value[x].option]);
-                    break;
+              //---------------------------------------------------------------------------//
+              // dealing with binary_sensors/switches
+                if (discovery->save.task[TaskIndex].value[x].binary) { 
+                  String pl_offon[2];
+                  pl_offon[0] = F("0");  // what HA will send & receive
+                  pl_offon[1] = F("1");  // what HA will send & receive
+
+                  switch (discovery->save.task[TaskIndex].value[x].type) {
+                    case 0: // classless, skip
+                      break;
+                    case 1: //output switch
+                      cmdtopic = discovery->cmdtopic;
+                      cmdtopic += F("gpio/");
+                      cmdtopic += String(Settings.TaskDevicePin1[TaskIndex]);
+                      payload += _P126_add_line(F("cmd_t"), cmdtopic);
+                      // dealing with inversed GPIOs
+                        if (Settings.TaskDevicePin1Inversed[TaskIndex]) {
+                          // if inversed
+                            //  HA  on  > ESP = 0
+                            //  HA  off > ESP = 1
+                            //  ESP on  > HA  = 1   //must be inverted
+                            //  ESP off > HA  = 0   //must be inverted
+                          pl_offon[0] = F("1");  // what HA will send for off
+                          pl_offon[1] = F("0");  // what HA will send for on
+                          payload += _P126_add_line(F("val_tpl"), F("{{(value|int-1)*-1}}"));  // what HA will receive
+                        }
+                      break;
+
+                    case 24: //water
+                      payload += _P126_add_line(F("ic"), F("mdi:cup-water"));
+                      break;
+
+                    default: //native classes
+                      payload += _P126_add_line(F("dev_cla"), _P126_binclass[discovery->save.task[TaskIndex].value[x].type]);
+                      break;
+                  }
+
+                  payload += _P126_add_line(F("pl_off"), pl_offon[0]);
+                  payload += _P126_add_line(F("pl_on"), pl_offon[1]);
+              //---------------------------------------------------------------------------//
+              // dealing with float sensors
+                } else {    
+                  //---------------------------------------------------------------------------//
+                  // dealing with device_classes and icons
+                    switch (discovery->save.task[TaskIndex].value[x].type) { 
+                      case 0: //classless, skip
+                        break;
+                      case 6: //plant
+                        payload += _P126_add_line(F("ic"), F("mdi:leaf"));
+                        break;
+                      case 7: //radio
+                        payload += _P126_add_line(F("ic"), F("mdi:radio-tower"));
+                        break;
+                      case 8: //scale
+                        payload += _P126_add_line(F("ic"), F("mdi:scale"));
+                        break;
+                      default: //native classes
+                        payload += _P126_add_line(F("dev_cla"), _P126_class[discovery->save.task[TaskIndex].value[x].type]);
+                        break;
+                    }
+                  //---------------------------------------------------------------------------//
+                  // dealing with units
+                    // byte *unit = &discovery->save.task[TaskIndex].value[x].unit;
+                    bool giveunit = true;
+                    switch (discovery->save.task[TaskIndex].value[x].unitmap) {
+                      case _P126_TEMPUNITMAP:
+                        unit_of_meas = _P126_tempunit[discovery->save.task[TaskIndex].value[x].unit];
+                        break;
+                      case _P126_LIGHTUNITMAP:
+                        unit_of_meas = _P126_lightunit[discovery->save.task[TaskIndex].value[x].unit];
+                        break;
+                      case _P126_PRESSUNITMAP:
+                        unit_of_meas = _P126_pressunit[discovery->save.task[TaskIndex].value[x].unit];
+                        break;
+                      case _P126_UNITMAP:
+                        unit_of_meas = _P126_unit[discovery->save.task[TaskIndex].value[x].unit];
+                        if (unit_of_meas == 0) giveunit = false; //if 'NONE' selected, skip
+                        break;
+                      case _P126_LOADUNITMAP:
+                        unit_of_meas = _P126_loadunit[discovery->save.task[TaskIndex].value[x].unit];
+                        break;
+                      case _P126_ENERGYUNITMAP:
+                        unit_of_meas = _P126_energyunit[discovery->save.task[TaskIndex].value[x].unit];
+                        break;
+                      case _P126_PARTICLEUNITMAP:
+                        unit_of_meas = _P126_particleunit[discovery->save.task[TaskIndex].value[x].unit];
+                        break;
+                      case _P126_DISTANCEUNITMAP:
+                        unit_of_meas = _P126_distanceunit[discovery->save.task[TaskIndex].value[x].unit];
+                        break;
+                      case _P126_PERCENTUNITMAP:
+                        unit_of_meas = F("%");
+                        break;
+                    }
+                    if (giveunit) payload += _P126_add_line(F("unit_of_meas"), unit_of_meas);
+                  //---------------------------------------------------------------------------//
                 }
-              //=======================================================================================//
+              //---------------------------------------------------------------------------//
 
               payload += _P126_add_line(F("stat_t"), state_topic);
               payload += _P126_add_line(F("uniq_id"), uniquestr);
               payload += _P126_add_line(F("avty_t"), discovery->lwttopic);
               payload += _P126_add_line(F("pl_avail"), discovery->lwtup);
               payload += _P126_add_line(F("pl_not_avail"), discovery->lwtdown);
-              if (!brief) payload += _P126_add_line(F("frc_upd"), F("true"));
+              if (!brief && component == F("sensor")) {
+                payload += _P126_add_line(F("frc_upd"), F("true"));
+                payload += _P126_add_line(F("exp_aft"), F("3600"));
+              }
               payload += _P126_add_device(brief);
               #ifdef _P126_DEVICE
               payload.replace(ARDUINO_BOARD,discovery->save.device);
               #endif
-              payload += F("}");
               
-            } else {                                                            // if disabled, publish empty payload to delete
+            } else {    // if disabled, publish empty payload to delete
               payload = F("");
             }
-          //=======================================================================================//
 
-          //=======================================================================================//    
+
+          //---------------------------------------------------------------------------//    
           //  check and publish payload
             if (_P126_check_length(discovery_topic, payload)) {
               success = _P126_publish(discovery->ctrlid, discovery_topic, payload);
+              _P126_log = F("[P126] publish result : ");
+              _P126_log += toString(success);
+              addLog(LOG_LEVEL_INFO, _P126_log);
             } else if (!brief) {
               addLog(LOG_LEVEL_ERROR, F("P[126] Payload exceeds limits. Trying again with reduced content."));
               success = _P126_sensor_config(discovery, true);
             } else {
-              _P126_log = F("P[126] Cannot publish config, because payload exceeds limits. You can publish the message manually from other client.: state of payload is : ");
+              _P126_log = F("[P126] Cannot publish config, because payload exceeds limits. You can publish the message manually from other client.: state of payload is : ");
               _P126_log += payload;
               addLog(LOG_LEVEL_ERROR,_P126_log);
               
               success = false;
             }
-          //=======================================================================================//
+          //---------------------------------------------------------------------------//
         } 
-
       } 
-
     } 
-
   }
   return success;
 } 
+
+String _P126_make_entity(struct DiscoveryStruct *discovery, byte task, byte value) {
+  LoadTaskSettings(task);
+  byte pluginid = Settings.TaskDeviceNumber[task];
+
+  bool b1 = discovery->save.usename;
+  String s1 = Settings.Name;
+  bool b2 = discovery->save.usecustom;
+  String s2 = discovery->save.custom;
+  bool b3 = discovery->save.usetask;
+  String s3 = ExtraTaskSettings.TaskDeviceName;
+  bool b4 = discovery->save.usevalue;
+  String s4 = ExtraTaskSettings.TaskDeviceValueNames[value];
+  
+  if (pluginid == _P126_HASWITCH) {
+    b3 = true;
+    b4 = false;
+  } 
+
+  if (discovery->save.moved) {    // change order if set
+    b4 = discovery->save.usecustom;
+    s4 = discovery->save.custom;
+    b2 = discovery->save.usetask;
+    s2 = ExtraTaskSettings.TaskDeviceName;
+    b3 = discovery->save.usevalue;
+    s3 = ExtraTaskSettings.TaskDeviceValueNames[value];
+  }
+
+
+  String entity_id = F("");
+  if (b1) {
+    entity_id += String(s1);
+    if (b2 || b3 || b4) entity_id += F("_");
+  }
+
+  if (b2) {
+    entity_id += String(s2); 
+    if (b3 || b4) entity_id += F("_");
+  }
+
+  if (b3) {
+    entity_id += String(s3);
+    if (b4) entity_id += F("_");
+  }
+
+  if (b4) {
+  entity_id += String(s4);
+  }
+  entity_id.toLowerCase();
+
+  return entity_id;
+}
+
+String _P126_make_topic(char* prefix, String component, byte task, byte value) {
+    
+    String unique = _P126_make_unique(task, value);
+    return _P126_make_topic(prefix, component, unique);
+}
 
 String _P126_make_topic(char* prefix, String component, String unique) {
     
@@ -1516,7 +1873,7 @@ bool _P126_delete_configs(struct DiscoveryStruct *discovery) {
               sensorname += String(ExtraTaskSettings.TaskDeviceValueNames[x]);
 
               String component;
-              if (discovery->save.task[TaskIndex].value[x].option < 10) {
+              if (discovery->save.task[TaskIndex].value[x].type < 10) {
                 component = F("sensor");
               } else {
                 component = F("binary_sensor");
@@ -1598,7 +1955,7 @@ String _P126_add_device(bool brief) {
       deviceid.replace(F(":"),F(""));
       device += deviceid;
       device += F("\"]");                       
-    device += F("}");
+    device += F("}}");  // 1st '}' device, 2nd '}' payload
     return device;
 }
 
@@ -1676,6 +2033,9 @@ void _P126_get_ctrl(struct DiscoveryStruct *discovery) {
   MakeControllerSettings(ControllerSettings);
   LoadControllerSettings(discovery->ctrlid, ControllerSettings);
 
+  discovery->cmdtopic = ControllerSettings.Subscribe;
+  discovery->cmdtopic.replace(F("%sysname%"), Settings.Name);
+  discovery->cmdtopic.replace(F("#"), F(""));
   discovery->publish = ControllerSettings.Publish;
   discovery->publish.replace(F("%sysname%"), Settings.Name);
   discovery->lwttopic = ControllerSettings.MQTTLwtTopic;
@@ -1686,23 +2046,39 @@ void _P126_get_ctrl(struct DiscoveryStruct *discovery) {
   discovery->pubinterval = ControllerSettings.MinimalTimeBetweenMessages;
 }
 
-void _P126_get_id(struct DiscoveryStruct *discovery) {
+bool _P126_get_id(struct DiscoveryStruct *discovery) {
+  bool success;
   for (byte x = 0; x < TASKS_MAX; x++) {
     LoadTaskSettings(x);
     int pluginid = Settings.TaskDeviceNumber[x];
-    if (pluginid == 126) {
+    #ifdef _P126_DEBUG
+      Serial.print("taskid ");
+      Serial.print(String(x));
+      Serial.print(" : plugin : ");
+      Serial.println(String(pluginid));
+    #endif
+
+    if (pluginid == PLUGIN_ID_126) {
       discovery->taskid = x;
-      _P126_log = F("P[126] found correct taskid: state of x is : ");
+      _P126_log = F("P[126] found correct taskid: ");
       _P126_log += String(x);
       addLog(LOG_LEVEL_DEBUG,_P126_log);
-      break;        
-    } 
-      _P126_log = F("P[126] couldn't fetch taskid: state of x is : ");
-      _P126_log += String(x);
-      addLog(LOG_LEVEL_ERROR,_P126_log);
+      success = true;
+      break;
+    } else {
+      success = false;
+    }
   }
-}
 
+  if (!success) {
+    _P126_log = F("P[126] couldn't fetch taskid");
+    addLog(LOG_LEVEL_ERROR,_P126_log);
+  }
+
+  return success;
+}
+//---------------------------------------------------------------------------//
+// debugging functions, to be removed, if moving from playground
 void _P126_debug(struct DiscoveryStruct *discovery) {
   String debug;
 
@@ -1775,7 +2151,7 @@ void _P126_debug(struct DiscoveryStruct *discovery) {
   String topic = F("debug/");
   topic += String(Settings.Name);
 
-  Serial.println(debug);
+  // Serial.println(debug);
   _P126_publish(discovery->ctrlid, topic, debug);
 
   for (byte i = 0; i < TASKS_MAX; i++) {
@@ -1797,10 +2173,10 @@ void _P126_debug(struct DiscoveryStruct *discovery) {
       debug += String(i);
       debug += F("].value[");
       debug += String(j);
-      debug += F("].option : ");
-      debug += String(discovery->save.task[i].value[j].option);
+      debug += F("].type : ");
+      debug += String(discovery->save.task[i].value[j].type);
       debug += F(" : ");
-      debug += _P126_class[discovery->save.task[i].value[j].option];
+      debug += _P126_class[discovery->save.task[i].value[j].type];
       debug += F("\n");
       
       debug += F("discovery->save.task[");
@@ -1811,7 +2187,7 @@ void _P126_debug(struct DiscoveryStruct *discovery) {
       debug += String(discovery->save.task[i].value[j].unit);
       debug += F(" : ");
 
-      switch (discovery->save.task[i].value[j].option) {
+      switch (discovery->save.task[i].value[j].type) {
         case 0:   //sensor
           debug += _P126_unit[discovery->save.task[i].value[j].unit];
           break;
@@ -1856,9 +2232,81 @@ void _P126_debug(struct DiscoveryStruct *discovery) {
       topic += F("/task");
       topic += String(i);
 
-      Serial.println(debug);
+      //Serial.println(debug);
       _P126_publish(discovery->ctrlid, topic, debug);
   } 
 
 }
+void _P126_debug2(String log){
+  #ifdef _P126_DEBUG
+  Serial.print(F("[P126] "));
+  Serial.println(log);
+  #endif
+}
+void _P126_debug2(String log, String value){
+  #ifdef _P126_DEBUG
+  Serial.print(F("[P126] "));
+  Serial.print(log);
+  Serial.print(F(" : "));
+  Serial.println(value);
+  #endif
+}
+void _P126_debug2(char* log){
+  #ifdef _P126_DEBUG
+  Serial.print(F("[P126] "));
+  Serial.println(String(log));
+  #endif
+}
+void _P126_debug2(String log, char* value){
+  #ifdef _P126_DEBUG
+  Serial.print(F("[P126] "));
+  Serial.print(log);
+  Serial.print(F(" : "));
+  Serial.println(String(value));
+  #endif
+}
+void _P126_debug2(bool log){
+  #ifdef _P126_DEBUG
+  Serial.print(F("[P126] "));
+  Serial.println(toString(log));
+  #endif
+}
+void _P126_debug2(String log, bool value){
+  #ifdef _P126_DEBUG
+  Serial.print(F("[P126] "));
+  Serial.print(log);
+  Serial.print(F(" : "));
+  Serial.println(toString(value));
+  #endif
+}
+void _P126_debug2(int log){
+  #ifdef _P126_DEBUG
+  Serial.print(F("[P126] "));
+  Serial.println(String(log));
+  #endif
+}
+void _P126_debug2(String log, int value){
+  #ifdef _P126_DEBUG
+  Serial.print(F("[P126] "));
+  Serial.print(log);
+  Serial.print(F(" : "));
+  Serial.println(String(value));
+  #endif
+}
+void _P126_debug2(byte log){
+  #ifdef _P126_DEBUG
+  Serial.print(F("[P126] "));
+  Serial.println(String(log));
+  #endif
+}
+void _P126_debug2(String log, byte value){
+  #ifdef _P126_DEBUG
+  Serial.print(F("[P126] "));
+  Serial.print(log);
+  Serial.print(F(" : "));
+  Serial.println(String(value));
+  #endif
+}
 //#endif
+
+
