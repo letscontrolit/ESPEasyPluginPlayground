@@ -1,12 +1,15 @@
+#ifdef PLUGIN_BUILD_TESTING
+
 //#######################################################################################################
 //################################## Plugin 109 RESOL DeltaSol Pro ######################################
 //#######################################################################################################
 
-#include <SoftwareSerial.h>
+//#include <ESPeasySoftwareSerial.h>
+#include <ESPeasySoftwareSerial.h>
 
 #define PLUGIN_109
 #define PLUGIN_ID_109         109
-#define PLUGIN_NAME_109       "RESOL DeltaSol Pro"
+#define PLUGIN_NAME_109       "RESOL DeltaSol Pro [TESTING]"
 #define PLUGIN_VALUENAME1_109 "register"
 
 // uart rx-buffer size
@@ -30,7 +33,7 @@ uint8_t RXbuf_IDX;
 int16_t T1, T2 ,T3;
 uint8_t R1, R2;
 
-SoftwareSerial *Plugin_109_UART;
+ESPeasySoftwareSerial *Plugin_109_UART;
 
 
 // RESOL CRC check
@@ -131,7 +134,7 @@ boolean Plugin_109(byte function, struct EventStruct *event, String& string)
       {
         addLog(LOG_LEVEL_INFO, (char*)"INIT : RESOL DeltaSol Pro");
         
-        Plugin_109_UART = new SoftwareSerial(Settings.TaskDevicePin1[event->TaskIndex], Settings.TaskDevicePin2[event->TaskIndex], false, (2 * RXBUF_SIZE));		// set RX und Tx Pin number, no invert, buffer
+        Plugin_109_UART = new ESPeasySoftwareSerial(Settings.TaskDevicePin1[event->TaskIndex], Settings.TaskDevicePin2[event->TaskIndex], false, (2 * RXBUF_SIZE));		// set RX und Tx Pin number, no invert, buffer
 
         Plugin_109_init = true;
         
@@ -255,3 +258,5 @@ boolean Plugin_109(byte function, struct EventStruct *event, String& string)
   }  
   return success;
 }
+
+#endif
