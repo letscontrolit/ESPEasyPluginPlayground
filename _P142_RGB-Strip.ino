@@ -82,35 +82,25 @@ boolean Plugin_142(byte function, struct EventStruct *event, String& string)
       {
         char tmpString[128];
 
-        string += F("<TR><TD>GPIO:<TD>");
-
-        string += F("<TR><TD>1st GPIO (R):<TD>");
-        addPinSelect(false, string, "taskdevicepin1", Settings.TaskDevicePluginConfig[event->TaskIndex][0]);
-        string += F("<TR><TD>2nd GPIO (G):<TD>");
-        addPinSelect(false, string, "taskdevicepin2", Settings.TaskDevicePluginConfig[event->TaskIndex][1]);
-        string += F("<TR><TD>3rd GPIO (B):<TD>");
-        addPinSelect(false, string, "taskdevicepin3", Settings.TaskDevicePluginConfig[event->TaskIndex][2]);
-        string += F("<TR><TD>4th GPIO (W) optional:<TD>");
-        addPinSelect(false, string, "taskdeviceport", Settings.TaskDevicePluginConfig[event->TaskIndex][3]);
-
+        addHtml(F("<TR><TD>GPIO:<TD>"));
+        addFormPinSelect(F("1st GPIO (R):"), F("taskdevicepin1"), Settings.TaskDevicePluginConfig[event->TaskIndex][0]);
+        addFormPinSelect(F("2nd GPIO (G):"), F("taskdevicepin2"), Settings.TaskDevicePluginConfig[event->TaskIndex][1]);
+        addFormPinSelect(F("3rd GPIO (B):"), F("taskdevicepin3"), Settings.TaskDevicePluginConfig[event->TaskIndex][2]);
+        addFormPinSelect(F("4th GPIO (W) optional:"), F("taskdeviceport"), Settings.TaskDevicePluginConfig[event->TaskIndex][3]);     
         success = true;
         break;
       }
 
     case PLUGIN_WEBFORM_SAVE:
       {
-        String plugin2 = WebServer.arg("taskdevicepin1");
-        Settings.TaskDevicePluginConfig[event->TaskIndex][0] = plugin2.toInt();
-        String plugin3 = WebServer.arg("taskdevicepin2");
-        Settings.TaskDevicePluginConfig[event->TaskIndex][1] = plugin3.toInt();
-        String plugin4 = WebServer.arg("taskdevicepin3");
-        Settings.TaskDevicePluginConfig[event->TaskIndex][2] = plugin4.toInt();
-        String plugin5 = WebServer.arg("taskdeviceport");
-        Settings.TaskDevicePluginConfig[event->TaskIndex][3] = plugin5.toInt();
-
+        Settings.TaskDevicePluginConfig[event->TaskIndex][0] = getFormItemInt(F("taskdevicepin1"));
+        Settings.TaskDevicePluginConfig[event->TaskIndex][1] = getFormItemInt(F("taskdevicepin2"));        
+        Settings.TaskDevicePluginConfig[event->TaskIndex][2] = getFormItemInt(F("taskdevicepin3"));        
+        Settings.TaskDevicePluginConfig[event->TaskIndex][3] = getFormItemInt(F("taskdeviceport"));        
+        
         for (byte i=0; i<4; i++)
-          if (Settings.TaskDevicePluginConfig[event->TaskIndex][3] >= 16)
-            Settings.TaskDevicePluginConfig[event->TaskIndex][3] = -1;
+          if (Settings.TaskDevicePluginConfig[event->TaskIndex][i] >= 16)
+            Settings.TaskDevicePluginConfig[event->TaskIndex][i] = -1;
 
         success = true;
         break;

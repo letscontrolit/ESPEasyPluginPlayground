@@ -90,12 +90,31 @@ boolean Plugin_166(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_WEBFORM_LOAD:
       {
+        int choice = Settings.TaskDevicePluginConfig[event->TaskIndex][0];
+        String buttonOptions[3];
+        buttonOptions[0] = F("Disable");
+        buttonOptions[1] = F("Wake by LOW INT");
+        buttonOptions[2] = F("Wake by HI INT");
+        int buttonoptionValues[3] = { 0, GPIO_PIN_INTR_LOLEVEL, GPIO_PIN_INTR_HILEVEL };
+        addFormSelector(F("Light-Sleep"), F("plugin_166_ls"), 3, buttonOptions, buttonoptionValues, choice);
+
+        addFormNote(F("Only enable Light-Sleep if you know what you do! I warned you! Only wake by external gpio supported!"));
+
+        addFormPinSelect(F("Wake GPIO"), F("wakegpio"), Settings.TaskDevicePluginConfig[event->TaskIndex][1]);
+
         success = true;
         break;
       }
 
     case PLUGIN_WEBFORM_SAVE:
       {
+        Settings.TaskDevicePluginConfig[event->TaskIndex][0] = getFormItemInt(F("plugin_166_ls"));
+        if (Settings.TaskDevicePluginConfig[event->TaskIndex][0] > 0) {
+         Settings.TaskDevicePluginConfig[event->TaskIndex][1] = getFormItemInt(F("wakegpio"));
+        } else {
+         Settings.TaskDevicePluginConfig[event->TaskIndex][1] = -1;
+        }
+
         success = true;
         break;
       }
@@ -180,7 +199,7 @@ boolean Plugin_166(byte function, struct EventStruct *event, String& string)
             byte varIndex = Plugin_166_ownindex * VARS_PER_TASK;
             event->BaseVarIndex = varIndex;
 
-            setmodemsleep(_rmode);
+            setmodemsleep(_rmode,Settings.TaskDevicePluginConfig[Plugin_166_ownindex][0],Settings.TaskDevicePluginConfig[Plugin_166_ownindex][1]);
             UserVar[varIndex] = _rmode;
 
             String log = F("ModemSleep=");
@@ -244,7 +263,11 @@ boolean Plugin_166(byte function, struct EventStruct *event, String& string)
   return success;
 }
 
-void setmodemsleep(byte state) {
+void wakeupcallback(void) {
+ setmodemsleep(0,0,0);
+}
+
+void setmodemsleep(byte state, int lightsleepmode, int wakegpio) {
   // 1=Wifi off (sleep), 0= Wifi on to STA (wake)
   if ((state == 0) && (Plugin_166_modemsleepstatus == 1)) {
     WiFi.mode( WIFI_STA ); // set wifi to STA mode, modemsleep is not usable in AP mode
@@ -271,15 +294,23 @@ void setmodemsleep(byte state) {
     WifiDisconnect(); // disconnect current connections
     delay( 1 );             // wait to finish disconnect
     WiFi.mode( WIFI_OFF ); // set wifi to off mode
+    Plugin_166_modemsleepstatus = 1;
+    String event = F("System#ModemSleep=1");
+    rulesProcessing(event);
     #if defined(ESP32)
      esp_wifi_set_ps(WIFI_PS_MAX_MODEM);
     #else
-     WiFi.forceSleepBegin(); // tell wifi to stay ModemSleep until further notice
+     if (lightsleepmode>0) { // do light sleep
+      wifi_fpm_set_sleep_type(LIGHT_SLEEP_T);
+      wifi_fpm_open();
+      wifi_enable_gpio_wakeup(GPIO_ID_PIN(wakegpio), GPIO_INT_TYPE(lightsleepmode));
+      wifi_fpm_set_wakeup_cb(wakeupcallback);
+      wifi_fpm_do_sleep(0xFFFFFFF);
+     } else { // do modem sleep
+      WiFi.forceSleepBegin(); // tell wifi to stay ModemSleep until further notice
+     }
     #endif
     delay( 1 );             // let cpu to acknowledge this
-    String event = F("System#ModemSleep=1");
-    rulesProcessing(event);
-    Plugin_166_modemsleepstatus = 1;
   }
 
 }
