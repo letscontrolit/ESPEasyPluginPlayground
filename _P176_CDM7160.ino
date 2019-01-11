@@ -84,31 +84,22 @@ boolean plugin_176_clearAltitude(void)
   return(I2C_write8_reg(plugin_176_i2caddr, CDM7160_REG_FUNC, CDM7160_FLAG_PWME));
 }
 
-boolean plugin_176_getStatus(unsigned char &status)
+uint8_t plugin_176_getStatus()
   // Retrieve CO2 data in ppm
   // Returns true (1) if successful, false (0) if there was an I2C error
   // (Also see getError() below)
 {
   // Get content of status register
-  bool retval = 0;
-  status = I2C_read8_reg(plugin_176_i2caddr, CDM7160_REG_STATUS, &retval);
-  if (retval)
-    return(true);
-
-  return(false);
+  return I2C_read8_reg(plugin_176_i2caddr, CDM7160_REG_STATUS);
 }
 
-boolean plugin_176_getCO2(unsigned int &co2)
+uint16_t plugin_176_getCO2()
   // Retrieve CO2 data in ppm
   // Returns true (1) if successful, false (0) if there was an I2C error
   // (Also see getError() below)
 {
   // Get co2 ppm data out of result registers
-  co2 = I2C_read16_LE_reg(plugin_176_i2caddr, CDM7160_REG_DATA);
-  if (co2 > 300)
-    return(true);
-
-  return(false);
+  return I2C_read16_LE_reg(plugin_176_i2caddr, CDM7160_REG_DATA);
 }
 
 
@@ -169,9 +160,9 @@ boolean Plugin_176(byte function, struct EventStruct *event, String& string)
         success = true;
         break;
       }
-  case PLUGIN_INIT:
+    case PLUGIN_INIT:
       {
-        plugin_176_setPowerDown(); // disabled because there were issues setting alt in powerdown mode
+        plugin_176_setPowerDown(); // disabled because there were issues setting alt in continuous mode
         unsigned char elev = Settings.TaskDevicePluginConfig[event->TaskIndex][1] / 10;
         delay(100);
         if (elev)
@@ -184,62 +175,52 @@ boolean Plugin_176(byte function, struct EventStruct *event, String& string)
         delay(100);
         plugin_176_setContinuous();
         success = true;
+        break;
       }
     case PLUGIN_READ:
       {
         plugin_176_i2caddr = Settings.TaskDevicePluginConfig[event->TaskIndex][0];
 
         plugin_176_begin();
-        unsigned int co2;
-        unsigned char status;
-     
+        uint16_t co2;
+        uint8_t status;
         unsigned char count;
         for (count = 0; count < 6; count++)
         {
-         if (plugin_176_getStatus(status))
-         {
-           if (status & CDM7160_FLAG_BUSY)
-           {
-             delay(50); // BUSY may take up to 300ms
-           } else
-           {
-             break;
-           }
-         }
+          status = plugin_176_getStatus();
+          if (status & CDM7160_FLAG_BUSY)
+          {
+            delay(50); // BUSY may take up to 300ms
+          } else
+          {
+            break;
+          }
         }
         UserVar[event->BaseVarIndex + 1] = count;
           
-        if (plugin_176_getCO2(co2))
+        co2 = plugin_176_getCO2();
+        boolean good;  // True if sensor is not saturated
+        good = (co2 <= 10000);
+        UserVar[event->BaseVarIndex] = co2;
+        if (!good)
         {
-          boolean good;  // True if sensor is not saturated
-          good = (co2 <= 10000);
-          UserVar[event->BaseVarIndex] = co2;
-          if (!good)
-          {
-            addLog(LOG_LEVEL_INFO,F("CDM7160: Sensor saturated! > 10000 ppm"));
-          }
-          success = true;
-          String log = F("CDM7160: Address: 0x");
-          log += String(plugin_176_i2caddr,HEX);
-          log += F(": CO2 ppm: ");
-          log += UserVar[event->BaseVarIndex];
-          log += F(", busy: ");
-          log += UserVar[event->BaseVarIndex + 1];
-          log += F(", alt: ");
-          log += I2C_read8_reg(plugin_176_i2caddr, CDM7160_REG_HIT);
-          log += F(", comp: ");
-          log += I2C_read8_reg(plugin_176_i2caddr, CDM7160_REG_FUNC);;
-          addLog(LOG_LEVEL_INFO,log);
+          addLog(LOG_LEVEL_INFO,F("CDM7160: Sensor saturated! > 10000 ppm"));
         }
-        else
-        {
-          // getData() returned false because of an I2C error, inform the user.
-          addLog(LOG_LEVEL_ERROR, F("CDM7160 READ: i2c error"));
-        
-        }
+        success = true;
+        String log = F("CDM7160: Address: 0x");
+        log += String(plugin_176_i2caddr,HEX);
+        log += F(": CO2 ppm: ");
+        log += UserVar[event->BaseVarIndex];
+        log += F(", busy: ");
+        log += UserVar[event->BaseVarIndex + 1];
+        log += F(", alt: ");
+        log += I2C_read8_reg(plugin_176_i2caddr, CDM7160_REG_HIT);
+        log += F(", comp: ");
+        log += I2C_read8_reg(plugin_176_i2caddr, CDM7160_REG_FUNC);
+        addLog(LOG_LEVEL_INFO,log);
         break;
       }
-  case PLUGIN_WRITE:
+    case PLUGIN_WRITE:
       {
         if (string.equalsIgnoreCase(F("CDMRST")))
         {
