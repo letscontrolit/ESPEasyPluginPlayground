@@ -9,7 +9,6 @@
 #define PLUGIN_ID_176         176
 #define PLUGIN_NAME_176       "Gases - CO2 CDM7160"
 #define PLUGIN_VALUENAME1_176 "CO2"
-#define PLUGIN_VALUENAME2_176 "BUSY"
 
 boolean Plugin_176_init = false;
 
@@ -33,11 +32,37 @@ boolean Plugin_176_init = false;
 
 
 byte plugin_176_i2caddr;
-
+uint16_t co2;
 boolean plugin_176_begin()
 {
   Wire.begin();
   return(true);
+}
+
+// Reads an 8 bit value from a register over I2C, no repeated start
+uint8_t I2C_read8_ST_reg(uint8_t i2caddr, byte reg) {
+  uint8_t value;
+
+  Wire.beginTransmission(i2caddr);
+  Wire.write((uint8_t)reg);
+  Wire.endTransmission();
+  Wire.requestFrom(i2caddr, (byte)1);
+  value = Wire.read();
+
+  return value;
+}
+
+// Reads a 16 bit value starting at a given register over I2C, no repeated start
+uint16_t I2C_read16_LE_ST_reg(uint8_t i2caddr, byte reg) {
+  uint16_t value(0);
+
+  Wire.beginTransmission(i2caddr);
+  Wire.write((uint8_t)reg);
+  Wire.endTransmission();
+  Wire.requestFrom(i2caddr, (byte)2);
+  value = (Wire.read() << 8) | Wire.read();
+
+  return (value >> 8) | (value << 8);
 }
 
 boolean plugin_176_setPowerDown(void)
@@ -90,7 +115,7 @@ uint8_t plugin_176_getStatus()
   // (Also see getError() below)
 {
   // Get content of status register
-  return I2C_read8_reg(plugin_176_i2caddr, CDM7160_REG_STATUS);
+  return I2C_read8_ST_reg(plugin_176_i2caddr, CDM7160_REG_STATUS);
 }
 
 uint16_t plugin_176_getCO2()
@@ -99,7 +124,7 @@ uint16_t plugin_176_getCO2()
   // (Also see getError() below)
 {
   // Get co2 ppm data out of result registers
-  return I2C_read16_LE_reg(plugin_176_i2caddr, CDM7160_REG_DATA);
+  return I2C_read16_LE_ST_reg(plugin_176_i2caddr, CDM7160_REG_DATA);
 }
 
 
@@ -118,7 +143,7 @@ boolean Plugin_176(byte function, struct EventStruct *event, String& string)
         Device[deviceCount].PullUpOption = false;
         Device[deviceCount].InverseLogicOption = false;
         Device[deviceCount].FormulaOption = true;
-        Device[deviceCount].ValueCount = 2;
+        Device[deviceCount].ValueCount = 1;
         Device[deviceCount].SendDataOption = true;
         Device[deviceCount].TimerOption = true;
         Device[deviceCount].GlobalSyncOption = true;
@@ -134,7 +159,6 @@ boolean Plugin_176(byte function, struct EventStruct *event, String& string)
     case PLUGIN_GET_DEVICEVALUENAMES:
       {
         strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_VALUENAME1_176));
-        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[1], PSTR(PLUGIN_VALUENAME2_176));
         break;
       }
 
@@ -162,8 +186,11 @@ boolean Plugin_176(byte function, struct EventStruct *event, String& string)
       }
     case PLUGIN_INIT:
       {
+        plugin_176_i2caddr = Settings.TaskDevicePluginConfig[event->TaskIndex][0];
+        plugin_176_begin();
         plugin_176_setPowerDown(); // disabled because there were issues setting alt in continuous mode
         unsigned char elev = Settings.TaskDevicePluginConfig[event->TaskIndex][1] / 10;
+        // delay required to store config byte to EEPROM, device pulls SCL low
         delay(100);
         if (elev)
         {
@@ -177,28 +204,20 @@ boolean Plugin_176(byte function, struct EventStruct *event, String& string)
         success = true;
         break;
       }
-    case PLUGIN_READ:
+    case PLUGIN_ONCE_A_SECOND:
       {
         plugin_176_i2caddr = Settings.TaskDevicePluginConfig[event->TaskIndex][0];
-
         plugin_176_begin();
-        uint16_t co2;
         uint8_t status;
-        unsigned char count;
-        for (count = 0; count < 6; count++)
+        status = plugin_176_getStatus();
+        if (!(status & CDM7160_FLAG_BUSY))
         {
-          status = plugin_176_getStatus();
-          if (status & CDM7160_FLAG_BUSY)
-          {
-            delay(50); // BUSY may take up to 300ms
-          } else
-          {
-            break;
-          }
+          co2 = plugin_176_getCO2();
         }
-        UserVar[event->BaseVarIndex + 1] = count;
-          
-        co2 = plugin_176_getCO2();
+        break;
+      }
+    case PLUGIN_READ:
+      {
         boolean good;  // True if sensor is not saturated
         good = (co2 <= 10000);
         UserVar[event->BaseVarIndex] = co2;
@@ -211,12 +230,10 @@ boolean Plugin_176(byte function, struct EventStruct *event, String& string)
         log += String(plugin_176_i2caddr,HEX);
         log += F(": CO2 ppm: ");
         log += UserVar[event->BaseVarIndex];
-        log += F(", busy: ");
-        log += UserVar[event->BaseVarIndex + 1];
         log += F(", alt: ");
-        log += I2C_read8_reg(plugin_176_i2caddr, CDM7160_REG_HIT);
+        log += I2C_read8_ST_reg(plugin_176_i2caddr, CDM7160_REG_HIT);
         log += F(", comp: ");
-        log += I2C_read8_reg(plugin_176_i2caddr, CDM7160_REG_FUNC);
+        log += I2C_read8_ST_reg(plugin_176_i2caddr, CDM7160_REG_FUNC);
         addLog(LOG_LEVEL_INFO,log);
         break;
       }
