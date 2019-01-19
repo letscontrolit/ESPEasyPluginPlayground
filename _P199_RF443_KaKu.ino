@@ -44,6 +44,7 @@ volatile byte Plugin_199_pulses[RAW_BUFFER_SIZE + 2];
 volatile int Plugin_199_number;
 unsigned long Plugin_199_codeHash;
 unsigned long Plugin_199_lastTime;
+unsigned long elapsed;
 int8_t Plugin_199_RXpin = -1;
 int8_t Plugin_199_TXpin = -1;
 
