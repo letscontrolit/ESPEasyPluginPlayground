@@ -95,7 +95,6 @@ boolean plugin_176_setAltitude(unsigned char alt)
 {
   // Write altitude and enable compensation
   I2C_write8_reg(plugin_176_i2caddr, CDM7160_REG_HIT, alt);
-  delay(100);
   return(I2C_write8_reg(plugin_176_i2caddr, CDM7160_REG_FUNC, (CDM7160_FLAG_HPAE | CDM7160_FLAG_PWME)));
 }
 
@@ -105,7 +104,6 @@ boolean plugin_176_clearAltitude(void)
 {
   // Clear altitude and disable compensation
   I2C_write8_reg(plugin_176_i2caddr, CDM7160_REG_HIT,0);
-  delay(100);
   return(I2C_write8_reg(plugin_176_i2caddr, CDM7160_REG_FUNC, CDM7160_FLAG_PWME));
 }
 
@@ -218,10 +216,8 @@ boolean Plugin_176(byte function, struct EventStruct *event, String& string)
       }
     case PLUGIN_READ:
       {
-        boolean good;  // True if sensor is not saturated
-        good = (co2 <= 10000);
         UserVar[event->BaseVarIndex] = co2;
-        if (!good)
+        if (co2 > 10000)
         {
           addLog(LOG_LEVEL_INFO,F("CDM7160: Sensor saturated! > 10000 ppm"));
         }
