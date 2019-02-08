@@ -147,6 +147,7 @@ boolean Plugin_222(byte function, struct EventStruct *event, String& string)
           UserVar[event->BaseVarIndex + 3] = 1;
           String log = F("AmbiMate: PIR_MOTION_EVENT");
           addLog(LOG_LEVEL_INFO, log);
+          sendData(event);
         }
         else{
           UserVar[event->BaseVarIndex + 3] = 0;
