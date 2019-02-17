@@ -1,5 +1,6 @@
 //#######################################################################################################
-//#################################### Plugin 152: MCP42010 ############################################
+//#################################### Plugin 152: MCP42010 #############################################
+//###################################### GPIO 12 / 14 / 15 ##############################################
 //#######################################################################################################
 // written by antibill
 
@@ -118,7 +119,7 @@ boolean Plugin_152(byte function, struct EventStruct *event, String& string)
           val1 = event->Par1;   //Pot1
           Plugin_152_PotDest[0] = val1;
           digipot.setPot(1,val1);
-
+          success = true;
         }
 
         if (command == F("second"))
@@ -127,12 +128,12 @@ boolean Plugin_152(byte function, struct EventStruct *event, String& string)
           val2 = event->Par1;   //Pot2
           Plugin_152_PotDest[1] = val2;
           digipot.setPot(2,val2);
-
+          success = true;
         }
 
 
 
-        success = true;
+
         break;
       }
 
