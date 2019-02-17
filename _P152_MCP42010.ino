@@ -5,8 +5,8 @@
 // written by antibill
 
 // Usage:
-// (1): Set value to potentiometer (http://xx.xx.xx.xx/control?cmd=MCP,0,255)
-// (2): Set value to potentiometer (http://xx.xx.xx.xx/control?cmd=MCP,1,0)
+// (1): Set value to potentiometer (http://xx.xx.xx.xx/control?cmd=digipot,0,255)
+// (2): Set value to potentiometer (http://xx.xx.xx.xx/control?cmd=digipot,1,0)
 
 #include <MCP42010.h>
 // https://github.com/mensink/arduino-lib-MCP42010
@@ -15,8 +15,8 @@ static float Plugin_152_PotDest[2] = {0,0};
 #define PLUGIN_152
 #define PLUGIN_ID_152         152
 #define PLUGIN_NAME_152       "MCP42010"
-#define PLUGIN_VALUENAME1_152 "MCP0"
-#define PLUGIN_VALUENAME2_152 "MCP1"
+#define PLUGIN_VALUENAME1_152 "DigiPot0"
+#define PLUGIN_VALUENAME2_152 "DigiPot1"
 
 int Plugin_152_pin[3] = {-1,-1,-1};
 
@@ -111,7 +111,7 @@ boolean Plugin_152(byte function, struct EventStruct *event, String& string)
         if (argIndex)
           tmpString = tmpString.substring(0, argIndex);
 
-        if (tmpString.equalsIgnoreCase(F("MCP")))
+        if (tmpString.equalsIgnoreCase(F("digipot")))
         {
           int pot;
           int value;
