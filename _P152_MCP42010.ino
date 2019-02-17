@@ -9,7 +9,7 @@
 // (2): Set value to potentiometer (http://xx.xx.xx.xx/control?cmd=MCP,1,0)
 
 #include <MCP42010.h>
-
+// https://github.com/mensink/arduino-lib-MCP42010
 static float Plugin_152_PotDest[2] = {0,0};
 
 #define PLUGIN_152
