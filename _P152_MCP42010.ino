@@ -1,16 +1,12 @@
 //#######################################################################################################
 //#################################### Plugin 152: MCP42010 #############################################
-//###################################### GPIO 12 / 14 / 15 ##############################################
+//################################## I use GPIO 12 / 14 / 15 ############################################
 //#######################################################################################################
 // written by antibill
 
-// List of commands:
-// (1) VAL1,<chambre 0-255>
-// (2) VAL2,<second 0-255>
-
 // Usage:
-// (1): Set value to potentiometer (http://xx.xx.xx.xx/control?cmd=chambre,255)
-
+// (1): Set value to potentiometer (http://xx.xx.xx.xx/control?cmd=MCP,0,255)
+// (2): Set value to potentiometer (http://xx.xx.xx.xx/control?cmd=MCP,1,0)
 
 #include <MCP42010.h>
 
@@ -19,8 +15,8 @@ static float Plugin_152_PotDest[2] = {0,0};
 #define PLUGIN_152
 #define PLUGIN_ID_152         152
 #define PLUGIN_NAME_152       "MCP42010"
-#define PLUGIN_VALUENAME1_152 "P1"
-#define PLUGIN_VALUENAME2_152 "P2"
+#define PLUGIN_VALUENAME1_152 "MCP0"
+#define PLUGIN_VALUENAME2_152 "MCP1"
 
 int Plugin_152_pin[3] = {-1,-1,-1};
 
@@ -109,29 +105,24 @@ boolean Plugin_152(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_WRITE:
       {
-        String command = parseString(string, 1);
+
+        String tmpString  = string;
+        int argIndex = tmpString.indexOf(',');
+        if (argIndex)
+          tmpString = tmpString.substring(0, argIndex);
+
+        if (tmpString.equalsIgnoreCase(F("MCP")))
+        {
+          int pot;
+          int value;
+          pot = event->Par1;
+          value = event->Par2;
+
           MCP42010 digipot(Plugin_152_pin[0], Plugin_152_pin[1], Plugin_152_pin[2]);
-
-
-        if (command == F("chambre"))
-        {
-          int val1;
-          val1 = event->Par1;   //Pot1
-          Plugin_152_PotDest[0] = val1;
-          digipot.setPot(1,val1);
+          Plugin_152_PotDest[pot] = value;
+          digipot.setPot(pot,value);
           success = true;
         }
-
-        if (command == F("second"))
-        {
-          int val2;
-          val2 = event->Par1;   //Pot2
-          Plugin_152_PotDest[1] = val2;
-          digipot.setPot(2,val2);
-          success = true;
-        }
-
-
 
 
         break;
