@@ -16,6 +16,8 @@
 #define PLUGIN_VALUENAME1_221 "Heat"
 #define PLUGIN_221_VARIABLECOUNT 1
 
+#define USERVARSMAX 7
+
 // Search filters in received data.
 // NOTE: This data remains in Flash!
 const char initFilter[] PROGMEM = {"/LUGCUH50"};
@@ -43,18 +45,16 @@ struct DataSet
 {
   char address[10];
   byte vupCount;
-  struct ValueUnitPair vup[20];
+  struct ValueUnitPair vup[2];
 };
 
-struct DataSet datasets[10];
+struct DataSet datasets[USERVARSMAX];
 byte indexDS = 0;
 bool messageProcessingComplete = false;
 
 boolean Plugin_221(byte function, struct EventStruct *event, String &string)
 {
   boolean success = false;
-
-  Serial.begin(115200);
 
   switch (function)
   {
@@ -149,12 +149,12 @@ boolean Plugin_221(byte function, struct EventStruct *event, String &string)
 
             //read Landis&Gyr
             // 40 NUL chars + "/?!" + CR LF in 7 bit and EVEN parity
-            byte initstr[] = "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xAF\x3F\x21\x8D\x0A";
+            byte initstr[] = { 0xAF, 0x3F, 0x21, 0x8D, 0x0A };
 
             byte r = 0;
             byte to = 0;
             byte bufpos;
-            char message[255];
+            char message[80];
             int parityerrors;
             boolean lineComplete = false; // whether line is complete
             boolean initComplete = false; // whether initialization is complete and identification is correct
@@ -162,7 +162,11 @@ boolean Plugin_221(byte function, struct EventStruct *event, String &string)
             softSerial.flush();
             softSerial.begin(300);
 
-            softSerial.write(initstr, sizeof(initstr) - 1);
+            for (byte i = 0; i<40; i++)
+            {
+              softSerial.write((byte)0x00);  
+            }
+            softSerial.write(initstr, sizeof(initstr));
 
             initDataSet();
 
@@ -171,7 +175,7 @@ boolean Plugin_221(byte function, struct EventStruct *event, String &string)
             bufpos = 0;
             parityerrors = 0;
 
-            while (r != 0x21) // telegram end with "!"
+            while (r != 0x21) // telegram ends with "!"
             {
               if (softSerial.available())
               {
@@ -216,8 +220,6 @@ boolean Plugin_221(byte function, struct EventStruct *event, String &string)
                 message[bufpos] = 0;
                 String log = F("LUGUH: ERR(TIMEOUT):");
                 addLog(LOG_LEVEL_INFO, log);
-                log += message;
-                Serial.println(log);
                 break;
               }
 
@@ -246,8 +248,8 @@ boolean Plugin_221(byte function, struct EventStruct *event, String &string)
 
                   // line split
                   char* token;
-                  char keyValueUnit[80];
-                  char keyValueUnitCpy[80];
+                  // char keyValueUnit[80];
+                  // char keyValueUnitCpy[80];
                   char filter[15];
                   byte keyValueUnitArrIndex = 0;
                   char keyValueUnitArr[6][70];
@@ -265,12 +267,12 @@ boolean Plugin_221(byte function, struct EventStruct *event, String &string)
                     {
                       
                       strcpy_P(filter, (char*)pgm_read_ptr(&(filters[k])));
-                      strcpy(keyValueUnitCpy, keyValueUnit);
+                      // strcpy(keyValueUnitCpy, keyValueUnit);
                       if (strstr(keyValueUnitArr[i], filter) != 0)
                       {
                         char *token;
                         char valueUnit[80];
-                        char valueUnitCpy[80];
+                        // char valueUnitCpy[80];
 
                         token = strtok(keyValueUnitArr[i], "(");
                         strcpy(datasets[indexDS].address, token);
@@ -278,7 +280,7 @@ boolean Plugin_221(byte function, struct EventStruct *event, String &string)
 
                         token = strtok(NULL, "(");
                         strcpy(valueUnit, token);
-                        strcpy(valueUnitCpy, token);
+                        // strcpy(valueUnitCpy, token);
                         
                         char *end_str;
                         token = strtok_r(valueUnit, "&", &end_str);
@@ -312,7 +314,6 @@ boolean Plugin_221(byte function, struct EventStruct *event, String &string)
                   message[bufpos] = 0;
                   String log = F("LUGUH: ERR(PARITY):");
                   log += message;
-                  Serial.println(log);
                   addLog(LOG_LEVEL_ERROR, log);
                   break;
                 }
@@ -322,10 +323,6 @@ boolean Plugin_221(byte function, struct EventStruct *event, String &string)
             } // while r != 0x21
             
             messageProcessingComplete = true;
-
-            String log = F("LUGUH: Datasets found: ");
-            log += indexDS;
-            Serial.println(log);
 
             for (byte i = 0; i<indexDS; i++)
             {
@@ -343,7 +340,6 @@ boolean Plugin_221(byte function, struct EventStruct *event, String &string)
                 }
               }
               addLog(LOG_LEVEL_INFO, log);
-              Serial.println(log);
 
             }
 
@@ -414,11 +410,11 @@ bool parityCheck(unsigned input)
 void initDataSet()
 {
   indexDS = 0;
-  for(byte i = 0; i < 10; i++)
+  for(byte i = 0; i < USERVARSMAX; i++)
   {
     datasets[i].address[0] = '\0';
     datasets[i].vupCount = 0;
-    for (byte j = 0; j < 20; j++)
+    for (byte j = 0; j < 2; j++)
     {
       datasets[i].vup[j].value[0] = '\0';
       datasets[i].vup[j].unit[0] = '\0';
@@ -430,7 +426,7 @@ float readFromDataSet(const char OBIS[], byte valueToRead, byte dataSetSize)
 {
   while (!messageProcessingComplete)
   {
-    delay(500);
+    delay(100);
   }
   for (byte i = 0; i<dataSetSize; i++)
   {
