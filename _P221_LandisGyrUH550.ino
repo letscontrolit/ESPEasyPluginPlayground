@@ -363,8 +363,10 @@ boolean Plugin_221(byte function, struct EventStruct *event, String &string)
       //code to be executed once a second. Tasks which do not require fast response can be added here
       if (newDataAvailable[event->TaskIndex] && Plugin_221_init)
       {
+        String log = F("LUGUH: update uservars for task: ");
+        log += event->TaskIndex;
         switch(Settings.TaskDevicePluginConfig[event->TaskIndex][1])
-        {
+        {         
           case 0:
           {
             UserVar[event->BaseVarIndex] = readFromDataSet("6.8", 1, indexDS);
@@ -402,11 +404,14 @@ boolean Plugin_221(byte function, struct EventStruct *event, String &string)
           }
           case 7:
           {
-            UserVar[event->BaseVarIndex] = readFromDataSet("6.31", 2, indexDS);
+            UserVar[event->BaseVarIndex] = readFromDataSet("6.31", 1, indexDS);
             break;
           }
         }
         newDataAvailable[event->TaskIndex] = false;
+        log += F(" : ");
+        log += UserVar[event->BaseVarIndex];
+        addLog(LOG_LEVEL_INFO, log);
       }
       success = true;
       break;
