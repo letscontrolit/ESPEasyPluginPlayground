@@ -8,7 +8,7 @@
 #define PLUGIN_NAME_222       "Generic - Debounced Counter"
 #define PLUGIN_VALUENAME1_222 "Count"
 #define PLUGIN_VALUENAME2_222 "Total"
-// #define PLUGIN_VALUENAME3_222 "Time"
+#define PLUGIN_VALUENAME3_222 "Time"
 
 void Plugin_222_pulse_interrupt1() ICACHE_RAM_ATTR;
 void Plugin_222_pulse_interrupt2() ICACHE_RAM_ATTR;
@@ -22,13 +22,15 @@ void Plugin_222_pulse_interrupt4() ICACHE_RAM_ATTR;
 
 unsigned long Plugin_222_pulseCounter[TASKS_MAX];
 unsigned long Plugin_222_pulseTotalCounter[TASKS_MAX];
-//unsigned long Plugin_222_pulseTime[TASKS_MAX];
-//unsigned long Plugin_222_pulseTimePrevious[TASKS_MAX];
+unsigned long Plugin_222_pulseTime[TASKS_MAX];
+unsigned long Plugin_222_pulseTimePrevious[TASKS_MAX];
 byte Plugin_222_pulsePin[TASKS_MAX];
 byte Plugin_222_pulseMode[TASKS_MAX];
 byte Plugin_222_ct0[TASKS_MAX];
 byte Plugin_222_ct1[TASKS_MAX];
-byte Plugin_222_key_state[TASKS_MAX];
+byte Plugin_222_prescaler[TASKS_MAX];
+byte Plugin_222_prescaler_cnt[TASKS_MAX];
+byte Plugin_222_signal_state[TASKS_MAX];
 byte Plugin_222_signal_falling[TASKS_MAX];
 byte Plugin_222_signal_rising[TASKS_MAX];
 
@@ -42,32 +44,38 @@ boolean Plugin_222(byte function, struct EventStruct *event, String& string)
       {
         if ( (Plugin_222_pulseMode[event->TaskIndex] == FALLING
           || Plugin_222_pulseMode[event->TaskIndex] == CHANGE )
-          && Plugin_222_signal_falling[event->TaskIndex]) {
+          && Plugin_222_signal_falling[event->TaskIndex])
+        {
             Plugin_222_signal_falling[event->TaskIndex]=0;
             Plugin_222_pulseCounter[event->TaskIndex]++;
             Plugin_222_pulseTotalCounter[event->TaskIndex]++;
+            Plugin_222_pulseTime[event->TaskIndex] = timePassedSince(Plugin_222_pulseTimePrevious[event->TaskIndex]);;
+            Plugin_222_pulseTimePrevious[event->TaskIndex]=millis();
         }
         if ( (Plugin_222_pulseMode[event->TaskIndex] ==  RISING
           || Plugin_222_pulseMode[event->TaskIndex] == CHANGE )
-           && Plugin_222_signal_rising[event->TaskIndex]) {
+           && Plugin_222_signal_rising[event->TaskIndex])
+        {
             Plugin_222_signal_rising[event->TaskIndex]=0;
             Plugin_222_pulseCounter[event->TaskIndex]++;
             Plugin_222_pulseTotalCounter[event->TaskIndex]++;
+            Plugin_222_pulseTime[event->TaskIndex] = timePassedSince(Plugin_222_pulseTimePrevious[event->TaskIndex]);;
+            Plugin_222_pulseTimePrevious[event->TaskIndex]=millis();
         }
         break;
       }
       case PLUGIN_FIFTY_PER_SECOND:
       {
-        byte i;
-
-        i = Plugin_222_key_state[event->TaskIndex] ^ ~digitalRead(Plugin_222_pulsePin[event->TaskIndex]);	// key changed ?
-        Plugin_222_ct0[event->TaskIndex] = ~( Plugin_222_ct0[event->TaskIndex] & i );		// reset or count ct0
-        Plugin_222_ct1[event->TaskIndex] = Plugin_222_ct0[event->TaskIndex] ^ Plugin_222_ct1[event->TaskIndex] & i;		// reset or count ct1
-        i &= Plugin_222_ct0[event->TaskIndex] & Plugin_222_ct1[event->TaskIndex];		// count until roll over
-        Plugin_222_key_state[event->TaskIndex] ^= i;		// then toggle debounced state
-        Plugin_222_signal_falling[event->TaskIndex] |= Plugin_222_key_state[event->TaskIndex] & i;	// 0->1: key pressing detect
-        Plugin_222_signal_rising[event->TaskIndex] |= ~Plugin_222_key_state[event->TaskIndex] & i;        // 1->0: key release detect
-
+        if ( Plugin_222_prescaler_cnt[event->TaskIndex]++ % Plugin_222_prescaler[event->TaskIndex] == 0 ) // prescale value reacheed?
+        {
+          byte i = Plugin_222_signal_state[event->TaskIndex] ^ ~digitalRead(Plugin_222_pulsePin[event->TaskIndex]);	// key changed ?
+          Plugin_222_ct0[event->TaskIndex] = ~( Plugin_222_ct0[event->TaskIndex] & i );		// reset or count ct0
+          Plugin_222_ct1[event->TaskIndex] = Plugin_222_ct0[event->TaskIndex] ^ Plugin_222_ct1[event->TaskIndex] & i;		// reset or count ct1
+          i &= Plugin_222_ct0[event->TaskIndex] & Plugin_222_ct1[event->TaskIndex];		// count until roll over
+          Plugin_222_signal_state[event->TaskIndex] ^= i;		// then toggle debounced state
+          Plugin_222_signal_falling[event->TaskIndex] |= Plugin_222_signal_state[event->TaskIndex] & i;	// 0->1: key pressing detect
+          Plugin_222_signal_rising[event->TaskIndex] |= ~Plugin_222_signal_state[event->TaskIndex] & i;        // 1->0: key release detect
+        }
         break;
       }
     case PLUGIN_DEVICE_ADD:
@@ -79,7 +87,7 @@ boolean Plugin_222(byte function, struct EventStruct *event, String& string)
         Device[deviceCount].PullUpOption = false;
         Device[deviceCount].InverseLogicOption = false;
         Device[deviceCount].FormulaOption = true;
-        Device[deviceCount].ValueCount = 2;
+        Device[deviceCount].ValueCount = 3;
         Device[deviceCount].SendDataOption = true;
         Device[deviceCount].TimerOption = true;
         Device[deviceCount].GlobalSyncOption = true;
@@ -96,7 +104,7 @@ boolean Plugin_222(byte function, struct EventStruct *event, String& string)
       {
         strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_VALUENAME1_222));
         strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[1], PSTR(PLUGIN_VALUENAME2_222));
-      //  strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[2], PSTR(PLUGIN_VALUENAME3_222));
+        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[2], PSTR(PLUGIN_VALUENAME3_222));
         break;
       }
 
@@ -108,8 +116,16 @@ boolean Plugin_222(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_WEBFORM_LOAD:
       {
-      	addFormNumericBox(F("Debounce Time (mSec)"), F("p222")
-      			, PCONFIG(0));
+        String debounceTime[6];
+        debounceTime[0] = F("80ms");
+        debounceTime[1] = F("160ms");
+        debounceTime[2] = F("240ms");
+        debounceTime[3] = F("320ms");
+        debounceTime[3] = F("400ms");
+        debounceTime[3] = F("800ms");
+
+        int debouncePrescale[] = { 1, 2, 3, 4, 5, 10 };
+        addFormSelector(F("Debounce Time"), F("p222"), 3, debounceTime, debouncePrescale, PCONFIG(0) );
 
         byte choice = PCONFIG(1);
         byte choice2 = PCONFIG(2);
@@ -130,7 +146,7 @@ boolean Plugin_222(byte function, struct EventStruct *event, String& string)
         modeValues[1] = RISING;
         modeValues[2] = FALLING;
 
-        addFormSelector(F("Mode Type"), F("p222_raisetype"), 3, modeRaise, modeValues, choice2 );
+        addFormSelector(F("Mode Type"), F("p222_raisetype"), 3, modeRaise, modeValues, choice2);
 
         success = true;
         break;
@@ -156,10 +172,10 @@ boolean Plugin_222(byte function, struct EventStruct *event, String& string)
         string += ExtraTaskSettings.TaskDeviceValueNames[1];
         string += F(":</div><div class=\"div_r\">");
         string += Plugin_222_pulseTotalCounter[event->TaskIndex];
-      //  string += F("</div><div class=\"div_br\"></div><div class=\"div_l\">");
-      //  string += ExtraTaskSettings.TaskDeviceValueNames[2];
-        //string += F(":</div><div class=\"div_r\">");
-        //string += Plugin_222_pulseTime[event->TaskIndex];
+        string += F("</div><div class=\"div_br\"></div><div class=\"div_l\">");
+        string += ExtraTaskSettings.TaskDeviceValueNames[2];
+        string += F(":</div><div class=\"div_r\">");
+        string += Plugin_222_pulseTime[event->TaskIndex];
         string += F("</div>");
         success = true;
         break;
@@ -171,10 +187,20 @@ boolean Plugin_222(byte function, struct EventStruct *event, String& string)
         log += CONFIG_PIN1;
         log += " as ";
         log +=  PCONFIG(2);
+        log += " with debouce ";
+        log += PCONFIG(0);
+        //log += "*80ms";
         addLog(LOG_LEVEL_INFO,log);
         pinMode(CONFIG_PIN1, INPUT_PULLUP);
+        Plugin_222_ct0[event->TaskIndex]=0; // reset debounce counter
+        Plugin_222_ct1[event->TaskIndex]=0; // dito
+        Plugin_222_signal_rising[event->TaskIndex]=0; // reset state
+        Plugin_222_signal_falling[event->TaskIndex]=0; // reset state
+        Plugin_222_prescaler[event->TaskIndex]=PCONFIG(0); // prescaler preset
+        Plugin_222_prescaler_cnt[event->TaskIndex]=0; // prescaler counter
         Plugin_222_pulsePin[event->TaskIndex]=CONFIG_PIN1; // remember pin
         Plugin_222_pulseMode[event->TaskIndex]=PCONFIG(2); // remember edge
+        Plugin_222_pulseTimePrevious[event->TaskIndex]=millis(); // remmember now
         success = true;
         break;
       }
@@ -214,106 +240,4 @@ boolean Plugin_222(byte function, struct EventStruct *event, String& string)
   return success;
 }
 
-
-/*********************************************************************************************\
- * Check Pulse Counters (called from irq handler)
-\*********************************************************************************************/
-/*void Plugin_222_pulsecheck(byte Index)
-{
-
-
-  const bool pinstate=digitalRead(Plugin_222_pulsePin[Index]);
-  const unsigned long PulseTime=timePassedSince(Plugin_222_pulseTimePrevious[Index]);
-  if(PulseTime > (unsigned long)Settings.TaskDevicePluginConfig[Index][0]) // check with debounce time for this task
-    {
-      if ( (pinstate == LOW && Plugin_222_pulseMode[Index] == FALLING) ||
-          (pinstate == HIGH && Plugin_222_pulseMode[Index] == RISING) ||
-          Plugin_222_pulseMode[Index] == CHANGE ) {
-        Plugin_222_pulseCounter[Index]++;
-        Plugin_222_pulseTotalCounter[Index]++;
-      }
-      Plugin_222_pulseTime[Index] = PulseTime;
-      Plugin_222_pulseTimePrevious[Index]=millis();
-    }
-}
-*/
-
-/*********************************************************************************************\
- * Pulse Counter IRQ handlers
-\*********************************************************************************************/
-/*void Plugin_222_pulse_interrupt1()
-{
-  Plugin_222_pulsecheck(0);
-}
-void Plugin_222_pulse_interrupt2()
-{
-  Plugin_222_pulsecheck(1);
-}
-void Plugin_222_pulse_interrupt3()
-{
-  Plugin_222_pulsecheck(2);
-}
-void Plugin_222_pulse_interrupt4()
-{
-  Plugin_222_pulsecheck(3);
-}
-// void Plugin_222_pulse_interrupt5()
-// {
-//   Plugin_222_pulsecheck(4);
-// }
-// void Plugin_222_pulse_interrupt6()
-// {
-//   Plugin_222_pulsecheck(5);
-// }
-// void Plugin_222_pulse_interrupt7()
-// {
-//   Plugin_222_pulsecheck(6);
-// }
-// void Plugin_222_pulse_interrupt8()
-// {
-//   Plugin_222_pulsecheck(7);
-// }
-*/
-
-/*********************************************************************************************\
- * Init Pulse Counters
-\*********************************************************************************************/
-/*bool Plugin_222_pulseinit(byte Par1, byte Index)
-{
-
-  switch (Index)
-  {
-    case 0:
-      //attachInterrupt(Par1, Plugin_222_pulse_interrupt1, Mode == LOW ? LOW: CHANGE);
-      attachInterrupt(Par1, Plugin_222_pulse_interrupt1, CHANGE);
-      break;
-    case 1:
-      attachInterrupt(Par1, Plugin_222_pulse_interrupt2, CHANGE);
-      break;
-    case 2:
-      attachInterrupt(Par1, Plugin_222_pulse_interrupt3, CHANGE);
-      break;
-    case 3:
-      attachInterrupt(Par1, Plugin_222_pulse_interrupt4, CHANGE);
-      break;
-    // case 4:
-    //   attachInterrupt(Par1, Plugin_222_pulse_interrupt5, Mode);
-    //   break;
-    // case 5:
-    //   attachInterrupt(Par1, Plugin_222_pulse_interrupt6, Mode);
-    //   break;
-    // case 6:
-    //   attachInterrupt(Par1, Plugin_222_pulse_interrupt7, Mode);
-    //   break;
-    // case 7:
-    //   attachInterrupt(Par1, Plugin_222_pulse_interrupt8, Mode);
-    //   break;
-    default:
-      addLog(LOG_LEVEL_ERROR,F("PULSE: Error, only the first 4 tasks can be pulse counters."));
-      return(false);
-  }
-
-  return(true);
-}
-*/
 #endif // USES_P222
