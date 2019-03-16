@@ -70,7 +70,7 @@ boolean Plugin_222(byte function, struct EventStruct *event, String& string)
         {
           byte i = Plugin_222_signal_state[event->TaskIndex] ^ ~digitalRead(Plugin_222_pulsePin[event->TaskIndex]);	// key changed ?
           Plugin_222_ct0[event->TaskIndex] = ~( Plugin_222_ct0[event->TaskIndex] & i );		// reset or count ct0
-          Plugin_222_ct1[event->TaskIndex] = Plugin_222_ct0[event->TaskIndex] ^ Plugin_222_ct1[event->TaskIndex] & i;		// reset or count ct1
+          Plugin_222_ct1[event->TaskIndex] = Plugin_222_ct0[event->TaskIndex] ^ (Plugin_222_ct1[event->TaskIndex] & i);		// reset or count ct1
           i &= Plugin_222_ct0[event->TaskIndex] & Plugin_222_ct1[event->TaskIndex];		// count until roll over
           Plugin_222_signal_state[event->TaskIndex] ^= i;		// then toggle debounced state
           Plugin_222_signal_falling[event->TaskIndex] |= Plugin_222_signal_state[event->TaskIndex] & i;	// 0->1: key pressing detect
@@ -121,11 +121,11 @@ boolean Plugin_222(byte function, struct EventStruct *event, String& string)
         debounceTime[1] = F("160ms");
         debounceTime[2] = F("240ms");
         debounceTime[3] = F("320ms");
-        debounceTime[3] = F("400ms");
-        debounceTime[3] = F("800ms");
+        debounceTime[4] = F("400ms");
+        debounceTime[5] = F("800ms");
 
         int debouncePrescale[] = { 1, 2, 3, 4, 5, 10 };
-        addFormSelector(F("Debounce Time"), F("p222"), 3, debounceTime, debouncePrescale, PCONFIG(0) );
+        addFormSelector(F("Debounce Time"), F("p222"), 6, debounceTime, debouncePrescale, PCONFIG(0) );
 
         byte choice = PCONFIG(1);
         byte choice2 = PCONFIG(2);
