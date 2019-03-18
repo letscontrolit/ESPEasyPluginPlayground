@@ -68,6 +68,7 @@ boolean Plugin_222(byte function, struct EventStruct *event, String& string)
       {
         if ( Plugin_222_prescaler_cnt[event->TaskIndex]++ % Plugin_222_prescaler[event->TaskIndex] == 0 ) // prescale value reacheed?
         {
+          // Credit: https://www.mikrocontroller.net/topic/tasten-entprellen-bulletproof
           byte i = Plugin_222_signal_state[event->TaskIndex] ^ ~digitalRead(Plugin_222_pulsePin[event->TaskIndex]);	// key changed ?
           Plugin_222_ct0[event->TaskIndex] = ~( Plugin_222_ct0[event->TaskIndex] & i );		// reset or count ct0
           Plugin_222_ct1[event->TaskIndex] = Plugin_222_ct0[event->TaskIndex] ^ (Plugin_222_ct1[event->TaskIndex] & i);		// reset or count ct1
@@ -136,12 +137,11 @@ boolean Plugin_222(byte function, struct EventStruct *event, String& string)
           addHtml(F("<span style=\"color:red\">Total count is not persistent!</span>"));
 
         String modeRaise[3];
-        //modeRaise[0] = F("LOW");
         modeRaise[0] = F("CHANGE");
         modeRaise[1] = F("RISING");
         modeRaise[2] = F("FALLING");
+
         int modeValues[3];
-        //modeValues[0] = LOW;
         modeValues[0] = CHANGE;
         modeValues[1] = RISING;
         modeValues[2] = FALLING;
