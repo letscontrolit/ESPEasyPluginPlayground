@@ -1,5 +1,5 @@
 //########################################################################
-//################## Plugin 221 : Atlas Scientific EZO ORP sensor  ########
+//################## Plugin 222 : Atlas Scientific EZO ORP sensor  ########
 //########################################################################
 
 // datasheet at https://www.atlas-scientific.com/_files/_datasheets/_circuit/ORP_EZO_datasheet.pdf
@@ -7,7 +7,7 @@
 
 #define PLUGIN_222
 #define PLUGIN_ID_222 222
-#define PLUGIN_NAME_222       "Environment - Atlas Scientific ORP EZO"
+#define PLUGIN_NAME_222       "Environment - Atlas Scientific ORP EZO [TESTING]"
 #define PLUGIN_VALUENAME1_222 "ORP"
 
 boolean Plugin_222_init = false;
@@ -88,7 +88,7 @@ boolean Plugin_222(byte function, struct EventStruct *event, String& string)
         addFormSubHeader(F("Calibration"));
 
         int nb_calibration_points = -1;
-        status = _P214_send_I2C_command(Settings.TaskDevicePluginConfig[event->TaskIndex][0], "Cal,?",sensordata);
+        status = _P222_send_I2C_command(Settings.TaskDevicePluginConfig[event->TaskIndex][0], "Cal,?",sensordata);
 
         if (status){
           if (strncmp(sensordata,"?Cal,",5)){
@@ -100,13 +100,13 @@ boolean Plugin_222(byte function, struct EventStruct *event, String& string)
         }
 
         addRowLabel(F("<strong>ORP Calibration</strong>"));
-        addFormNumericBox(F("Ref Ph"),F("Plugin_222_ref_cal_M' step='0.1"),Settings.TaskDevicePluginConfigFloat[event->TaskIndex][1],1,14);
+        addFormNumericBox(F("Ref ORP"),F("Plugin_222_ref_cal_M' step='1"),Settings.TaskDevicePluginConfigFloat[event->TaskIndex][1],0,1500);
         if (nb_calibration_points > 0) {
           addHtml(F("&nbsp;<span style='color:green;'>OK</span>"));
         } else {
           addHtml(F("&nbsp;<span style='color:red;'>Not yet calibrated</span>"));
         }
-        addFormCheckBox(F("Enable"),F("Plugin_222_enable_cal_M"), false)\n"));
+        addFormCheckBox(F("Enable"),F("Plugin_222_enable_cal_M"), false);
 
         if (nb_calibration_points > 1){
           char sensordata[32];
@@ -142,7 +142,7 @@ boolean Plugin_222(byte function, struct EventStruct *event, String& string)
         Settings.TaskDevicePluginConfig[event->TaskIndex][1] = isFormItemChecked(F("Plugin_222_status_led"));
 
 
-        Settings.TaskDevicePluginConfigFloat[event->TaskIndex][1] = getFormItemFloat(F("Plugin_214_ref_cal_M"));
+        Settings.TaskDevicePluginConfigFloat[event->TaskIndex][1] = getFormItemFloat(F("Plugin_222_ref_cal_M"));
 
         String cmd ("Cal,");
         bool triggerCalibrate = false;
@@ -228,6 +228,7 @@ bool _P222_send_I2C_command(uint8_t I2Caddress,const char * cmd, char* sensordat
     error = Wire.endTransmission();
 
     if (error != 0) {
+      Serial.println(error);
       return false;
     }
 
