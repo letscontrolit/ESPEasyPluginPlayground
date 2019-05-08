@@ -67,7 +67,7 @@ boolean Plugin_114(byte function, struct EventStruct *event, String& string)
       {
         char tmpString[128];
         sprintf_P(tmpString, PSTR("<TR><TD>Averaging Time (mSec):<TD><input type='text' name='plugin_114' value='%u'>"), Settings.TaskDevicePluginConfig[event->TaskIndex][0]);
-        string += tmpString;
+        addHtml(tmpString);
         success = true;
         break;
       }
