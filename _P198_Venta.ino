@@ -11,49 +11,70 @@
 #define PLUGIN_VALUENAME3_198 "Error"
 #define PLUGIN_VALUENAME4_198 "CaseOpen"
 
+#define PLUGIN_198_TYPE_LW15 1
+#define PLUGIN_198_TYPE_LW45 0
 
-typedef struct {
-	int pwr_led;
-	int led1;
-	int led2;
-	int led3;
-	int error_led;
-	int pwr_btn;
-	int up_btn;
-	int open_sensor;
-	int err_led_ctl;
-	int press_duration;
+
+typedef struct venta_config {
+	int pwr_led = 2;
+	int led1 = 0;
+	int led2 = 4;
+	int led3 = 5;
+	int error_led = 13;
+	int pwr_btn = 15;
+	int up_btn = 14;
+	int open_sensor = 12;
+	int err_led_ctl = 16;
+	int press_duration = 100;
+	int type = 0;
 } venta_config;
 
 typedef struct venta_status {
-	bool power;
-	int level;
-	bool error;
-	bool open;
+	bool power = false;
+	int level = 0;
+	bool error = false;
+	bool open = false;
 } venta_status;
 
-bool pressVentaButton(int pin, int duration, struct EventStruct *event = NULL) {
-	digitalWrite(pin, true);
-	delay(duration);
-	digitalWrite(pin, false);
-	setPinState(PLUGIN_ID_198, pin, PIN_MODE_OUTPUT, true);
-	String log = String(F("Venta: GPIO ")) + String(pin) + String(F(" Pulsed for ")) + String(duration) + String(F(" mS"));
-	addLog(LOG_LEVEL_INFO, log);
-	if (event) {
-		SendStatus(event->Source, getPinStateJSON(SEARCH_PIN_STATE, PLUGIN_ID_198, pin, log, 0));
-	}
+
+bool LoadVentaCustomTaskSettings(int taskIndex, struct venta_config *cfg) {
+	String res = LoadCustomTaskSettings(taskIndex, (byte*)cfg, sizeof(*cfg));
+	// TODO: How can I detect whether this plugin has not been configured yet?
+	//       In that case, we want to set some default pins!
 	return true;
 }
 
-bool ventaErrLED(int pin, int state, struct EventStruct *event = NULL) {
+
+bool pressVentaButton(int pin, int duration) {
+	digitalWrite(pin, true);
+	delay(duration);
+	digitalWrite(pin, false);
+
+	String log = String(F("Venta: GPIO ")) + String(pin) + String(F(" Pulsed for ")) + String(duration) + String(F(" mS"));
+	addLog(LOG_LEVEL_INFO, log);
+	return true;
+}
+
+bool ventaErrLED(int pin, int state) {
 	digitalWrite(pin, state);
-	setPinState(PLUGIN_ID_198, pin, PIN_MODE_OUTPUT, state);
+	
 	String log = String(F("Venta: GPIO ")) + String(pin) + String(F(" set to ")) + String(state);
 	addLog(LOG_LEVEL_INFO, log);
-	if (event) {
-		SendStatus(event->Source, getPinStateJSON(SEARCH_PIN_STATE, PLUGIN_ID_198, pin, log, 0));
-	}
 	return true;
+}
+
+void p198_setupInputPin(int pin, int inputtype) {
+	if (pin >= 0 && pin <= PIN_D_MAX) {
+		pinMode(pin, inputtype);
+		attachInterrupt(digitalPinToInterrupt(pin), Plugin_198_ISR, CHANGE);
+	}
+}
+
+void p198_setupOutputPin(int pin, int value) {
+	if (pin >= 0 && pin <= PIN_D_MAX) {
+		pinMode(pin, OUTPUT);
+		digitalWrite(pin, value);
+	}	
 }
 
 
@@ -103,19 +124,25 @@ boolean Plugin_198(byte function, struct EventStruct *event, String& string)
     case PLUGIN_WEBFORM_LOAD:
       {
         venta_config cfg;
-        LoadCustomTaskSettings(event->TaskIndex, (byte*)&cfg, sizeof(cfg));
 
-        addFormPinSelect(F("Power LED"), F("plugin_198_pinpwrled"), cfg.pwr_led);
-        addFormPinSelect(F("LED 1"), F("plugin_198_pinled1"), cfg.led1);
-        addFormPinSelect(F("LED 2"), F("plugin_198_pinled2"), cfg.led2);
-        addFormPinSelect(F("LED 3"), F("plugin_198_pinled3"), cfg.led3);
-        addFormPinSelect(F("Error LED"), F("plugin_198_pinerrled"), cfg.error_led);
-        addFormPinSelect(F("Power Button"), F("plugin_198_pinpwrbtn"), cfg.pwr_btn);
-        addFormPinSelect(F("Up/Down Button"), F("plugin_198_pinudbtn"), cfg.up_btn);
-        addFormPinSelect(F("Open Sensor"), F("plugin_198_pinopenbtn"), cfg.open_sensor);
-        addFormPinSelect(F("Error LED Ctl"), F("plugin_198_pinerrledctl"), cfg.err_led_ctl);
+				String options[2];
+        options[0] = F("Venta LW45 (3 levels)");
+				options[1] = F("Venta LW15 (2 levels)");
+        int optionValues[2] = { PLUGIN_198_TYPE_LW45, PLUGIN_198_TYPE_LW15 };
+        addFormSelector(F("Device Type"), F("p198_type"), 2, options, optionValues, cfg.type);
 
-				addFormNumericBox(F("Button press duration (ms)"), F("plugin_198_pressduration"), cfg.press_duration);
+
+        addFormPinSelect(F("Power LED"), F("p198_pinpwrled"), cfg.pwr_led);
+        addFormPinSelect(F("LED 1"), F("p198_pinled1"), cfg.led1);
+        addFormPinSelect(F("LED 2"), F("p198_pinled2"), cfg.led2);
+        addFormPinSelect(F("LED 3"), F("p198_pinled3"), cfg.led3);
+        addFormPinSelect(F("Error LED"), F("p198_pinerrled"), cfg.error_led);
+        addFormPinSelect(F("Power Button"), F("p198_pinpwrbtn"), cfg.pwr_btn);
+        addFormPinSelect(F("Up/Down Button"), F("p198_pinudbtn"), cfg.up_btn);
+        addFormPinSelect(F("Open Sensor"), F("p198_pinopenbtn"), cfg.open_sensor);
+        addFormPinSelect(F("Error LED Ctl"), F("p198_pinerrledctl"), cfg.err_led_ctl);
+
+				addFormNumericBox(F("Button press duration (ms)"), F("p198_pressduration"), cfg.press_duration);
 
         success = true;
         break;
@@ -126,16 +153,17 @@ boolean Plugin_198(byte function, struct EventStruct *event, String& string)
         venta_config cfg;
         LoadCustomTaskSettings(event->TaskIndex, (byte*)&cfg, sizeof(cfg));
 
-        cfg.pwr_led = getFormItemInt(F("plugin_198_pinpwrled"));
-        cfg.led1 = getFormItemInt(F("plugin_198_pinled1"));
-        cfg.led2 = getFormItemInt(F("plugin_198_pinled2"));
-        cfg.led3 = getFormItemInt(F("plugin_198_pinled3"));
-        cfg.error_led = getFormItemInt(F("plugin_198_pinerrled"));
-        cfg.pwr_btn = getFormItemInt(F("plugin_198_pinpwrbtn"));
-        cfg.up_btn = getFormItemInt(F("plugin_198_pinudbtn"));
-        cfg.open_sensor = getFormItemInt(F("plugin_198_pinopenbtn"));
-        cfg.err_led_ctl = getFormItemInt(F("plugin_198_pinerrledctl"));
-				cfg.press_duration = getFormItemInt(F("plugin_198_pressduration"));
+				cfg.type = getFormItemInt(F("p198_type"));
+        cfg.pwr_led = getFormItemInt(F("p198_pinpwrled"));
+        cfg.led1 = getFormItemInt(F("p198_pinled1"));
+        cfg.led2 = getFormItemInt(F("p198_pinled2"));
+        cfg.led3 = getFormItemInt(F("p198_pinled3"));
+        cfg.error_led = getFormItemInt(F("p198_pinerrled"));
+        cfg.pwr_btn = getFormItemInt(F("p198_pinpwrbtn"));
+        cfg.up_btn = getFormItemInt(F("p198_pinudbtn"));
+        cfg.open_sensor = getFormItemInt(F("p198_pinopenbtn"));
+        cfg.err_led_ctl = getFormItemInt(F("p198_pinerrledctl"));
+				cfg.press_duration = getFormItemInt(F("p198_pressduration"));
 
         SaveCustomTaskSettings(event->TaskIndex, (byte*)&cfg, sizeof(cfg));
 
@@ -147,33 +175,25 @@ boolean Plugin_198(byte function, struct EventStruct *event, String& string)
         // TODO
         break;
 
+
     case PLUGIN_INIT:
       {
         venta_config cfg;
         LoadCustomTaskSettings(event->TaskIndex, (byte*)&cfg, sizeof(cfg));
 
 				int inputtype = (Settings.TaskDevicePin1PullUp[event->TaskIndex]) ? INPUT_PULLUP : INPUT;
-        pinMode(cfg.pwr_led, inputtype); // PWR LED
-        pinMode(cfg.led1, inputtype); // LED 1
-        pinMode(cfg.led2, inputtype); // LED 2
-        pinMode(cfg.led3, inputtype); // LED 3
-        pinMode(cfg.error_led, inputtype); // ERR LED
-        pinMode(cfg.pwr_btn, OUTPUT); // Power Button
-        pinMode(cfg.up_btn, OUTPUT); // Up/Down Button
-        pinMode(cfg.open_sensor, inputtype); // Case Open Sensor
-        pinMode(cfg.err_led_ctl, OUTPUT);
-
-        attachInterrupt(digitalPinToInterrupt(cfg.pwr_led), Plugin_198_ISR, CHANGE);
-        attachInterrupt(digitalPinToInterrupt(cfg.led1), Plugin_198_ISR, CHANGE);
-        attachInterrupt(digitalPinToInterrupt(cfg.led2), Plugin_198_ISR, CHANGE);
-        attachInterrupt(digitalPinToInterrupt(cfg.led3), Plugin_198_ISR, CHANGE);
-        attachInterrupt(digitalPinToInterrupt(cfg.error_led), Plugin_198_ISR, CHANGE);
-        attachInterrupt(digitalPinToInterrupt(cfg.open_sensor), Plugin_198_ISR, CHANGE);
-
-        setPinState(PLUGIN_ID_198, cfg.pwr_btn, PIN_MODE_OUTPUT, 0); // Power Button
-        setPinState(PLUGIN_ID_198, cfg.up_btn, PIN_MODE_OUTPUT, 0); // Up/Down Button
-        setPinState(PLUGIN_ID_198, cfg.err_led_ctl, PIN_MODE_OUTPUT, 0); // Error LED control
-
+				
+				p198_setupInputPin(cfg.pwr_led, inputtype);
+				p198_setupInputPin(cfg.led1, inputtype);
+				p198_setupInputPin(cfg.led2, inputtype);
+				p198_setupInputPin(cfg.led3, inputtype);
+				p198_setupInputPin(cfg.error_led, inputtype);
+				p198_setupInputPin(cfg.open_sensor, inputtype);
+				
+				p198_setupOutputPin(cfg.pwr_btn, 0);
+				p198_setupOutputPin(cfg.up_btn, 0);
+				p198_setupOutputPin(cfg.err_led_ctl, 0);
+				
         success = true;
         break;
       }
@@ -213,6 +233,7 @@ boolean Plugin_198(byte function, struct EventStruct *event, String& string)
 				success = readVentaState(event, &st);
 
         if (command == F("ventapower")) {
+					// Set power status passed as argument (i.e. check current status and change if necessary)
 					success = true;
 					if (event->Par1 != st.power) {
 						// Change power status by emulating a button press
@@ -246,7 +267,7 @@ boolean Plugin_198(byte function, struct EventStruct *event, String& string)
 					}
 				}
 
-				if (command == F("ventalevel") && event->Par1 == 0) {
+				if (command == F("ventalevel") && event->Par1 <= 0) {
 					// Simply turn off
 					success = true;
 					if (st.power) {
@@ -258,6 +279,9 @@ boolean Plugin_198(byte function, struct EventStruct *event, String& string)
 				if (command == F("ventalevel") && event->Par1 > 0) {
 					success = true;
 					int newlvl = event->Par1;
+					// Allow level to be at most 3; LW15 has only two levels
+					newlvl = min(newlvl, (cfg.type == PLUGIN_198_TYPE_LW15) ? 2 : 3);
+
 					// This is the most complicated command, as it needs to combine a lot of logic / input from different states:
 					// if OFF -> turn on (emulate power btn press); wait
 					// if error -> press up button; Wait
@@ -282,11 +306,15 @@ boolean Plugin_198(byte function, struct EventStruct *event, String& string)
 					readVentaState(event, &st) && assignVentaState(event, &st);
 					if (st.level != newlvl) {
 						int diff = newlvl - st.level;
-						if (diff < 0) diff += 3;
+						if (diff < 0) {
+							// LW15 has only two states, all other devices have three
+							diff += (cfg.type == PLUGIN_198_TYPE_LW15) ? 2 : 3;
+						}
 						for (int i = 0; i < diff; i++) {
 							pressVentaButton(cfg.up_btn, cfg.press_duration);
 							delay(100);
 						}
+						readVentaState(event, &st) && assignVentaState(event, &st);
 					}
 				}
 
@@ -295,7 +323,6 @@ boolean Plugin_198(byte function, struct EventStruct *event, String& string)
 					ventaLog(event->BaseVarIndex);
 	        sendData(event);
 				}
-
 
         break;
       }
@@ -348,6 +375,9 @@ bool readVentaState(struct EventStruct *event, struct venta_status *status) {
     level = 2;
   } else if (digitalRead(cfg.led3) == LOW) {
     level = 3;
+		if (cfg.type == PLUGIN_198_TYPE_LW15) {
+			level = 2;
+		}
   } else if (!status->power) {
     level = 0;
   } else if (status->error) {
