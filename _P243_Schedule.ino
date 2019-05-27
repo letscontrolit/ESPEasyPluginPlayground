@@ -4,8 +4,10 @@
 //#######################################################################################################
 #define PLUGIN_243
 #define PLUGIN_ID_243         243
-#define PLUGIN_NAME_243       "Schedule"
-#define PLUGIN_VALUENAME1_243 "Output"
+#define PLUGIN_NAME_243       "Generic - Schedule [TESTING]"
+#define PLUGIN_VALUENAME1_243 "Running"
+#define PLUGIN_VALUENAME2_243 "RunValue"
+#define PLUGIN_VALUENAME3_243 "Override"
 #define PLUGIN_243_MAX_SETTINGS 4
 #define PLUGIN_243_PERIODS_COUNT 4 
 #define P243_PERIOD 					PCONFIG(2)
@@ -17,6 +19,11 @@
 #define P243_DT_START(n)			PCONFIG_LONG(n)
 #define P243_DT_END(n)				ExtraTaskSettings.TaskDevicePluginConfigLong[n]
 #define P243_SETVALUE(n)			PCONFIG_FLOAT(n)
+#define P243_VAR_RUNNING			UserVar[event->BaseVarIndex]
+#define P243_VAR_RUNVALUE			UserVar[event->BaseVarIndex+1]
+#define P243_VAR_OVERRIDE			UserVar[event->BaseVarIndex+2]
+
+typedef void (*AddSetValueT) (byte x, float v);
 
 bool *LoadClockSet(int16_t period, bool days[], struct EventStruct *event);
 
@@ -31,13 +38,15 @@ boolean Plugin_243(byte function, struct EventStruct *event, String& string)
       {
         Device[++deviceCount].Number = PLUGIN_ID_243;
         Device[deviceCount].Type = DEVICE_TYPE_DUMMY;
-        Device[deviceCount].VType = SENSOR_TYPE_SWITCH;
+        Device[deviceCount].VType = SENSOR_TYPE_NONE;
         Device[deviceCount].Ports = 0;
         Device[deviceCount].PullUpOption = false;
         Device[deviceCount].InverseLogicOption = false;
         Device[deviceCount].FormulaOption = false;
-        Device[deviceCount].ValueCount = 1;
+        Device[deviceCount].ValueCount = 3;
         Device[deviceCount].SendDataOption = true;
+        Device[deviceCount].TimerOption = false;
+        Device[deviceCount].TimerOptional = false;
         break;
       }
 
@@ -50,6 +59,8 @@ boolean Plugin_243(byte function, struct EventStruct *event, String& string)
     case PLUGIN_GET_DEVICEVALUENAMES:
       {
         strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_VALUENAME1_243));
+        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[1], PSTR(PLUGIN_VALUENAME2_243));
+        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[2], PSTR(PLUGIN_VALUENAME3_243));
         break;
       }
 
@@ -63,6 +74,17 @@ boolean Plugin_243(byte function, struct EventStruct *event, String& string)
 				addHtml(F("<TR><TD>Set Value:<TD>"));
 				addTaskValueSelect(F("p243_value"), PCONFIG(1), PCONFIG(0));
 
+				AddSetValueT addSetValue = &addSetValueFloat;
+
+				switch (Device[getDeviceIndex(Settings.TaskDeviceNumber[PCONFIG(0)])].VType)
+				{
+					case SENSOR_TYPE_SWITCH:
+						addSetValue = addSetValueSwitch;
+						break;
+				
+					default:
+						break;
+				}
 				LoadTaskSettings(event->TaskIndex); // restore original taskvalues
 
 				String periods[PLUGIN_243_PERIODS_COUNT];
@@ -101,9 +123,7 @@ boolean Plugin_243(byte function, struct EventStruct *event, String& string)
 						DateTimeintString(P243_PERIOD, P243_DT_END(x)),
 						20);
 					addHtml(" ");
-					addTextBox(String(F("p243_setvalue")) + (x),
-						String(P243_SETVALUE(x)),
-						10);
+					addSetValue(x, P243_SETVALUE(x));
         }
         success = true;
         break;
@@ -144,6 +164,7 @@ boolean Plugin_243(byte function, struct EventStruct *event, String& string)
       {
         LoadTaskSettings(event->TaskIndex);
 
+				if (!P243_VAR_OVERRIDE) {
 				bool isDay;
 				if ((P243_PERIOD == P243_PERIOD_ONCE) | (P243_PERIOD == P243_PERIOD_DAILY))
 					isDay = true;
@@ -151,11 +172,11 @@ boolean Plugin_243(byte function, struct EventStruct *event, String& string)
 				{
 					bool days[31];
 					LoadClockSet(P243_PERIOD, days, event);
-					addLog(LOG_LEVEL_INFO, String(F("weekday=")) + String(weekday()));
 					isDay = ((P243_PERIOD == P243_PERIOD_WEEKLY) & days[weekday()-1]) |
 									((P243_PERIOD == P243_PERIOD_MONTHLY) & days[day()-1]);
 				}
 
+					P243_VAR_RUNNING = 0;
 				if (isDay)
 				{	 
 					time_t curtime = now();
@@ -176,17 +197,23 @@ boolean Plugin_243(byte function, struct EventStruct *event, String& string)
 
 						if ((curtime >= P243_DT_START(x)) && (curtime < dt_end))
 						{
-	    	      String log = F("SCHED: Period ");
+								String log = F("SCHED: Running at period ");
         	  	log += x;
-							log += F(" value ");
+								log += F(" with value ");
 							log += P243_SETVALUE(x);
 	          	addLog(LOG_LEVEL_INFO, log);
-			        UserVar[PCONFIG(0) * VARS_PER_TASK + PCONFIG(1)] = P243_SETVALUE(x);
-	  	        UserVar[event->BaseVarIndex] = P243_SETVALUE(x);
-  	  	      sendData(event);
+								P243_VAR_RUNNING = 1;
+								P243_VAR_RUNVALUE = P243_SETVALUE(x);
 							break;
 						}
 					}
+				}
+				}
+
+				if (P243_VAR_RUNNING)
+				{
+					UserVar[PCONFIG(0) * VARS_PER_TASK + PCONFIG(1)] = P243_VAR_RUNVALUE;
+					sendData(event);
 				}
 				success = true;
         break;
@@ -296,4 +323,22 @@ String DateTimeintString(int16_t period, long Timeint)
 	return result;
 }
 
+void addSetValueFloat(byte x, float v) 
+{
+	addTextBox(String(F("p243_setvalue")) + (x),
+						String(v),
+						10);
+}
+
+void addSetValueSwitch(byte x, float v) 
+{
+	String options[2] = { F("0"), F("1") };
+	addSelector(String(F("p243_setvalue")) + (x),
+		2, 
+		options, 
+		NULL, 
+		NULL, 
+		(int)v, 
+		false, true);
+}
 #endif // USES_P243
