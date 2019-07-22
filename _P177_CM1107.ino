@@ -21,8 +21,8 @@ boolean Plugin_177_init = false;
 #define  CM1107_CMD_SN      0x1F
 #define  CM1107_CMD_VER     0x1E
 
-#define  CM1107_STATUS_INIT 0x01 //0 1 swapped compared to datasheet
-#define  CM1107_STATUS_OK   0x00
+#define  CM1107_STATUS_INIT 0x00 //0 1 swapped???
+#define  CM1107_STATUS_OK   0x01
 #define  CM1107_STATUS_ERR  0x02
 #define  CM1107_STATUS_OUT  0x03
 #define  CM1107_STATUS_NCAL 0x05
@@ -34,7 +34,8 @@ boolean Plugin_177_init = false;
 
 boolean plugin_177_begin()
 {
-  Wire.begin();
+  //Wire.begin();   called in ESPEasy framework
+  Plugin_177_init = true;
   return(true);
 }
 
@@ -61,11 +62,44 @@ boolean plugin_177_setABC(unsigned char abc)
   Wire.write(100); // defined by data-sheet
   return (Wire.endTransmission() == 0);
 }
+/* DEV getABC
+uint8_t plugin_177_getABC()
+{
+  I2C_write8(CM1107_ADDR, CM1107_CMD_ABC);
+  delay(500);
+  uint8_t abc;
+  Wire.requestFrom(CM1107_ADDR, (byte)8);
 
+  String log = F("CM1107: ABC:");
+  log += Wire.read(); // expected 0x10
+  log += F(" ");
+  log += Wire.read(); // expected 100
+  log += F(" ");
+  abc = Wire.read(); // expected 0 or 2
+  log += abc;
+  log += F(" ");
+  if (abc)
+  { //expected read 1-15
+    log += Wire.read();
+    abc = 0;
+  } else
+  {
+    abc = Wire.read();
+    log += abc;
+  }
+  log += F(" ");
+  log += (Wire.read() << 8) | Wire.read();
+  log += F(" ");
+  log += Wire.read(); // expected 100
+  log += F(" ");
+  log += Wire.read(); // CS
+  addLog(LOG_LEVEL_INFO,log);
+  return abc;
+}*/
 String plugin_177_getABC()
 {
   I2C_write8(CM1107_ADDR, CM1107_CMD_ABC);
-  //delay(500);
+  delay(500);
   uint8_t abc; //replace with function parameter?
   uint16_t co2;
   uint8_t checksum;
@@ -211,7 +245,7 @@ boolean Plugin_177(byte function, struct EventStruct *event, String& string)
     case PLUGIN_READ:
       {
         plugin_177_begin();
-        co2 = plugin_177_getCO2();
+        uint16_t co2 = plugin_177_getCO2();
         UserVar[event->BaseVarIndex] = co2;
         if (co2 > 5000)
         {
