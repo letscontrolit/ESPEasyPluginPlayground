@@ -78,6 +78,7 @@ boolean Plugin_178(byte function, struct EventStruct *event, String& string)
       {
         addFormNumericBox(F("Altitude"), F("plugin_178_SCD30_alt"), Settings.TaskDevicePluginConfig[event->TaskIndex][0]);
         addUnit(F("m"));
+        addHtml(F("<span style=\"color:red\">Tools->Advanced->I2C ClockStretchLimit should be set to 200000</span>"));
         success = true;
         break;
       }
