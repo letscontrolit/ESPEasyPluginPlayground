@@ -58,7 +58,7 @@ void FrogmoreScd30::begin(TwoWire *pWire, uint8_t i2cAddress)
     }
 
     co2NewDataLocation = -1; // indicates there is no data, so the 1st data point needs to fill up the median filter
-    this->pWire->setClockStretchLimit(200000);
+    //this->pWire->setClockStretchLimit(200000); // should be set via Tools->Advanced->I2C ClockStretchLimit
     this->ambientPressure = 0;
 }
 
