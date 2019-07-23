@@ -3,8 +3,9 @@
 //#######################################################################################################
 // development version
 // by: V0JT4
+/* Commands: CMGETABC - displays content of automatic calibration register */
 
-
+#include "ESPEasy-Globals.h"
 #define PLUGIN_177
 #define PLUGIN_ID_177         177
 #define PLUGIN_NAME_177       "Gases - CO2 CM1107"
@@ -145,7 +146,9 @@ String plugin_177_getABC()
   {
     log += F("OK");
   }
-  addLog(LOG_LEVEL_INFO,log);
+  if(logLevelActiveFor(LOG_LEVEL_INFO)) {
+    addLog(LOG_LEVEL_INFO,log);
+  }
   return log;
 }
 
@@ -166,21 +169,22 @@ uint16_t plugin_177_getCO2()
   status = Wire.read(); // status
   checksum += status;
   checksum += Wire.read(); //CS
-
-  String log = F("CM1107: CO2 ppm:");
-  log += co2;
-  log += F(", status: ");
-  log += status;
-  log += F(", checksum: ");
-  if (checksum)
-  {
-    log += F("ERR");
-    log += checksum;
-  } else
-  {
-    log += F("OK");
+  if(logLevelActiveFor(LOG_LEVEL_INFO)) {
+    String log = F("CM1107: CO2 ppm:");
+    log += co2;
+    log += F(", status: ");
+    log += status;
+    log += F(", checksum: ");
+    if (checksum)
+    {
+      log += F("ERR");
+      log += checksum;
+    } else
+    {
+      log += F("OK");
+    }
+    addLog(LOG_LEVEL_INFO,log);
   }
-  addLog(LOG_LEVEL_INFO,log);
   return co2;
 }
 
@@ -247,7 +251,7 @@ boolean Plugin_177(byte function, struct EventStruct *event, String& string)
         plugin_177_begin();
         uint16_t co2 = plugin_177_getCO2();
         UserVar[event->BaseVarIndex] = co2;
-        if (co2 > 5000)
+        if (co2 > 5000 && logLevelActiveFor(LOG_LEVEL_INFO))
         {
           addLog(LOG_LEVEL_INFO,F("CM1107: Sensor saturated! > 5000 ppm"));
         }
