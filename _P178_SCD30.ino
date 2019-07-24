@@ -5,7 +5,10 @@
 // by: V0JT4
 // this plugin is based on the Frogmore42 library
 // written based code from https://github.com/Frogmore42/Sonoff-Tasmota/tree/development/lib/FrogmoreScd30
-
+// Commands:
+//   SCDGETABC - shows automatic calibration period in days, 0 = disable
+//   SCDGETALT - shows altitude compensation configuration in meters above sea level
+//   SCDGETTMP - hows temperature offset in C
 
 #define PLUGIN_178
 #define PLUGIN_ID_178         178
@@ -78,7 +81,9 @@ boolean Plugin_178(byte function, struct EventStruct *event, String& string)
       {
         addFormNumericBox(F("Altitude"), F("plugin_178_SCD30_alt"), Settings.TaskDevicePluginConfig[event->TaskIndex][0]);
         addUnit(F("m"));
-        addHtml(F("<span style=\"color:red\">Tools->Advanced->I2C ClockStretchLimit should be set to 200000</span>"));
+        addFormTextBox(F("Temp offset"), F("plugin_178_SCD30_tmp"), String(PCONFIG_FLOAT(0), 2), 5);
+        addUnit(F("C"));
+        addHtml(F("<span style=\"color:red\">Tools->Advanced->I2C ClockStretchLimit should be set to 20000</span>"));
         success = true;
         break;
       }
@@ -88,6 +93,7 @@ boolean Plugin_178(byte function, struct EventStruct *event, String& string)
         uint16_t alt = getFormItemInt(F("plugin_178_SCD30_alt"));
         if (alt > 2000) alt = 2000;
         Settings.TaskDevicePluginConfig[event->TaskIndex][0] = alt;
+        PCONFIG_FLOAT(0) = getFormItemFloat(F("plugin_178_SCD30_tmp"));
         success = true;
         break;
       }
@@ -95,6 +101,7 @@ boolean Plugin_178(byte function, struct EventStruct *event, String& string)
       {
         plugin_178_begin();
         scd30.setAltitudeCompensation(Settings.TaskDevicePluginConfig[event->TaskIndex][0]);
+        scd30.setTemperatureOffset(PCONFIG_FLOAT(0));
         break;
       }
     case PLUGIN_READ:
@@ -142,6 +149,12 @@ boolean Plugin_178(byte function, struct EventStruct *event, String& string)
           success = true;
           scd30.getAltitudeCompensation(&value);
           SendStatus(event->Source, "Altitude: "+String(value,DEC));
+        } else if (string.equalsIgnoreCase(F("SCDGETTMP")))
+        {
+          success = true;
+          float temp;
+          scd30.getTemperatureOffset(&temp);
+          SendStatus(event->Source, "Temp offset: "+String(temp,2));
         }
         break;
       }
