@@ -139,23 +139,29 @@ boolean Plugin_178(byte function, struct EventStruct *event, String& string)
     case PLUGIN_WRITE:
       {
         uint16_t value = 0;
+        String log = F("");
+        float temp;
         if (string.equalsIgnoreCase(F("SCDGETABC")))
         {
-          success = true;
           scd30.getCalibrationType(&value);
-          SendStatus(event->Source, "ABC: "+String(value,DEC));
+          log += F("ABC: ");
+          log += value;
         } else if (string.equalsIgnoreCase(F("SCDGETALT")))
         {
-          success = true;
           scd30.getAltitudeCompensation(&value);
-          SendStatus(event->Source, "Altitude: "+String(value,DEC));
+          log += F("Altitude: ");
+          log += value;
         } else if (string.equalsIgnoreCase(F("SCDGETTMP")))
         {
-          success = true;
-          float temp;
           scd30.getTemperatureOffset(&temp);
-          SendStatus(event->Source, "Temp offset: "+String(temp,2));
+          log += F("Temp offset: ");
+          log += String(temp,2);
+        } else 
+        {
+          break;
         }
+        SendStatus(event->Source, log);
+        success = true;
         break;
       }
   }
