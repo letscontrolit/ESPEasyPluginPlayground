@@ -4,7 +4,7 @@
 //################################## Plugin 109 RESOL DeltaSol Pro ######################################
 //#######################################################################################################
 
-//#include <ESPeasySoftwareSerial.h>
+
 #include <ESPeasySoftwareSerial.h>
 
 #define PLUGIN_109
@@ -88,34 +88,17 @@ boolean Plugin_109(byte function, struct EventStruct *event, String& string)
     case PLUGIN_WEBFORM_LOAD:
       {
         int16_t choice = Settings.TaskDevicePluginConfig[event->TaskIndex][0];
-        
-        String options[RESOL_REGISTER_OPTIONS];
-        uint optionValues[RESOL_REGISTER_OPTIONS];
-        
-        optionValues[0] = REG_TEMP_SENSOR_1;
-        options[0] = F("Temperature sensor 1");
-        optionValues[1] = REG_TEMP_SENSOR_2;
-        options[1] = F("Temperature sensor 2");
-        optionValues[2] = REG_TEMP_SENSOR_3;
-        options[2] = F("Temperature sensor 3");
-        optionValues[3] = REG_RELAIS_1;
-        options[3] = F("Relais 1");
-        optionValues[4] = REG_RELAIS_2;
-        options[4] = F("Relais 2");
-        
-        string += F("<TR><TD>Register:<TD><select name='plugin_109_register'>");
-        for (byte x = 0; x < RESOL_REGISTER_OPTIONS; x++)
-        {
-          string += F("<option value='");
-          string += optionValues[x];
-          string += "'";
-          if (choice == optionValues[x])
-            string += F(" selected");
-          string += ">";
-          string += options[x];
-          string += F("</option>");
-        }
-        string += F("</select>");
+
+
+        String registerOptions[5];
+        registerOptions[0] = F("Temperature sensor 1");
+        registerOptions[1] = F("Temperature sensor 2");
+        registerOptions[2] = F("Temperature sensor 3");
+        registerOptions[3] = F("Relais 1");
+        registerOptions[4] = F("Relais 2");
+        int registerOptionValues[5] =
+        { REG_TEMP_SENSOR_1, REG_TEMP_SENSOR_2, REG_TEMP_SENSOR_3, REG_RELAIS_1, REG_RELAIS_2 };
+        addFormSelector(F("Register Type"), F("plugin_109_register"), 5, registerOptions, registerOptionValues, choice);
 
         success = true;
         break;
@@ -123,8 +106,7 @@ boolean Plugin_109(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_WEBFORM_SAVE:
       {
-        String plugin1 = WebServer.arg("plugin_109_register");
-        Settings.TaskDevicePluginConfig[event->TaskIndex][0] = plugin1.toInt();
+        Settings.TaskDevicePluginConfig[event->TaskIndex][0] = getFormItemInt(F("plugin_109_register"));
         Plugin_109_init = false; // Force device setup next time
         success = true;
         break;
@@ -134,7 +116,7 @@ boolean Plugin_109(byte function, struct EventStruct *event, String& string)
       {
         addLog(LOG_LEVEL_INFO, (char*)"INIT : RESOL DeltaSol Pro");
         
-        Plugin_109_UART = new ESPeasySoftwareSerial(Settings.TaskDevicePin1[event->TaskIndex], Settings.TaskDevicePin2[event->TaskIndex], false, (2 * RXBUF_SIZE));		// set RX und Tx Pin number, no invert, buffer
+        Plugin_109_UART = new ESPeasySoftwareSerial(Settings.TaskDevicePin1[event->TaskIndex], Settings.TaskDevicePin2[event->TaskIndex], false, (2 * RXBUF_SIZE));    // set RX und Tx Pin number, no invert, buffer
 
         Plugin_109_init = true;
         
