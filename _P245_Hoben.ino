@@ -30,7 +30,7 @@ IRsend *Plugin_245_irSender = nullptr;
 #define PLUGIN_ID_245 245
 #define PLUGIN_NAME_245 "Regulator - Hoben [DEVELOPMENT]"
 #define PLUGIN_VALUENAME1_245 "Mode"
-//#define PLUGIN_245_DEBUG               //set for extra log info in the debug
+#define PLUGIN_VALUENAME2_245 "Consigne"
 
 #define PLUGIN_245_PULSE_LENGTH 480
 #define PLUGIN_245_BLANK_LENGTH 510
@@ -49,11 +49,11 @@ boolean Plugin_245(byte function, struct EventStruct *event, String &string)
       {
         Device[++deviceCount].Number = PLUGIN_ID_245;
         Device[deviceCount].Type = DEVICE_TYPE_SINGLE;
-        Device[deviceCount].ValueCount = 1;
+        Device[deviceCount].ValueCount = 2;
         Device[deviceCount].VType = SENSOR_TYPE_SINGLE;
         Device[deviceCount].SendDataOption = true;
-        Device[deviceCount].FormulaOption = false;
-        Device[deviceCount].DecimalsOnly = false;
+        Device[deviceCount].FormulaOption = true;
+        Device[deviceCount].DecimalsOnly = true;
         //Device[deviceCount].Custom = true;
         Device[deviceCount].TimerOption = true;
         Device[deviceCount].GlobalSyncOption = true;
@@ -70,6 +70,7 @@ boolean Plugin_245(byte function, struct EventStruct *event, String &string)
     case PLUGIN_GET_DEVICEVALUENAMES:
       {
         strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_VALUENAME1_245));
+        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[1], PSTR(PLUGIN_VALUENAME2_245));
         break;
       }
 
@@ -109,6 +110,11 @@ boolean Plugin_245(byte function, struct EventStruct *event, String &string)
         cmd = F("HOBENAUTO,");
         cmd += event->TaskIndex + 1;
         addHtml(cmd);
+        addRowLabel(F("Set Regulation Temperature"));
+        cmd = F("HOBENSETPOINT,");
+        cmd += event->TaskIndex + 1;
+        cmd += F(",value");
+        addHtml(cmd);
         success = true;
         break;
       }
@@ -121,6 +127,8 @@ boolean Plugin_245(byte function, struct EventStruct *event, String &string)
         PCONFIG(0) = getFormItemInt(F("p245_task"));
         PCONFIG(1) = getFormItemInt(F("p021_value"));
         PCONFIG(2) = getFormItemInt(F("p245_duration"));
+
+        UserVar[event->BaseVarIndex] = PCONFIG_FLOAT(0);
         success = true;
         break;
       }
@@ -142,7 +150,9 @@ boolean Plugin_245(byte function, struct EventStruct *event, String &string)
           Plugin_245_irSender = 0;
         }
 
+        // Init Vars
         UserVar[event->BaseVarIndex] = 0;
+        UserVar[event->BaseVarIndex+1] = PCONFIG_FLOAT(0);
         
         success = true;
         break;
@@ -162,24 +172,28 @@ boolean Plugin_245(byte function, struct EventStruct *event, String &string)
         byte TaskIndex = PCONFIG(0);
         byte BaseVarIndex = TaskIndex * VARS_PER_TASK + PCONFIG(1);
         
-        #ifdef PLUGIN_245_DEBUG
-          log = F("HOBEN : Temperature of sensor: ");
-          log += UserVar[BaseVarIndex];
-          addLog(LOG_LEVEL_INFO, log);
-  
-          log = F("HOBEN : Offset: ");
-          log += PCONFIG_FLOAT(2);
-          addLog(LOG_LEVEL_INFO, log);
-        #endif
+        log = F("HOBEN : Temperature of sensor: ");
+        log += UserVar[BaseVarIndex];
+        addLog(LOG_LEVEL_DEBUG, log);
+
+        log = F("HOBEN : Offset: ");
+        log += PCONFIG_FLOAT(2);
+        addLog(LOG_LEVEL_DEBUG, log);
         
         // To avoid using float, use 10 multiplier in all the compute
         unsigned int value = 10 * ( UserVar[BaseVarIndex] + PCONFIG_FLOAT(2) ) ;
 
-        #ifdef PLUGIN_245_DEBUG
-          log = F("HOBEN : Control offset: ");
-          log += PCONFIG_FLOAT(1);
-          addLog(LOG_LEVEL_INFO, log);
-        #endif
+        if ( UserVar[event->BaseVarIndex+1] >0 ) {
+          float setPointCorr =  PCONFIG_FLOAT(0) - UserVar[event->BaseVarIndex+1];
+          log = F("HOBEN : SetPoint correction: ");
+          log += setPointCorr;
+          addLog(LOG_LEVEL_DEBUG, log);
+          value += (unsigned int) 10 * setPointCorr;
+        }
+
+        log = F("HOBEN : Control offset: ");
+        log += PCONFIG_FLOAT(1);
+        addLog(LOG_LEVEL_DEBUG, log);
         
         //Mode control offset
         if ( UserVar[event->BaseVarIndex] > 1 ) {
@@ -199,11 +213,9 @@ boolean Plugin_245(byte function, struct EventStruct *event, String &string)
         value = min(value, (unsigned int) (10 * PLUGIN_245_TEMP_MAX) );
         value = max(value, (unsigned int) (10 * PLUGIN_245_TEMP_MIN) );
 
-        #ifdef PLUGIN_245_DEBUG
-          log = F("HOBEN : Temperature to encode: ");
-          log += value;
-          addLog(LOG_LEVEL_INFO, log);
-        #endif
+        log = F("HOBEN : Temperature to encode: ");
+        log += value;
+        addLog(LOG_LEVEL_DEBUG, log);
         
         uint16_t idx = 0; //If this goes above the buf.size then the esp will throw a 28 EXCCAUSE
         uint16_t *buf;
@@ -219,29 +231,23 @@ boolean Plugin_245(byte function, struct EventStruct *event, String &string)
         unsigned int remainder;
         buf[idx++] = 3 * PLUGIN_245_PULSE_LENGTH; 
         if (value > 259) {
-          #ifdef PLUGIN_245_DEBUG
-            log = F("HOBEN : High Temp, Compute (Temp - 259)");
-            addLog(LOG_LEVEL_INFO, log);
-          #endif
+          log = F("HOBEN : High Temp, Compute (Temp - 259)");
+          addLog(LOG_LEVEL_DEBUG, log);
           buf[idx++] = 5 * PLUGIN_245_BLANK_LENGTH; 
           buf[idx++] = 1 * PLUGIN_245_PULSE_LENGTH;
           buf[idx++] = 3 * PLUGIN_245_BLANK_LENGTH;
           remainder = value - 259;   
         }
         else {
-          #ifdef PLUGIN_245_DEBUG
-            log = F("HOBEN : Low Temp, Compute (Temp + 238)");
-            addLog(LOG_LEVEL_INFO, log);
-          #endif
+          log = F("HOBEN : Low Temp, Compute (Temp + 238)");
+          addLog(LOG_LEVEL_DEBUG, log);
           buf[idx++] = 9 * PLUGIN_245_BLANK_LENGTH; 
           remainder = value + 238;
         }
         // Remainder value will be send 2 times in 3 blocks
-        #ifdef PLUGIN_245_DEBUG
-          log = F("HOBEN : remainder: ");
-          log += remainder;
-          addLog(LOG_LEVEL_INFO, log);
-        #endif
+        log = F("HOBEN : remainder: ");
+        log += remainder;
+        addLog(LOG_LEVEL_DEBUG, log);
         
         unsigned int data3 = remainder / 62;
         if (data3 > 7)
@@ -250,15 +256,13 @@ boolean Plugin_245(byte function, struct EventStruct *event, String &string)
         unsigned int data2 = remainder / 8;
         unsigned int data1 = remainder - data2 * 8; 
         
-        #ifdef PLUGIN_245_DEBUG
-          log = F("HOBEN : computed: ");
-          log += data3;
-          log += F(" * 62 + " );
-          log += data2;
-          log += F(" * 8 + " );
-          log += data1;
-          addLog(LOG_LEVEL_INFO, log);
-        #endif
+        log = F("HOBEN : computed: ");
+        log += data3;
+        log += F(" * 62 + " );
+        log += data2;
+        log += F(" * 8 + " );
+        log += data1;
+        addLog(LOG_LEVEL_DEBUG, log);
         
         addValueToBuff(data1,buf,&idx);
         addValueToBuff(data2,buf,&idx); 
@@ -267,14 +271,12 @@ boolean Plugin_245(byte function, struct EventStruct *event, String &string)
         addValueToBuff(data2,buf,&idx); 
         addValueToBuff(data3,buf,&idx);
         
-        #ifdef PLUGIN_245_DEBUG       
-          log = F("HOBEN : IR Timing: ");
-          for (uint16_t i = 0; i < idx; i++) {
-              log += buf[i];
-              log += F(" ");     
-          }
-          addLog(LOG_LEVEL_INFO, log);
-        #endif
+        log = F("HOBEN : IR Timing: ");
+        for (uint16_t i = 0; i < idx; i++) {
+            log += buf[i];
+            log += F(" ");     
+        }
+        addLog(LOG_LEVEL_DEBUG, log);
         
         #ifdef PLUGIN_016
             if (irReceiver != 0)
@@ -298,18 +300,14 @@ boolean Plugin_245(byte function, struct EventStruct *event, String &string)
       
     case PLUGIN_WRITE:
       {
-//        #ifdef PLUGIN_245_DEBUG
-//          String log = F("HOBEN PLUGIN WRITE : ");
-//          addLog(LOG_LEVEL_INFO, log);
-//        #endif
+        String log = F("HOBEN PLUGIN WRITE : ");
+        addLog(LOG_LEVEL_DEBUG_MORE, log);
 
         if (event->Par1 == event->TaskIndex+1) { // make sure that this instance is the target
           String command = parseString(string, 1);
-          #ifdef PLUGIN_245_DEBUG
-            String log = F("HOBEN CMD : ");
-            log += command;
-            addLog(LOG_LEVEL_INFO, log);
-          #endif
+          log = F("HOBEN CMD : ");
+          log += command;
+          addLog(LOG_LEVEL_DEBUG, log);
           
           if (command.equalsIgnoreCase(F("HOBENSTART"))) {
                 UserVar[event->BaseVarIndex]=PCONFIG(2);
@@ -323,6 +321,14 @@ boolean Plugin_245(byte function, struct EventStruct *event, String &string)
                 UserVar[event->BaseVarIndex]=0;
                 success = true;
           }
+         else if (command.equalsIgnoreCase(F("HOBENSETPOINT"))) {
+                String param = parseString(string, 3);
+                log = F("param : ");
+                log += param;
+                addLog(LOG_LEVEL_DEBUG, log);
+                UserVar[event->BaseVarIndex+1]= param.toFloat();
+                success = true;
+          }
         }
 
         break;
@@ -330,10 +336,9 @@ boolean Plugin_245(byte function, struct EventStruct *event, String &string)
 
     case PLUGIN_CLOCK_IN:
     {
-//      #ifdef PLUGIN_245_DEBUG
-//          String log = F("HOBEN : CLOCK: ");
-//          addLog(LOG_LEVEL_INFO, log);
-//      #endif
+      String log = F("HOBEN : CLOCK: ");
+      addLog(LOG_LEVEL_DEBUG_MORE, log);
+      
       if ( UserVar[event->BaseVarIndex]>1) {
         UserVar[event->BaseVarIndex]--;
       }
@@ -349,11 +354,9 @@ boolean Plugin_245(byte function, struct EventStruct *event, String &string)
 } // Plugin_245 END
 
 void addValueToBuff(unsigned int value, uint16_t *lbuf, uint16_t *pos) {
-//        #ifdef PLUGIN_245_DEBUG
-//          String log = F("HOBEN : Encoding Data: ");
-//          log += value; 
-//          addLog(LOG_LEVEL_INFO, log);
-//        #endif
+        String log = F("HOBEN : Encoding Data: ");
+        log += value; 
+        addLog(LOG_LEVEL_DEBUG_MORE, log);
 
         if ( ( value == 0 ) || (value > 7 ) ) {
           lbuf[(*pos)++] = 2 * PLUGIN_245_PULSE_LENGTH;
