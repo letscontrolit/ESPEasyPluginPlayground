@@ -125,10 +125,10 @@ boolean Plugin_245(byte function, struct EventStruct *event, String &string)
         PCONFIG_FLOAT(1) = getFormItemFloat(F("p245_controloffset"));
         PCONFIG_FLOAT(2) = getFormItemFloat(F("p245_offset"));
         PCONFIG(0) = getFormItemInt(F("p245_task"));
-        PCONFIG(1) = getFormItemInt(F("p021_value"));
+        PCONFIG(1) = getFormItemInt(F("p245_value"));
         PCONFIG(2) = getFormItemInt(F("p245_duration"));
 
-        UserVar[event->BaseVarIndex] = PCONFIG_FLOAT(0);
+        UserVar[event->BaseVarIndex+1] = PCONFIG_FLOAT(0);
         success = true;
         break;
       }
@@ -151,8 +151,8 @@ boolean Plugin_245(byte function, struct EventStruct *event, String &string)
         }
 
         // Init Vars
-        UserVar[event->BaseVarIndex] = 0;
-        UserVar[event->BaseVarIndex+1] = PCONFIG_FLOAT(0);
+        //UserVar[event->BaseVarIndex] = 0;
+        //UserVar[event->BaseVarIndex+1] = PCONFIG_FLOAT(0);
         
         success = true;
         break;
