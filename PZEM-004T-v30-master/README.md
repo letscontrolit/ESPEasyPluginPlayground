@@ -1,5 +1,6 @@
 # PZEM-004T v3.0
-Arduino communication library for Peacefair PZEM-004T-10A and PZEM-004T-100A v3.0 Energy monitor.
+ESPeasy library for Peacefair PZEM-004T-10A and PZEM-004T-100A v3.0 Energy monitor.
+(Based on Arduino communication library for Peacefair PZEM-004T-10A and PZEM-004T-100A v3.0 Energy monitor.)
 
 ***
 
