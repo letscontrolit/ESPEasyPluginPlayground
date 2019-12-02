@@ -22,23 +22,23 @@
 #define P251_QUERY3          PCONFIG(5)
 #define P251_QUERY4          PCONFIG(6)
 #define P251_PZEM_FIRST      PCONFIG(7)
+#define P251_PZEM_ATTEMPT    PCONFIG(8)
 
 #define P251_PZEM_mode_DFLT  0  // Read value
 #define P251_QUERY1_DFLT     0  // Voltage (V)
 #define P251_QUERY2_DFLT     1  // Current (A)
 #define P251_QUERY3_DFLT     2  // Power (W)
 #define P251_QUERY4_DFLT     3  // Energy (WH)
-#define P251_NR_OUTPUT_VALUES          4
-#define P251_NR_OUTPUT_OPTIONS        6
+#define P251_NR_OUTPUT_VALUES   4
+#define P251_NR_OUTPUT_OPTIONS  6
 #define P251_QUERY1_CONFIG_POS  3
 
-#define PZEM_MAX_ATTEMPT      3
+#define P251_PZEM_MAX_ATTEMPT      3  // Number of tentative before declaring NAN value
 
 PZEM004Tv30 *P251_PZEM_sensor= nullptr;
 
 boolean Plugin_251_init = false;
-//boolean values_received = false;
-uint8_t P251_PZEM_ADDR_SET = 0; // Programmation not allow
+uint8_t P251_PZEM_ADDR_SET = 0; // Flag for status of programmation/Energy reset: 0=Reading / 1=Prog confirmed / 3=Prog done / 4=Reset energy done
 
 boolean Plugin_251(byte function, struct EventStruct *event, String& string)
 {
@@ -121,6 +121,7 @@ boolean Plugin_251(byte function, struct EventStruct *event, String& string)
         addHtml(F("<span style=\"color:red\"> <br><B>If several PZEMs foreseen, don't use HW serial (or invert Tx and Rx to configure as SW serial).</B></span>"));
         String options_model[3] = {F("Read_value"), F("Reset_Energy"),F("Program_adress")};
         addFormSelector(F("PZEM Mode"), F("P251_PZEM_mode"), 3, options_model, NULL, P251_PZEM_mode);
+        
         if (P251_PZEM_mode==2)
         {
           addHtml(F("<span style=\"color:red\"> <br>When programming an address, only one PZEMv30 must be connected. Otherwise, all connected PZEMv30s will get the same address, which would cause a conflict during reading.</span>"));
@@ -135,7 +136,7 @@ boolean Plugin_251(byte function, struct EventStruct *event, String& string)
           addHtml(F("  Address 0 allows to communicate with any <B>single</B> PZEMv30 whatever its address"));
         }
 
-        if (P251_PZEM_ADDR_SET==3)  //If 
+        if (P251_PZEM_ADDR_SET==3)  //If address programming done 
         {
           addHtml(F("<span style=\"color:green\"> <br><B>Address programming done ! </B></span>"));
           P251_PZEM_ADDR_SET=0; //Reset programming confirmation
@@ -250,18 +251,31 @@ boolean Plugin_251(byte function, struct EventStruct *event, String& string)
           P251_PZEM_sensor->init(P251_PZEM_ADDR);
 
           float PZEM[6];  
-          PZEM[0] = Plugin251_ReadVoltage();
-          PZEM[1] = Plugin251_ReadCurrent();
-          PZEM[2] = Plugin251_ReadPower();
-          PZEM[3] = Plugin251_ReadEnergy();
-          PZEM[4] = Plugin251_ReadPf();
-          PZEM[5] = Plugin251_ReadFreq();
-             
-          UserVar[event->BaseVarIndex]     = PZEM[P251_QUERY1];
-          UserVar[event->BaseVarIndex + 1] = PZEM[P251_QUERY2];
-          UserVar[event->BaseVarIndex + 2] = PZEM[P251_QUERY3];
-          UserVar[event->BaseVarIndex + 3] = PZEM[P251_QUERY4];
-          sendData(event);   //Permet d'envoyer à l'exterieur du plugin (vers controller ou vers trigger de rules)
+          PZEM[0] = P251_PZEM_sensor->voltage();
+          PZEM[1] = P251_PZEM_sensor->current();
+          PZEM[2] = P251_PZEM_sensor->power();
+          PZEM[3] = P251_PZEM_sensor->energy();
+          PZEM[4] = P251_PZEM_sensor->pf();
+          PZEM[5] = P251_PZEM_sensor->frequency();
+
+          for (byte i=0;i<6;i++)    // Check each PZEM field
+          {
+            if (PZEM[i]!=PZEM[i])   // Check if NAN
+            {
+              P251_PZEM_ATTEMPT==P251_PZEM_MAX_ATTEMPT? P251_PZEM_ATTEMPT=0:P251_PZEM_ATTEMPT++;
+              break;                // if one is Not A Number, break
+            }
+            P251_PZEM_ATTEMPT=0;
+          }
+
+          if (P251_PZEM_ATTEMPT==0)
+          { 
+            UserVar[event->BaseVarIndex]     = PZEM[P251_QUERY1];
+            UserVar[event->BaseVarIndex + 1] = PZEM[P251_QUERY2];
+            UserVar[event->BaseVarIndex + 2] = PZEM[P251_QUERY3];
+            UserVar[event->BaseVarIndex + 3] = PZEM[P251_QUERY4];
+            sendData(event);   //To send externally from the pluggin (to controller or to rules trigger)
+          }
           success = true;
         }
         break;
@@ -287,95 +301,6 @@ boolean Plugin_251(byte function, struct EventStruct *event, String& string)
     }
   }
   return success;
-}
-
-//************************************//
-//***** reading values functions *****//
-//************************************//
-
-// NOTE: readings are attempted only PZEM_AMX_ATTEMPT times
-
-float Plugin251_ReadVoltage() {
-  int counter = 0;
-	float reading = -1.0;
-	do {
-		reading = P251_PZEM_sensor->voltage();
-		wdt_reset();
-		counter++;
-	} while (counter < PZEM_MAX_ATTEMPT && reading < 0.0);
-  if (reading == -1) reading = 0;
-	return reading;
-}
-
-float Plugin251_ReadCurrent() {
-	int counter = 0;
-	float reading = -1.0;
-	do {
-		reading = P251_PZEM_sensor->current();
-		wdt_reset();
-		counter++;
-	} while (counter < PZEM_MAX_ATTEMPT && reading < 0.0);
-  if (reading == -1) reading = 0;
-  return reading;
-}
-
-float Plugin251_ReadPower() {
-  int counter = 0;
-	float reading = -1.0;
-	do {
-		reading = P251_PZEM_sensor->power();
-		wdt_reset();
-		counter++;
-	} while (counter < PZEM_MAX_ATTEMPT && reading < 0.0);
-  if (reading == -1) reading = 0;
-  return reading;
-}
-
-float Plugin251_ReadEnergy() {
-	int counter = 0;
-	float reading = -1.0;
-	do {
-		reading = P251_PZEM_sensor->energy();
-		wdt_reset();
-		counter++;
-	} while (counter < PZEM_MAX_ATTEMPT && reading < 0.0);
-	return reading;
-}
-
-float Plugin251_ReadFreq() {
-	int counter = 0;
-	float reading = -1.0;
-	do {
-		reading = P251_PZEM_sensor->frequency();
-		wdt_reset();
-		counter++;
-	} while (counter < PZEM_MAX_ATTEMPT && reading < 0.0);
-  if (reading == -1) reading = 0;
-  return reading;
-}
-
-float Plugin251_ReadPf() {
-	int counter = 0;
-	float reading = -1.0;
-	do {
-		reading = P251_PZEM_sensor->pf();
-		wdt_reset();
-		counter++;
-	} while (counter < PZEM_MAX_ATTEMPT && reading < 0.0);
-  if (reading == -1) reading = 0;
-  return reading;
-}
-
-bool Plugin251_resetEnergy() {
-	int counter = 0;
-	float reading = -1.0;
-	do {
-		reading = P251_PZEM_sensor->resetEnergy();
-		wdt_reset();
-		counter++;
-	} while (counter < PZEM_MAX_ATTEMPT && reading < 0.0);
-  if (reading == -1) reading = 0;
-  return reading;
 }
 
 String p251_getQueryString(byte query) {
