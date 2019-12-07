@@ -6,8 +6,10 @@
 //#######################################################################################################
 //
 
+
 #include <ESPeasySerial.h>
 #include <PZEM004Tv30.h>
+
  
 #define PLUGIN_251
 #define PLUGIN_ID_251        251
@@ -43,12 +45,11 @@ uint8_t P251_PZEM_ADDR_SET = 0; // Flag for status of programmation/Energy reset
 boolean Plugin_251(byte function, struct EventStruct *event, String& string)
 {
   boolean success = false;
-
   switch (function)
   {
     case PLUGIN_DEVICE_ADD:
       {
-        Device[++deviceCount].Number = PLUGIN_ID_251;
+        Device[++deviceCount].Number = PLUGIN_ID_251;   
         Device[deviceCount].Type = DEVICE_TYPE_DUAL;
         Device[deviceCount].VType = SENSOR_TYPE_QUAD;
         Device[deviceCount].Ports = 0;
@@ -143,8 +144,9 @@ boolean Plugin_251(byte function, struct EventStruct *event, String& string)
         }
       }
       else
-      {
-        addHtml(F("Tx Pin and Rx Pin have no effect on the configuration as this PZEM is not the main configured."));
+      {        
+        Device[deviceCount].Type = DEVICE_TYPE_DUMMY;   //Erase GPIO choice if not first PZEM
+        addHtml(F("<br> Tx Pin and Rx Pin have no effect on the configuration as this PZEM is not the main configured.<br>"));
         String options_model[2] = {F("Read_value"), F("Reset_Energy")};
         addFormSelector(F("PZEM Mode"), F("P251_PZEM_mode"), 2, options_model, NULL, P251_PZEM_mode);
         addFormNumericBox(F("Address of PZEM"), F("P251_PZEM_addr"), P251_PZEM_ADDR, 0, 247);
