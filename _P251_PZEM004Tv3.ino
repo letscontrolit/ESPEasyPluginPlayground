@@ -50,7 +50,7 @@ boolean Plugin_251(byte function, struct EventStruct *event, String& string)
     case PLUGIN_DEVICE_ADD:
       {
         Device[++deviceCount].Number = PLUGIN_ID_251;   
-        Device[deviceCount].Type = DEVICE_TYPE_DUAL;
+        Device[deviceCount].Type = DEVICE_TYPE_DUMMY;
         Device[deviceCount].VType = SENSOR_TYPE_QUAD;
         Device[deviceCount].Ports = 0;
         Device[deviceCount].PullUpOption = false;
@@ -117,9 +117,15 @@ boolean Plugin_251(byte function, struct EventStruct *event, String& string)
       if (P251_PZEM_sensor==nullptr) P251_PZEM_FIRST = event->TaskIndex;  //To detect if first PZEM or not
       if (P251_PZEM_FIRST == event->TaskIndex)  //If first PZEM, serial config available
       {
+        addFormSubHeader(F("Communication settings"));
+        addHtml(F("<TR><TD>GPIO ← TX:<TD>"));
+        addPinSelect(false, F("taskdevicepin1"), CONFIG_PIN1);
+        addHtml(F("<TR><TD>GPIO → RX:<TD>"));
+        addPinSelect(false, F("taskdevicepin2"), CONFIG_PIN2);
         serialHelper_webformLoad(event);
         addHtml(F("<br><B>This PZEM is the first. Its configuration of serial Pins will affect next PZEM. </B>"));
         addHtml(F("<span style=\"color:red\"> <br><B>If several PZEMs foreseen, don't use HW serial (or invert Tx and Rx to configure as SW serial).</B></span>"));
+        addFormSubHeader(F("PZEM actions"));
         String options_model[3] = {F("Read_value"), F("Reset_Energy"),F("Program_adress")};
         addFormSelector(F("PZEM Mode"), F("P251_PZEM_mode"), 3, options_model, NULL, P251_PZEM_mode);
         
@@ -145,12 +151,12 @@ boolean Plugin_251(byte function, struct EventStruct *event, String& string)
       }
       else
       {        
-        Device[deviceCount].Type = DEVICE_TYPE_DUMMY;   //Erase GPIO choice if not first PZEM
-        addHtml(F("<br> Tx Pin and Rx Pin have no effect on the configuration as this PZEM is not the main configured.<br>"));
+        addFormSubHeader(F("PZEM actions"));
         String options_model[2] = {F("Read_value"), F("Reset_Energy")};
         addFormSelector(F("PZEM Mode"), F("P251_PZEM_mode"), 2, options_model, NULL, P251_PZEM_mode);
-        addFormNumericBox(F("Address of PZEM"), F("P251_PZEM_addr"), P251_PZEM_ADDR, 0, 247);
-        addHtml(F("  Address 0 allows to communicate with any <B>single</B> PZEMv30 whatever its address"));
+        addHtml(F(" Tx/Rx Pins config disabled: Configuration is available in the first PZEM plugin.<br>"));
+        addFormNumericBox(F("Address of PZEM"), F("P251_PZEM_addr"), P251_PZEM_ADDR, 1, 247);
+        
       }
 
       addHtml(F("<br><br> Reset energy can be done also by: http://*espeasyip*/control?cmd=resetenergy,*PZEM address*"));
@@ -276,7 +282,7 @@ boolean Plugin_251(byte function, struct EventStruct *event, String& string)
             UserVar[event->BaseVarIndex + 1] = PZEM[P251_QUERY2];
             UserVar[event->BaseVarIndex + 2] = PZEM[P251_QUERY3];
             UserVar[event->BaseVarIndex + 3] = PZEM[P251_QUERY4];
-            sendData(event);   //To send externally from the pluggin (to controller or to rules trigger)
+            //sendData(event);   //To send externally from the pluggin (to controller or to rules trigger)
           }
           success = true;
         }
