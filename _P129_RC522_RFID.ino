@@ -52,7 +52,13 @@ boolean Plugin_129(byte function, struct EventStruct *event, String& string)
         strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_VALUENAME1_129));
         break;
       }
-
+      
+      case PLUGIN_GET_DEVICEGPIONAMES:                //define 'GPIO 1st' name in webserver
+      {
+        event->String1 = formatGpioName_output(F("CS PIN"));
+        break;
+      }
+      
     case PLUGIN_WEBFORM_LOAD:
       {
       	// cant compile addFormPinSelect(string, F("Reset Pin"), F("taskdevicepin3"), Settings.TaskDevicePin3[event->TaskIndex]);
