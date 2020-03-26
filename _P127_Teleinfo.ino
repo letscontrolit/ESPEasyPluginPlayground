@@ -2,14 +2,19 @@
 //#######################################################################################################
 //#################################### Plugin 127: Teleinfo #############################################
 //#######################################################################################################
-// march 2020 : gmella rewrite macgyver67 version 
+// march 2020 : gmella rewrite macgyver67 version to use linky's STANDARD mode
 //                - replace its own teleinfo code using LibTeleinfo
-//                - create two values to be transmitted by controllers if any
+//                - enable use of any controllers instead of hardcoded jeedom using two values
+//              TODO 
+//                - handle STANDARD or HISTORIQUE (and associated bauds,labels to read)
+//                - keep TInfo object shared accross multiple device to help the read of other labels
+//                - prefer previous embedded teleinfo code to follow plugin guidelines
+//                  original hallard's lib was heavily forked but suffer from feedback
+//                  using https://github.com/marco402/LibTeleinfo/tree/rewrite-Wifinfo/examples/Wifinfo
 
 #define PLUGIN_127
 #define PLUGIN_ID_127 127
-#define PLUGIN_NAME_127 "Energy - Teleinfo Power Energy"
-// TODO add switch so the user can choose STANDARD or HISTORIQUE (and associated bauds,labels to read)?
+#define PLUGIN_NAME_127 "Energy - Teleinfo Power Energy [TESTING]"
 
 #define PLUGIN_VALUENAME1_127 "SINST" // should be "TBD" for HISTORIQUE
 #define PLUGIN_VALUENAME2_127 "EAST"  // and "TBD" 
@@ -17,7 +22,7 @@
 #include <SoftwareSerial.h>
 #include <LibTeleinfo.h>
 
-TInfo          tinfo; // Teleinfo object (could be a singleton so we can read other label on the same instance (serialline) )
+TInfo          tinfo;                     // Teleinfo object 
 ESPeasySerial *P127_easySerial = nullptr; //Associated serial line
 
 boolean Plugin_127_init = false;
