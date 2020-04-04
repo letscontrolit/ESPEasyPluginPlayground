@@ -11,6 +11,7 @@
 //                - test works on weemos mini D1 and Lolin NodeMcu V3 using HW serial 0 (serial1 fails)
 //                  using domoticz controller (published each 20s) + oled display.
 //              TODO 
+//                - test HISTORIQUE MODE
 //                - keep TInfo object shared accross multiple device to help the read of other labels
 //                  ( such demo were shown using multiples PZEM004 )
 //                - prefer previous embedded teleinfo code to follow plugin guidelines 
