@@ -2,23 +2,22 @@
 //#######################################################################################################
 //#################################### Plugin 127: Teleinfo #############################################
 //#######################################################################################################
-// march 2020 : gmella rewrite macgyver67 version to use linky's STANDARD mode
+// march 2020 : gmella rewrite macgyver67 
 //                - replace its own teleinfo code using LibTeleinfo
 //                - enable use of any controllers instead of hardcoded jeedom using two values
 // april 2020 : gmella 
-//                - handle basic STANDARD or HISTORIQUE mode (and associated bauds,labels to read)
-//                  https://www.enedis.fr/sites/default/files/Enedis-NOI-CPT_54E.pdf
+//                - support STANDARD or HISTORIQUE mode 
+//                  https://www.enedis.fr/sites/default/files/Enedis-NOI-CPT_54E.pdf Enedis-NOI-CPT_54E
 //                - test works on weemos mini D1 and Lolin NodeMcu V3 using HW serial 0 (serial1 fails)
 //                  using domoticz controller (published each 20s) + oled display.
+//                  on LINKY and A14C4 counters
 //              TODO 
-//                - test HISTORIQUE MODE
-//                - keep TInfo object shared accross multiple device to help the read of other labels
-//                  ( such demo were shown using multiples PZEM004 )
 //                - prefer previous embedded teleinfo code to follow plugin guidelines 
 //                  original hallard's lib was heavily forked but suffer from feedback and PR
-//                  test using https://github.com/marco402/LibTeleinfo/tree/rewrite-Wifinfo/examples/Wifinfo
+//                  https://github.com/marco402/LibTeleinfo/tree/rewrite-Wifinfo/examples/Wifinfo is ok
 //                             ( with "mySyslog.h" and "Wifinfo.h" commented in LibTeleinfo.h )
-//
+//                - keep TInfo object shared accross multiple devices to help the read of other labels
+//                  ( such concept were shown using multiples PZEM004 )
 // 
 
 #define PLUGIN_127
@@ -26,10 +25,10 @@
 #define PLUGIN_NAME_127 "Energy - Teleinfo Power Energy [TESTING]"
 
 // Default labels for both TIC modes
-#define PLUGIN_VALUENAME1_127 "PAPP"
-#define PLUGIN_VALUENAME2_127 "HCHP"  // or HCHC 
-#define PLUGIN_VALUENAME1_STD_127 "SINST"
-#define PLUGIN_VALUENAME2_STD_127 "EAST"  // and "HCHP" or HCHC 
+#define PLUGIN_VALUENAME1_127 "SINST"
+#define PLUGIN_VALUENAME2_127 "EAST"
+#define PLUGIN_VALUENAME1_HISTO_127 "PAPP"
+#define PLUGIN_VALUENAME2_HISTO_127 "BASE"
 
 #include <SoftwareSerial.h>
 #include <LibTeleinfo.h>
@@ -82,21 +81,22 @@ boolean Plugin_127(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_INIT:
       {
-        // Init teleinfo SDT mode
-        tinfo.init(false);
-
         // Init Serial
         const int16_t serial_rx = CONFIG_PIN1;
         const int16_t serial_tx = CONFIG_PIN2;        
         P127_easySerial = new ESPeasySerial(serial_rx, serial_tx);
 
-        String log = F("P127 : Init OK ");
+        String log = F("P127 : Init ");
         if (PCONFIG(0)){
-          P127_easySerial->begin((unsigned long)9600, SERIAL_7E1, SERIAL_RX_ONLY);
-          log += F("9600_7E1 RX=");
-        }else{
+          // Init teleinfo and serial for HISTORIQUE mode
+          tinfo.init(true);          
           P127_easySerial->begin((unsigned long)1200, SERIAL_7E1, SERIAL_RX_ONLY);
-          log += F("1200_7E1 RX=");
+          log += F("HISTORIQUE mode 1200_7E1 RX=");          
+        }else{
+          // Init teleinfo and serial for STANDARD mode
+          tinfo.init(false);          
+          P127_easySerial->begin((unsigned long)9600, SERIAL_7E1, SERIAL_RX_ONLY);
+          log += F("STANDARD mode 9600_7E1 RX=");          
         }
         
         log += serial_rx;        
@@ -165,7 +165,7 @@ boolean Plugin_127(byte function, struct EventStruct *event, String& string)
       {
         serialHelper_webformLoad(event);
 
-        addFormCheckBox(F("Use STANDARD mode"), F("p127_standard_mode"), PCONFIG(0));
+        addFormCheckBox(F("Use HISTORIQUE mode"), F("p127_historique_mode"), PCONFIG(0));
         
         success = true;
         break;
@@ -174,23 +174,19 @@ boolean Plugin_127(byte function, struct EventStruct *event, String& string)
       {
         serialHelper_webformSave(event);
 
-        PCONFIG(0) = isFormItemChecked(F("p127_standard_mode"));
+        PCONFIG(0) = isFormItemChecked(F("p127_historique_mode"));
 
         // Set default label for associated mode keeping user input if any
         if (PCONFIG(0)){
-          if( strcmp_P(ExtraTaskSettings.TaskDeviceValueNames[0],PSTR( PLUGIN_VALUENAME1_127))==0 ){
-            strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_VALUENAME1_STD_127));
-          }
-          if( strcmp_P(ExtraTaskSettings.TaskDeviceValueNames[1], PSTR(PLUGIN_VALUENAME2_127))==0 ){
-            strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[1], PSTR(PLUGIN_VALUENAME2_STD_127));        
-          }
+          if( strcmp_P(ExtraTaskSettings.TaskDeviceValueNames[0],PSTR( PLUGIN_VALUENAME1_127))==0 )
+            strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_VALUENAME1_HISTO_127));
+          if( strcmp_P(ExtraTaskSettings.TaskDeviceValueNames[1], PSTR(PLUGIN_VALUENAME2_127))==0 )
+            strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[1], PSTR(PLUGIN_VALUENAME2_HISTO_127));        
         }else{
-          if( strcmp_P(ExtraTaskSettings.TaskDeviceValueNames[0],PSTR( PLUGIN_VALUENAME1_STD_127))==0 ){
+          if( strcmp_P(ExtraTaskSettings.TaskDeviceValueNames[0],PSTR( PLUGIN_VALUENAME1_HISTO_127))==0 )
             strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_VALUENAME1_127));
-          }
-          if( strcmp_P(ExtraTaskSettings.TaskDeviceValueNames[1], PSTR(PLUGIN_VALUENAME2_STD_127))==0 ){
+          if( strcmp_P(ExtraTaskSettings.TaskDeviceValueNames[1], PSTR(PLUGIN_VALUENAME2_HISTO_127))==0 )
             strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[1], PSTR(PLUGIN_VALUENAME2_127));
-          }
         }       
 
         success = true;
