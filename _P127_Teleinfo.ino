@@ -12,10 +12,8 @@
 //                  using domoticz controller (published each 20s) + oled display.
 //                  on LINKY and A14C4 counters
 //              TODO 
-//                - prefer previous embedded teleinfo code to follow plugin guidelines 
-//                  original hallard's lib was heavily forked but suffer from feedback and PR
-//                  https://github.com/marco402/LibTeleinfo/tree/rewrite-Wifinfo/examples/Wifinfo is ok
-//                             ( with "mySyslog.h" and "Wifinfo.h" commented in LibTeleinfo.h )
+//                - prefer previous macgyver67 embedded teleinfo code to follow plugin guidelines over
+//                  modified LibTeleinfo library (see P127_LibTeleinfo_Library directory)
 //                - keep TInfo object shared accross multiple devices to help the read of other labels
 //                  ( such concept were shown using multiples PZEM004 )
 // 
@@ -31,7 +29,7 @@
 #define PLUGIN_VALUENAME2_HISTO_127 "BASE"
 
 #include <SoftwareSerial.h>
-#include <LibTeleinfo.h>
+#include <LibTeleinfo.h> // find modified copy info in P127_LibTeleinfo_Library/Readme.md
 
 TInfo          tinfo;                     // Teleinfo object 
 ESPeasySerial *P127_easySerial = nullptr; //Associated serial line
@@ -127,6 +125,7 @@ boolean Plugin_127(byte function, struct EventStruct *event, String& string)
         {
           log += ExtraTaskSettings.TaskDeviceValueNames[x];          
           log += F("=");          
+          ZERO_FILL(cvalue);
           ret = tinfo.valueGet(ExtraTaskSettings.TaskDeviceValueNames[x], cvalue);                          
           if (ret != NULL){
             value=atoi(cvalue);       
