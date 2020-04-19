@@ -92,14 +92,14 @@ class IthoCC1101 : protected CC1101
 
 		//init
 		void init() { CC1101::init(); }											//init,reset CC1101
-		void initReceive(uint8_t remote);
+		void initReceive();
 		uint8_t getLastCounter() { return outIthoPacket.counter; }				//counter is increased before sending a command
 		void setSendTries(uint8_t sendTries) { this->sendTries = sendTries; }
 
 		//- deviceid should be a setting as well? random gen function? TODO
 
 		//receive
-		bool checkForNewPacket(uint8_t remote);												//check RX fifo for new data
+		bool checkForNewPacket();												//check RX fifo for new data
 		IthoPacket getLastPacket() { return inIthoPacket; }						//retrieve last received/parsed packet from remote
 		IthoCommand getLastCommand() { return inIthoPacket.command; }						//retrieve last received/parsed command from remote
 		uint8_t getLastInCounter() { return inIthoPacket.counter; }						//retrieve last received/parsed command from remote
