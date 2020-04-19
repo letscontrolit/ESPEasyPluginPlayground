@@ -88,7 +88,7 @@ void IthoCC1101::initSendMessage1()
 	writeRegister(CC1101_CHANNR ,0x00);		//00000000
 	writeRegister(CC1101_DEVIATN ,0x40);	//01000000
 	writeRegister(CC1101_FREND0 ,0x17);		//00010111	use index 7 in PA table
-	writeRegister(CC1101_MCSM0 ,0x18);		//00011000	PO timeout Approx. 146�s - 171�s, Auto calibrate When going from IDLE to RX or TX (or FSTXON)
+	writeRegister(CC1101_MCSM0 ,0x18);		//00011000	PO timeout Approx. 146us - 171us, Auto calibrate When going from IDLE to RX or TX (or FSTXON)
 	writeRegister(CC1101_FSCAL3 ,0xA9);		//10101001
 	writeRegister(CC1101_FSCAL2 ,0x2A);		//00101010
 	writeRegister(CC1101_FSCAL1 ,0x00);		//00000000
@@ -176,7 +176,7 @@ void IthoCC1101::initSendMessage2(IthoCommand command)
 	writeRegister(CC1101_CHANNR ,0x00);		//00000000
 	writeRegister(CC1101_DEVIATN ,0x50);	//difference compared to message1
 	writeRegister(CC1101_FREND0 ,0x17);		//00010111	use index 7 in PA table
-	writeRegister(CC1101_MCSM0 ,0x18);		//00011000	PO timeout Approx. 146�s - 171�s, Auto calibrate When going from IDLE to RX or TX (or FSTXON)
+	writeRegister(CC1101_MCSM0 ,0x18);		//00011000	PO timeout Approx. 146us - 171us, Auto calibrate When going from IDLE to RX or TX (or FSTXON)
 	writeRegister(CC1101_FSCAL3 ,0xA9);		//10101001
 	writeRegister(CC1101_FSCAL2 ,0x2A);		//00101010
 	writeRegister(CC1101_FSCAL1 ,0x00);		//00000000
@@ -305,7 +305,7 @@ void IthoCC1101::initReceive()
 //	writeRegister(CC1101_FSCAL3 ,0xE9); //DUCO?
 	writeRegister(CC1101_FSCAL2 ,0x2A);
 	writeRegister(CC1101_FSCAL1 ,0x00);
-	writeRegister(CC1101_FSCAL0 ,0x1F);
+	writeRegister(CC1101_FSCAL0 ,0x1F); 		//Implemented latest changes in code from Supersjimmie, previous version was based on slightly older plugin code: https://github.com/supersjimmie/IthoEcoFanRFT/commit/7ae2c9e34e13a628988caa28f975c9929fb9676d
 	writeRegister(CC1101_FSTEST ,0x59);
 	writeRegister(CC1101_TEST2 ,0x81);
 	writeRegister(CC1101_TEST1 ,0x35);
@@ -345,7 +345,7 @@ void  IthoCC1101::initReceiveMessage2(IthoMessageType expectedMessageType)
 	writeCommand(CC1101_SIDLE);	//idle
 
 	//set datarate
-	writeRegister(CC1101_MDMCFG4 ,0x9A); // set kBaud
+	writeRegister(CC1101_MDMCFG4 ,0x9A); // set kBaud	Update: implemented latest changes in code from Supersjimmie, previous version was based on slightly older plugin code: https://github.com/supersjimmie/IthoEcoFanRFT/commit/7ae2c9e34e13a628988caa28f975c9929fb9676d
 	writeRegister(CC1101_MDMCFG3 ,0x83); // set kBaud
 	writeRegister(CC1101_DEVIATN ,0x50);
 
@@ -990,6 +990,7 @@ bool IthoCC1101::checkID(const uint8_t *id)
 
 String IthoCC1101::getLastIDstr(bool ashex) {
 	String str;
+	str.reserve(24);
 	for (uint8_t i=0; i<8;i++) {
 		if (ashex) str += String(inIthoPacket.deviceId2[i], HEX);
 		else str += String(inIthoPacket.deviceId2[i]);
@@ -997,7 +998,7 @@ String IthoCC1101::getLastIDstr(bool ashex) {
 	}
 	return str;
 }
-
+/* Function currently not in use
 String IthoCC1101::getLastMessage2str(bool ashex) {
     String str = "Length="+ String(inMessage2.length) + ".";
     for (uint8_t i=0; i<inMessage2.length;i++) {
@@ -1006,4 +1007,4 @@ String IthoCC1101::getLastMessage2str(bool ashex) {
 		if (i<inMessage2.length-1) str += ":";
     }
     return str;
-}
+}*/
