@@ -7,8 +7,9 @@
 
 #define PLUGIN_222
 #define PLUGIN_ID_222 222
-#define PLUGIN_NAME_222       "Environment - Atlas Scientific ORP EZO [TESTING]"
+#define PLUGIN_NAME_222       "Environment - Atlas Scientific ORP EZO"
 #define PLUGIN_VALUENAME1_222 "ORP"
+#define PLUGIN_VALUENAME2_222 "Voltage"
 
 boolean Plugin_222_init = false;
 
@@ -27,7 +28,7 @@ boolean Plugin_222(byte function, struct EventStruct *event, String& string)
         Device[deviceCount].PullUpOption = false;
         Device[deviceCount].InverseLogicOption = false;
         Device[deviceCount].FormulaOption = true;
-        Device[deviceCount].ValueCount = 1;
+        Device[deviceCount].ValueCount = 2;
         Device[deviceCount].SendDataOption = true;
         Device[deviceCount].TimerOption = true;
         Device[deviceCount].GlobalSyncOption = true;
@@ -43,6 +44,7 @@ boolean Plugin_222(byte function, struct EventStruct *event, String& string)
     case PLUGIN_GET_DEVICEVALUENAMES:
       {
         strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_VALUENAME1_222));
+        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[1], PSTR(PLUGIN_VALUENAME2_222));
         break;
       }
 
@@ -56,10 +58,10 @@ boolean Plugin_222(byte function, struct EventStruct *event, String& string)
         addFormSubHeader(F("General"));
 
         char sensordata[32];
-        bool status;
-        status = _P222_send_I2C_command(Settings.TaskDevicePluginConfig[event->TaskIndex][0],"i",sensordata);
+        bool info;
+        info = _P222_send_I2C_command(Settings.TaskDevicePluginConfig[event->TaskIndex][0],"i",sensordata);
 
-        if (status) {
+        if (info) {
           String boardInfo(sensordata);
 
           addHtml(F("<TR><TD>Board type : </TD><TD>"));
@@ -84,6 +86,60 @@ boolean Plugin_222(byte function, struct EventStruct *event, String& string)
         }
 
         addFormCheckBox(F("Status LED"),F("Plugin_222_status_led"), Settings.TaskDevicePluginConfig[event->TaskIndex][1]);
+
+        char statussensordata[32];
+        bool status;
+        status = _P222_send_I2C_command(Settings.TaskDevicePluginConfig[event->TaskIndex][0],"Status",statussensordata);
+
+        if (status) {
+          String boardStatus(statussensordata);
+
+          addHtml(F("<TR><TD>Board restart code: </TD><TD>"));
+          int pos1 = boardStatus.indexOf(',');
+          int pos2 = boardStatus.lastIndexOf(',');
+          switch ((char)boardStatus.substring(pos1+1,pos2)[0])
+          {
+            case 'P':
+              {
+                addHtml(F("powered off"));
+                break;
+              }
+            case 'S':
+              {
+                addHtml(F("software reset"));
+                break;
+              }
+            case 'B':
+              {
+                addHtml(F("brown out"));
+                break;
+              }
+            case 'W':
+              {
+                addHtml(F("watch dog"));
+                break;
+              }
+            case 'U':
+            default:
+              {
+                addHtml(F("unknown"));
+                break;
+              }
+          }
+
+          addHtml(F("</TD></TR><TR><TD>Board voltage :</TD><TD>"));
+          addHtml(boardStatus.substring(pos2+1));
+          addHtml(F(" V</TD></TR>"));
+
+          addHtml(F("<input type='hidden' name='plugin_222_sensorVoltage' value='"));
+          addHtml(boardStatus.substring(pos2+1));
+          addHtml(F("'>"));
+
+        } else {
+          addHtml(F("<span style='color:red;'>Unable to send status command to device</span>"));
+          success = false;
+          break;
+        }
 
         addFormSubHeader(F("Calibration"));
 
@@ -171,14 +227,22 @@ boolean Plugin_222(byte function, struct EventStruct *event, String& string)
         bool status;
 
         //ok, now we can read the ORP value
-        status = _P222_send_I2C_command(Settings.TaskDevicePluginConfig[event->TaskIndex][0],"r",sensordata);
+        status = _P222_send_I2C_command(Settings.TaskDevicePluginConfig[event->TaskIndex][0],"R",sensordata);
+
+        //we read the voltagedata char statussensordata[32];
+        char voltagedata[32];
+        status = _P222_send_I2C_command(Settings.TaskDevicePluginConfig[event->TaskIndex][0],"Status",voltagedata);
 
         if (status){
           String sensorString(sensordata);
+          String voltage(voltagedata);
+          int pos = voltage.lastIndexOf(',');
           UserVar[event->BaseVarIndex] = sensorString.toFloat();
+          UserVar[event->BaseVarIndex + 1] = voltage.substring(pos+1).toFloat();
         }
         else {
           UserVar[event->BaseVarIndex] = -1;
+          UserVar[event->BaseVarIndex + 1] = -1;
         }
 
         //go to sleep
@@ -222,13 +286,14 @@ bool _P222_send_I2C_command(uint8_t I2Caddress,const char * cmd, char* sensordat
     byte i2c_response_code = 0;
     byte in_char = 0;
 
-    Serial.println(cmd);
+    addLog(LOG_LEVEL_DEBUG, String(cmd));
     Wire.beginTransmission(I2Caddress);
     Wire.write(cmd);
     error = Wire.endTransmission();
 
     if (error != 0) {
-      Serial.println(error);
+      //addLog(LOG_LEVEL_ERROR, error);
+      addLog(LOG_LEVEL_ERROR, F("Wire.endTransmission() returns error: Check ORP shield"));
       return false;
     }
 
@@ -274,24 +339,27 @@ bool _P222_send_I2C_command(uint8_t I2Caddress,const char * cmd, char* sensordat
 
       switch (i2c_response_code) {
         case 1:
-          Serial.print( F("< success, answer = "));
-          Serial.println(sensordata);
+          {
+            String log = F("< success, answer = ");
+            log += sensordata;
+            addLog(LOG_LEVEL_DEBUG, log);
+          }
           break;
 
         case 2:
-          Serial.println( F("< command failed"));
+          addLog(LOG_LEVEL_DEBUG, F("< command failed"));
           return false;
 
         case 254:
-          Serial.println( F("< command pending"));
+          addLog(LOG_LEVEL_DEBUG, F("< command pending"));
           break;
 
         case 255:
-          Serial.println( F("< no data"));
+          addLog(LOG_LEVEL_DEBUG, F("< no data"));
           return false;
       }
     }
 
-    Serial.println(sensordata);
+    addLog(LOG_LEVEL_DEBUG, sensordata);
     return true;
 }
