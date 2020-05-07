@@ -74,7 +74,7 @@ boolean Plugin_114(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_WEBFORM_SAVE:
       {
-        String plugin1 = WebServer.arg("plugin_114");
+        String plugin1 = web_server.arg("plugin_114");
         Settings.TaskDevicePluginConfig[event->TaskIndex][0] = plugin1.toInt();
         // tduration= Settings.TaskDevicePluginConfig[event->TaskIndex][0];
         success = true;
