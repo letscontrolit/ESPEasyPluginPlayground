@@ -87,18 +87,16 @@ uint8_t *buffer;  //a circular buffer for vban package with audio data
 
 
 uint32_t frameCounter=0; //the incrementing frame counter for vban packages
-int32_t transmitNow = -1; // -1=no sending; otherwise we record here the starting point a multiple of VBAN_PACKET_SIZE
+volatile int32_t transmitNow = -1; // -1=no sending; otherwise we record here the starting point a multiple of VBAN_PACKET_SIZE
+uint16_t sample_idx=VBAN_HEADER_SIZE; //index for audio aquisition; set to beginning of the first data portion
 
-//bool plugin_not_initialised=true;
 
 uint16_t audio_power=0;
 
 
 TaskHandle_t adcHandlerTask; //task to send UDP packages 
 hw_timer_t * timer = NULL; //timer used to aquire audio data
-portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED; //mutex for the timer
 
-uint16_t sample_idx=VBAN_HEADER_SIZE; //index for audio aquisition; set to beginning of the first data portion
 
 WiFiUDP p201UDP; //the UDP object
 IPAddress UDP_IP;// = IPAddress(192,168,100,62);
@@ -125,12 +123,7 @@ void P201_fillHeader(struct tagVBAN_HEADER * header){
   header->nuFrame = 0;       /* growing frame number. */     
 }
 
-void P201_setFrameCounter(uint8_t *header, uint32_t counter){
- *(header+24) = (uint8_t)counter; //LSB
- *(header+25) = (uint8_t)(counter>>8);
- *(header+26) = (uint8_t)(counter>>16);
- *(header+27) = (uint8_t)(counter>>24); //MSB
-}
+
 
 #define ismulticast(addr1) (((uint32_t)(addr1) & PP_HTONL(0xf0000000UL)) == PP_HTONL(0xe0000000UL))
 
@@ -138,7 +131,7 @@ void P201_setFrameCounter(uint8_t *header, uint32_t counter){
 int P201_sendUDP(IPAddress toIP, uint16_t port, uint8_t * package, size_t length){
   if (WiFiConnected()) 
   {
-    if (port < 0 || port > 65535) return false;
+    
     if (ismulticast(toIP))
     {
       if (p201UDP.beginMulticastPacket()) //(toIP, port, WiFi.localIP(),2))
@@ -210,12 +203,7 @@ boolean Plugin_201(byte function, struct EventStruct *event, String& string)
     case PLUGIN_SET_DEFAULTS:
     {
       PCONFIG(0)=VBAN_PORT;
-      
-      PCONFIG_LONG(0) = IPAddress(192,168,100,62);
-
       PCONFIG(3) = 2048; //the zero position
-
-
     }
 
     case PLUGIN_WEBFORM_LOAD:
@@ -225,7 +213,8 @@ boolean Plugin_201(byte function, struct EventStruct *event, String& string)
       //PCONFIG(x) (custom configuration)
 
       addHtml(F("<TR><TD>Analog Pin:<TD>"));
-      addADC_PinSelect(false, F("taskdevicepin1"), CONFIG_PIN1);
+      String adc_choices[8] = { F("GPIO-36"), F("GPIO-37"), F("GPIO-38"), F("GPIO-39"), F("GPIO-32"), F("GPIO-33"), F("GPIO-34"), F("GPIO-35") };
+      addFormSelector(F("Audio Pin"), F("P201_adc"), 8, adc_choices, NULL, CONFIG_PIN1);
 
       // Make sure not to append data to the string variable in this PLUGIN_WEBFORM_LOAD call.
       // This has changed, so now use the appropriate functions to write directly to the Streaming
@@ -271,6 +260,8 @@ boolean Plugin_201(byte function, struct EventStruct *event, String& string)
       //this case defines the code to be executed when the form is submitted
       //the plugin settings should be saved to PCONFIG(x)
       //ping configuration should be read from CONFIG_PIN1 and stored
+      CONFIG_PIN1 = getFormItemInt(F("P201_adc"));
+      
       PCONFIG(0) = getFormItemInt(F("P201_VBAN_PORT"));
       PCONFIG(1) = getFormItemInt(F("P201_gain"));
       PCONFIG(2) = getFormItemInt(F("P201_AR"));
@@ -377,10 +368,6 @@ boolean Plugin_201(byte function, struct EventStruct *event, String& string)
       adc1_config_width(ADC_WIDTH_12Bit); // configure the analogue to digital converter
       adc1_config_channel_atten(ADC_CHANNEL, ADC_ATTENUATION); //ADC_ATTEN_11db); // connects the ADC 1 with channel 7 (GPIO 35)
       adc1_get_raw(ADC_CHANNEL); //we need this to initialize the ADC correctly
-
-      
-      adc1_config_channel_atten(ADC1_CHANNEL_1, ADC_ATTENUATION); //ADC_ATTEN_11db); // connects the ADC 1 with channel 7 (GPIO 35)
-      adc1_get_raw(ADC1_CHANNEL_1); //we need this to initialize the ADC correctly
       }
 
       xTaskCreate(adcHandler, "Handler Task", 5000, NULL, 1, &adcHandlerTask);
@@ -407,7 +394,7 @@ boolean Plugin_201(byte function, struct EventStruct *event, String& string)
       //It is executed according to the delay configured on the device configuration page, only once
 
       //after the plugin has read data successfuly, set success and break
-      success = true;
+      //success = true;
       break;
 
     }
@@ -478,13 +465,21 @@ void adcHandler(void *param) {
     ulTaskNotifyTake(pdFALSE, pdMS_TO_TICKS(1000));  
     if (WiFiConnected()) 
     if (transmitNow>=0){
-        uint16_t * audio = (uint16_t *)(buffer+transmitNow);
-
-        P201_setFrameCounter((buffer+transmitNow),frameCounter);
+        //filling the frame counter on the header before sending.
+        uint8_t *header = (buffer+transmitNow);
+        
+        *(header+24) = (uint8_t)counter; //LSB
+        *(header+25) = (uint8_t)(counter>>8);
+        *(header+26) = (uint8_t)(counter>>16);
+        *(header+27) = (uint8_t)(counter>>24); //MSB
+        
         P201_sendUDP(UDP_IP, UDP_PORT, (buffer+transmitNow),VBAN_PACKET_SIZE);
         frameCounter++;
         transmitNow = -1;
        // addLog(LOG_LEVEL_INFO,"VBAN: sent");
+       
+       //processing the buffer further
+       uint16_t * audio = (uint16_t *)(buffer+transmitNow);
        int16_t max=0,min=0xffff;
        
        for(int i=0;i<SAMPLES;i++)
@@ -494,15 +489,13 @@ void adcHandler(void *param) {
          if (val<max) max=val;
        } 
        audio_power = max-min;
-       
-
       }
   
   }
 }
 
 
-
+portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED; //mutex for the timer
 int16_t last_val=-1;
 void IRAM_ATTR onTimer() {
   portENTER_CRITICAL_ISR(&timerMux); // says that we want to run critical code and don't want to be interrupted
@@ -549,7 +542,7 @@ void IRAM_ATTR onTimer() {
 
 /*------------------------------------------------------------------------------------------------*/
 
-
+/*
 uint8_t IRAM_ATTR isr_map(long x, long in_min, long in_max, long out_min, long out_max) {
     long divisor = (in_max - in_min);
     if(divisor == 0){
@@ -557,7 +550,7 @@ uint8_t IRAM_ATTR isr_map(long x, long in_min, long in_max, long out_min, long o
     }
     return (x - in_min) * (out_max - out_min) / divisor + out_min;
 }
-
+*/
 
 //from: https://www.toptal.com/embedded/esp32-audio-sampling
 #include <soc/sens_reg.h>
