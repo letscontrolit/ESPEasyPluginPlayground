@@ -496,7 +496,7 @@ void adcHandler(void *param) {
 
 
 portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED; //mutex for the timer
-int16_t last_val=-1;
+volatile int16_t last_val=-1;
 void IRAM_ATTR onTimer() {
   portENTER_CRITICAL_ISR(&timerMux); // says that we want to run critical code and don't want to be interrupted
   
