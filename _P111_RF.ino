@@ -27,7 +27,7 @@ RCSwitch *rfReceiver;
 
 #ifndef USES_P016
  int irReceiver = 0; // make sure it has value even if plugin not found
-#endif                
+#endif
 
 boolean Plugin_111(byte function, struct EventStruct *event, String& string)
 {
@@ -39,7 +39,7 @@ boolean Plugin_111(byte function, struct EventStruct *event, String& string)
         {
                 Device[++deviceCount].Number = PLUGIN_ID_111;
                 Device[deviceCount].Type = DEVICE_TYPE_SINGLE;
-                Device[deviceCount].VType = SENSOR_TYPE_LONG;
+                Device[deviceCount].VType = Sensor_VType::SENSOR_TYPE_LONG;
                 Device[deviceCount].Ports = 0;
                 Device[deviceCount].InverseLogicOption = false;
                 Device[deviceCount].FormulaOption = false;
