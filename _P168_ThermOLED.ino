@@ -1,3 +1,8 @@
+#include "_Plugin_Helper.h"
+#ifdef USES_P168
+
+#include "src/Globals/ESPEasyWiFiEvent.h"
+
 /*##########################################################################################
   ##################### Plugin 168: OLED SSD1306 display for Thermostat ####################
   ##########################################################################################
@@ -125,7 +130,7 @@ boolean Plugin_168(byte function, struct EventStruct *event, String& string)
       {
         Device[++deviceCount].Number = PLUGIN_ID_168;
         Device[deviceCount].Type = DEVICE_TYPE_I2C;
-        Device[deviceCount].VType = SENSOR_TYPE_QUAD;
+        Device[deviceCount].VType = Sensor_VType::SENSOR_TYPE_QUAD;
         Device[deviceCount].Ports = 0;
         Device[deviceCount].PullUpOption = false;
         Device[deviceCount].InverseLogicOption = false;
@@ -233,7 +238,7 @@ boolean Plugin_168(byte function, struct EventStruct *event, String& string)
         {
           argName = F("Plugin_168_template");
           argName += varNr + 1;
-          strncpy(P168_deviceTemplate[varNr], WebServer.arg(argName).c_str(), sizeof(P168_deviceTemplate[varNr]));
+          strncpy(P168_deviceTemplate[varNr], web_server.arg(argName).c_str(), sizeof(P168_deviceTemplate[varNr]));
         }
 
         SaveCustomTaskSettings(event->TaskIndex, (byte*)&P168_deviceTemplate, sizeof(P168_deviceTemplate));
@@ -594,7 +599,7 @@ void P168_setContrast(uint8_t OLED_contrast) {
 
 void P168_display_header() {
   static boolean showWiFiName = true;
-  if (showWiFiName && (wifiStatus == ESPEASY_WIFI_SERVICES_INITIALIZED) ) {
+  if (showWiFiName && (WiFiEventData.WiFiServicesInitialized()) ) {
     String newString = WiFi.SSID();
     newString.trim();
     P168_display_title(newString);
@@ -632,7 +637,7 @@ void P168_display_title(String& title) {
 
 //Draw Signal Strength Bars, return true when there was an update.
 bool P168_display_wifibars() {
-  const bool connected = wifiStatus == ESPEASY_WIFI_SERVICES_INITIALIZED;
+  const bool connected = WiFiEventData.WiFiServicesInitialized();
   const int nbars_filled = (WiFi.RSSI() + 100) / 8;
   const int newState = connected ? nbars_filled : P168_WIFI_STATE_UNSET;
   if (newState == P168_lastWiFiState)
@@ -654,7 +659,7 @@ bool P168_display_wifibars() {
   P168_display->setColor(BLACK);
   P168_display->fillRect(x , y, size_x, size_y);
   P168_display->setColor(WHITE);
-  if (wifiStatus == ESPEASY_WIFI_SERVICES_INITIALIZED) {
+  if (WiFiEventData.WiFiServicesInitialized()) {
     for (byte ibar = 0; ibar < nbars; ibar++) {
       int16_t height = size_y * (ibar + 1) / nbars;
       int16_t xpos = x + ibar * width;
@@ -799,9 +804,9 @@ void P168_display_page() {
   P168_display->drawHorizontalLine(0, 15, 128);
   P168_display->drawVerticalLine(52, 14, 49);
 
-  P168_display->drawCircle(107, 47, 26);
+  P168_display->drawCircle(168, 47, 26);
   P168_display->drawHorizontalLine(78, 47, 8);
-  P168_display->drawVerticalLine(107, 19, 10);
+  P168_display->drawVerticalLine(168, 19, 10);
 
   P168_display_mode();
   P168_display_setpoint_temp(0);
@@ -875,3 +880,5 @@ void P168_setMode(String amode, String atimeout) {
   P168_display_mode();
 
 }
+
+#endif
