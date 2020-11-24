@@ -804,9 +804,9 @@ void P168_display_page() {
   P168_display->drawHorizontalLine(0, 15, 128);
   P168_display->drawVerticalLine(52, 14, 49);
 
-  P168_display->drawCircle(168, 47, 26);
+  P168_display->drawCircle(107, 47, 26);
   P168_display->drawHorizontalLine(78, 47, 8);
-  P168_display->drawVerticalLine(168, 19, 10);
+  P168_display->drawVerticalLine(107, 19, 10);
 
   P168_display_mode();
   P168_display_setpoint_temp(0);
