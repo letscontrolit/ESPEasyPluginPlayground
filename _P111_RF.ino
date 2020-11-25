@@ -1,4 +1,5 @@
-
+#include "_Plugin_Helper.h"
+#ifdef USES_P111
 
 //#######################################################################################################
 //#################################### Plugin 111: Input RF #############################################
@@ -15,8 +16,8 @@
    This program was developed independently and it is not supported in any way.
  */
 
-#ifdef PLUGIN_BUILD_TESTING
 
+// Library: https://github.com/sui77/rc-switch
 #include <RCSwitch.h>
 RCSwitch *rfReceiver;
 
@@ -39,7 +40,7 @@ boolean Plugin_111(byte function, struct EventStruct *event, String& string)
         {
                 Device[++deviceCount].Number = PLUGIN_ID_111;
                 Device[deviceCount].Type = DEVICE_TYPE_SINGLE;
-                Device[deviceCount].VType = SENSOR_TYPE_LONG;
+                Device[deviceCount].VType = Sensor_VType::SENSOR_TYPE_LONG;
                 Device[deviceCount].Ports = 0;
                 Device[deviceCount].InverseLogicOption = false;
                 Device[deviceCount].FormulaOption = false;
