@@ -7,7 +7,7 @@
 #define PLUGIN_ID_129         129
 #define PLUGIN_NAME_129       "RFID - RC522 SPI"
 #define PLUGIN_VALUENAME1_129 "Tag"
-#define PLUGIN_129_CS         16
+// #define PLUGIN_129_CS         16      //needed?
 
 #include <SPI.h>
 #include <MFRC522.h>
@@ -52,10 +52,17 @@ boolean Plugin_129(byte function, struct EventStruct *event, String& string)
         strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_VALUENAME1_129));
         break;
       }
-
+      
+      case PLUGIN_GET_DEVICEGPIONAMES:                //define 'GPIO 1st' name in webserver
+      {
+        event->String1 = formatGpioName_output(F("CS PIN"));
+        break;
+      }
+      
     case PLUGIN_WEBFORM_LOAD:
       {
-      	addFormPinSelect(string, F("Reset Pin"), F("taskdevicepin3"), Settings.TaskDevicePin3[event->TaskIndex]);
+      	// cant compile addFormPinSelect(string, F("Reset Pin"), F("taskdevicepin3"), Settings.TaskDevicePin3[event->TaskIndex]);
+        addFormPinSelect(F("Reset Pin"), F("taskdevicepin3"), Settings.TaskDevicePin3[event->TaskIndex]);
         success = true;
         break;
       }
@@ -86,7 +93,8 @@ boolean Plugin_129(byte function, struct EventStruct *event, String& string)
           counter = 0;
           uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };
           uint8_t uidLength;
-          byte error = Plugin_129_readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength);
+          // byte error = Plugin_129_readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength);
+          byte error = Plugin_129_readPassiveTargetID(uid, &uidLength);  // not defined if plugin P017_PN532 is not selected!
 
           if (error == 1)
           {
@@ -192,7 +200,8 @@ boolean Plugin_129_Init(int8_t csPin, int8_t resetPin)
 /*********************************************************************************************\
  * RC522 read tag ID
 \*********************************************************************************************/
-byte Plugin_129_readPassiveTargetID(uint8_t cardbaudrate, uint8_t *uid, uint8_t *uidLength)
+//byte Plugin_129_readPassiveTargetID(uint8_t cardbaudrate, uint8_t *uid, uint8_t *uidLength)
+byte Plugin_129_readPassiveTargetID(uint8_t *uid, uint8_t *uidLength)  //needed ? see above (not PN532)
 {
   // Getting ready for Reading PICCs
   if ( ! mfrc522.PICC_IsNewCardPresent()) { //If a new PICC placed to RFID reader continue
