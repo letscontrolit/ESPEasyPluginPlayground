@@ -17,12 +17,12 @@ const uint8_t ithoPaTableReceive[8] = {0x6F, 0x26, 0x2E, 0x7F, 0x8A, 0x84, 0xCA,
 //rft message 1 commands
 const uint8_t ithoMessage1HighCommandBytes[] = {1,84,213,85,50,203,52};
 const uint8_t ithoMessage1MediumCommandBytes[] = {1,84,213,85,74,213,52};
-const uint8_t ithoMessage1LowCommandBytes[] = {1,84,213,85,83,83,84};	
-const uint8_t ithoMessage1Timer1CommandBytes[] = {1,83,83,84,204,202,180};	
-const uint8_t ithoMessage1Timer2CommandBytes[] = {1,83,83,83,53,52,180};		
-const uint8_t ithoMessage1Timer3CommandBytes[] = {1,83,83,82,173,82,180};	
+const uint8_t ithoMessage1LowCommandBytes[] = {1,84,213,85,83,83,84};
+const uint8_t ithoMessage1Timer1CommandBytes[] = {1,83,83,84,204,202,180};
+const uint8_t ithoMessage1Timer2CommandBytes[] = {1,83,83,83,53,52,180};
+const uint8_t ithoMessage1Timer3CommandBytes[] = {1,83,83,82,173,82,180};
 const uint8_t ithoMessage1JoinCommandBytes[] = {0,170,171,85,84,202,180};
-const uint8_t ithoMessage1LeaveCommandBytes[] = {0,170,173,85,83,43,84};		
+const uint8_t ithoMessage1LeaveCommandBytes[] = {0,170,173,85,83,43,84};
 
 //duco message1 commands
 const uint8_t ducoMessage1HighCommandBytes[] = {1,84,213,85,51,45,52};
@@ -59,7 +59,7 @@ const uint8_t counterBytes66[] = {170,106};
 
 
 //state machine
-typedef enum IthoReceiveStates
+enum IthoReceiveStates
 {
 	ExpectMessageStart,
 	ExpectNormalCommand,
@@ -78,26 +78,26 @@ class IthoCC1101 : protected CC1101
 		CC1101Packet inMessage1;												//temp storage message1
 		CC1101Packet inMessage2;												//temp storage message2
 		IthoPacket inIthoPacket;												//stores last received message data
-		
+
 		//send
 		IthoPacket outIthoPacket;												//stores state of "remote"
 
 		//settings
 		uint8_t sendTries;														//number of times a command is send at one button press
-		
+
 	//functions
 	public:
 		IthoCC1101(uint8_t counter = 0, uint8_t sendTries = 3);		//set initial counter value
 		~IthoCC1101();
-		
+
 		//init
 		void init() { CC1101::init(); }											//init,reset CC1101
 		void initReceive();
 		uint8_t getLastCounter() { return outIthoPacket.counter; }				//counter is increased before sending a command
 		void setSendTries(uint8_t sendTries) { this->sendTries = sendTries; }
-		
+
 		//- deviceid should be a setting as well? random gen function? TODO
-		
+
 		//receive
 		bool checkForNewPacket();												//check RX fifo for new data
 		IthoPacket getLastPacket() { return inIthoPacket; }						//retrieve last received/parsed packet from remote
@@ -105,8 +105,10 @@ class IthoCC1101 : protected CC1101
 		uint8_t getLastInCounter() { return inIthoPacket.counter; }						//retrieve last received/parsed command from remote
 		uint8_t ReadRSSI();
 		bool checkID(const uint8_t *id);
-		String getLastIDstr();
-				
+		String getLastIDstr(bool ashex=true);
+		String getLastMessage2str(bool ashex=true);
+
+
 		//send
 		void sendCommand(IthoCommand command);
 	protected:
@@ -117,25 +119,25 @@ class IthoCC1101 : protected CC1101
 		//init CC1101 for receiving
 		void initReceiveMessage1();
 		void initReceiveMessage2(IthoMessageType expectedMessageType);
-		
+
 		//init CC1101 for sending
 		void initSendMessage1();
 		void initSendMessage2(IthoCommand command);
-		void finishTransfer();		
-		
+		void finishTransfer();
+
 		//receive message validation
 		bool isValidMessageStart();
-		bool isValidMessageCommand();	
+		bool isValidMessageCommand();
 		bool isValidMessageJoin();
 		bool isValidMessageLeave();
-			
+
 		//parse received message
 		void parseReceivedPackets();
 		void parseMessageStart();
 		void parseMessageCommand();
 		void parseMessageJoin();
 		void parseMessageLeave();
-		
+
 		//send
 		void createMessageStart(IthoPacket *itho, CC1101Packet *packet);
 		void createMessageCommand(IthoPacket *itho, CC1101Packet *packet);
@@ -143,7 +145,7 @@ class IthoCC1101 : protected CC1101
 		void createMessageLeave(IthoPacket *itho, CC1101Packet *packet);
 		uint8_t* getMessage1CommandBytes(IthoCommand command);
 		uint8_t* getMessage2CommandBytes(IthoCommand command);
-		
+
 		//counter bytes calculation (send)
 		uint8_t getMessage1Byte18(IthoCommand command);
 		IthoCommand getMessage1PreviousCommand(uint8_t byte18);
@@ -159,13 +161,13 @@ class IthoCC1101 : protected CC1101
 		uint8_t calculateMessage2Byte64(uint8_t counter);
 		uint8_t calculateMessage2Byte65(uint8_t counter);
 		uint8_t calculateMessage2Byte66(uint8_t counter);
-		
+
 		//counter calculation (receive)
 		uint8_t calculateMessageCounter(uint8_t byte24, uint8_t byte25, uint8_t byte26);
-		
+
 		//general
-		uint8_t getCounterIndex(const uint8_t *arr, uint8_t length, uint8_t value);		
-		
+		uint8_t getCounterIndex(const uint8_t *arr, uint8_t length, uint8_t value);
+
 		//test
 		void testCreateMessage();
 

@@ -7,7 +7,7 @@
 
 #include <stdio.h>
 #ifdef ESP8266
-#include <arduino.h>
+#include <Arduino.h>
 #endif
 
 #define CC1101_BUFFER_LEN        64
