@@ -298,23 +298,10 @@ boolean Plugin_105(byte function, struct EventStruct *event, String& string)
     case PLUGIN_WEBFORM_LOAD:
     {
       addFormSubHeader(F("RGBW Settings"));
-      addFormNumericBox(F("Milight UDP Port"), F("plugin_105_port"),     ExtraTaskSettings.TaskDevicePluginConfigLong[0], 1, 65535); // Limited
-                                                                                                                                     // to
-                                                                                                                                     // valid
-                                                                                                                                     // ports,
-                                                                                                                                     // should
-                                                                                                                                     // default
-                                                                                                                                     // to
-                                                                                                                                     // 8899,
-                                                                                                                                     // but
-                                                                                                                                     // not
-                                                                                                                                     // implemented.
-      addFormNumericBox(F("Red Pin"),          F("plugin_105_RedPin"),   ExtraTaskSettings.TaskDevicePluginConfigLong[1], 0, 16);    // Limited
-                                                                                                                                     // to
-                                                                                                                                     // available
-                                                                                                                                     // GPIO
-                                                                                                                                     // pins
-                                                                                                                                     // only
+      // Limited to valid ports, should default to 8899, but not implemented.
+      addFormNumericBox(F("Milight UDP Port"), F("plugin_105_port"),     ExtraTaskSettings.TaskDevicePluginConfigLong[0], 1, 65535); 
+      // Limited to available GPIO pins only
+      addFormNumericBox(F("Red Pin"),          F("plugin_105_RedPin"),   ExtraTaskSettings.TaskDevicePluginConfigLong[1], 0, 16);
       addFormNumericBox(F("Green Pin"),        F("plugin_105_GreenPin"), ExtraTaskSettings.TaskDevicePluginConfigLong[2], 0, 16);
       addFormNumericBox(F("Blue Pin"),         F("plugin_105_BluePin"),  ExtraTaskSettings.TaskDevicePluginConfigLong[3], 0, 16);
       addFormNumericBox(F("White Pin"),        F("plugin_105_WhitePin"), ExtraTaskSettings.TaskDevicePluginConfigLong[4], 0, 16);
@@ -454,19 +441,11 @@ boolean Plugin_105(byte function, struct EventStruct *event, String& string)
       if (argIndex) { tmpString = tmpString.substring(0, argIndex); }
 
       String TmpStr1;
-      if (GetArgv(string.c_str(), TmpStr1, 2)) { Par[1] = TmpStr1.toInt(); }
-
-      if (GetArgv(string.c_str(), TmpStr1, 3)) { Par[2] = TmpStr1.toInt(); }
-
-      if (GetArgv(string.c_str(), TmpStr1, 4)) { Par[3] = TmpStr1.toInt(); }
-
-      if (GetArgv(string.c_str(), TmpStr1, 5)) { Par[4] = TmpStr1.toInt(); }
-
-      if (GetArgv(string.c_str(), TmpStr1, 6)) { Par[5] = TmpStr1.toInt(); }
-
-      if (GetArgv(string.c_str(), TmpStr1, 7)) { Par[6] = TmpStr1.toInt(); }
-
-      if (GetArgv(string.c_str(), TmpStr1, 8)) { Par[7] = TmpStr1.toInt(); }
+      for (int i = 1; i < 8; ++i) {
+        if (GetArgv(string.c_str(), TmpStr1, i+1)) { 
+          Par[i] = TmpStr1.toInt(); 
+        }
+      }
 
       // initialise LED Flashing if not flashing already
       if (tmpString.equalsIgnoreCase(F("RGBFLASH")) && (Plugin_105_RGBFlasher.Count == 0) && (Par[1] <= 1023) && (Par[2] <= 1023) &&
