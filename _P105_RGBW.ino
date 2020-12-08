@@ -434,21 +434,20 @@ boolean Plugin_105(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_WRITE:
     {
-      String tmpString = string;
+      const String command = parseString(string, 1);
       int Par[8] = { 0 };
-      int argIndex = tmpString.indexOf(',');
 
-      if (argIndex) { tmpString = tmpString.substring(0, argIndex); }
-
-      String TmpStr1;
-      for (int i = 1; i < 8; ++i) {
-        if (GetArgv(string.c_str(), TmpStr1, i+1)) { 
-          Par[i] = TmpStr1.toInt(); 
+      {
+        String TmpStr1;
+        for (int i = 1; i < 8; ++i) {
+            if (GetArgv(string.c_str(), TmpStr1, i+1)) { 
+            Par[i] = TmpStr1.toInt(); 
+            }
         }
       }
 
       // initialise LED Flashing if not flashing already
-      if (tmpString.equalsIgnoreCase(F("RGBFLASH")) && (Plugin_105_RGBFlasher.Count == 0) && (Par[1] <= 1023) && (Par[2] <= 1023) &&
+      if (command.equalsIgnoreCase(F("RGBFLASH")) && (Plugin_105_RGBFlasher.Count == 0) && (Par[1] <= 1023) && (Par[2] <= 1023) &&
           (Par[3] <= 1023) && (Par[4] > 0) && (Par[4] <= 20))
       {
         success                     = true;
@@ -480,7 +479,7 @@ boolean Plugin_105(byte function, struct EventStruct *event, String& string)
       }
 
       // initialise LED Fading pin 0=r,1=g,2=b,3=w
-      if (tmpString.equalsIgnoreCase(F("PWMFADE")))
+      if (command.equalsIgnoreCase(F("PWMFADE")))
       {
         success = true;
 
