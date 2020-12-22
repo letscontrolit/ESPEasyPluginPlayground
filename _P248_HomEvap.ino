@@ -6,25 +6,29 @@
 // ####################################################################################################
 //
 //  Written by Henri de Jong (espeasy@enri.nl),
-//      with most code copied from plugin 248: _P248_DDS238.ino
+//      with most code inspired by plugin 224: _P224_DDS238.ino
 
 #ifndef USES_MODBUS
 #error This code needs MODBUS library, it should be enabled in 'define_plugin_sets.h', or your 'custom.h'
 #endif
 
 /*
-DF - Below doesn't look right; needs a RS485 to TTL(3.3v) level converter (see https://github.com/reaper7/SDM_Energy_Meter)
    Circuit wiring
-    GPIO Setting 1 -> RX
-    GPIO Setting 2 -> TX
-    GPIO Setting 3 -> DE/RE pin for MAX485
+    GPIO Setting 1 -> RX (RO) (D6)
+    GPIO Setting 2 -> TX (DI) (D7)
+    GPIO Setting 3 -> DE/RE pin for MAX485 (D5)
     Use 1kOhm in serie on datapins!
  */
 
 #define PLUGIN_248
 #define PLUGIN_ID_248 248
-#define PLUGIN_NAME_248 "HomEvap Cooling/Humidifier [TESTING]"
-#define PLUGIN_VALUENAME1_248 ""
+#define PLUGIN_NAME_248 "HomEvap Cooling/Humidifier [DEVELOPMENT]"
+#define PLUGIN_VALUENAME1_248 "Humidity"
+#define PLUGIN_VALUENAME2_248 "Temperature"
+#define PLUGIN_VALUENAME3_248 "Temperature"
+#define PLUGIN_VALUENAME4_248 "Temperature"
+#define PLUGIN_VALUENAME5_248 "Humidity"
+#define PLUGIN_VALUENAME6_248 "Mode"
 
 #define P248_DEV_ID         PCONFIG(0)
 #define P248_DEV_ID_LABEL   PCONFIG_LABEL(0)
@@ -36,9 +40,11 @@ DF - Below doesn't look right; needs a RS485 to TTL(3.3v) level converter (see h
 #define P248_QUERY2         PCONFIG(4)
 #define P248_QUERY3         PCONFIG(5)
 #define P248_QUERY4         PCONFIG(6)
+#define P248_QUERY5         PCONFIG(7)
+#define P248_QUERY6         PCONFIG(8)
 #define P248_DEPIN          CONFIG_PIN3
 
-#define P248_NR_OUTPUT_VALUES   VARS_PER_TASK
+#define P248_NR_OUTPUT_VALUES   6 // VARS_PER_TASK
 #define P248_QUERY1_CONFIG_POS  3
 
 #define P248_QUERY_AI3       0 // Duct Humidity
@@ -47,10 +53,7 @@ DF - Below doesn't look right; needs a RS485 to TTL(3.3v) level converter (see h
 #define P248_QUERY_SET_TEMP  3 // Duct temp setpoint
 #define P248_QUERY_SET_HUMI  4 // Duct humi setpoint
 #define P248_QUERY_SYS_MODE  5 // Control system mode
-#define P248_QUERY_Wh_imp  6
-#define P248_QUERY_Wh_exp  7
-#define P248_QUERY_Wh_tot  8
-#define P248_NR_OUTPUT_OPTIONS  9 // Must be the last one
+#define P248_NR_OUTPUT_OPTIONS  6 // Must be the last one
 
 #define P248_DEV_ID_DFLT   1       // Modbus communication address
 #define P248_MODEL_DFLT    0       // DDS238
@@ -59,6 +62,12 @@ DF - Below doesn't look right; needs a RS485 to TTL(3.3v) level converter (see h
 #define P248_QUERY2_DFLT   P248_QUERY_AI4
 #define P248_QUERY3_DFLT   P248_QUERY_AI5
 #define P248_QUERY4_DFLT   P248_QUERY_SET_TEMP
+#define P248_QUERY5_DFLT   P248_QUERY_SET_HUMI
+#define P248_QUERY6_DFLT   P248_QUERY_SYS_MODE
+
+#define P248_COMMAND_TEMP_SETPOINT 0    // Duct temperature setpoint
+#define P248_COMMAND_HUMI_SETPOINT 1    // Duct humidity setpoint
+#define P248_COMMAND_MODE 2             // System Mode
 
 #define P248_MEASUREMENT_INTERVAL 60000L
 
@@ -101,7 +110,7 @@ boolean Plugin_248(byte function, struct EventStruct *event, String& string) {
       Device[deviceCount].Ports              = 0;
       Device[deviceCount].PullUpOption       = false;
       Device[deviceCount].InverseLogicOption = false;
-      Device[deviceCount].FormulaOption      = true;
+      Device[deviceCount].FormulaOption      = false;
       Device[deviceCount].ValueCount         = P248_NR_OUTPUT_VALUES;
       Device[deviceCount].SendDataOption     = true;
       Device[deviceCount].TimerOption        = true;
@@ -115,7 +124,7 @@ boolean Plugin_248(byte function, struct EventStruct *event, String& string) {
     }
 
     case PLUGIN_GET_DEVICEVALUENAMES: {
-      for (byte i = 0; i < VARS_PER_TASK; ++i) {
+      for (byte i = 0; i < P248_NR_OUTPUT_VALUES; ++i) {
         if (i < P248_NR_OUTPUT_VALUES) {
           const byte pconfigIndex = i + P248_QUERY1_CONFIG_POS;
           byte choice             = PCONFIG(pconfigIndex);
@@ -151,12 +160,10 @@ boolean Plugin_248(byte function, struct EventStruct *event, String& string) {
       P248_QUERY2   = P248_QUERY2_DFLT;
       P248_QUERY3   = P248_QUERY3_DFLT;
       P248_QUERY4   = P248_QUERY4_DFLT;
+      P248_QUERY5   = P248_QUERY5_DFLT;
+      P248_QUERY6   = P248_QUERY6_DFLT;
 
       success = true;
-      break;
-    }
-
-    case PLUGIN_WRITE: {
       break;
     }
 
@@ -201,13 +208,6 @@ boolean Plugin_248(byte function, struct EventStruct *event, String& string) {
         p248_showValueLoadPage(P248_QUERY_SET_TEMP, event);
         p248_showValueLoadPage(P248_QUERY_SET_HUMI, event);
         p248_showValueLoadPage(P248_QUERY_SYS_MODE, event);
-
-        // Can't clear totals, maybe because of modbus library can't write DWORD?
-        // Disabled for now
-        // Checkbox is always presented unchecked.
-        // Must check and save to clear the stored accumulated values in the sensor.
-        //addFormCheckBox(F("Clear logged values"), F("p248_clear_log"), false);
-        //addFormNote(F("Will clear all logged values when checked and saved"));
       }
 
       {
@@ -229,8 +229,6 @@ boolean Plugin_248(byte function, struct EventStruct *event, String& string) {
     }
 
     case PLUGIN_WEBFORM_SAVE: {
-//      serialHelper_webformSave(event); // DF - not present in P085
-
       // Save normal parameters
       for (int i = 0; i < P248_QUERY1_CONFIG_POS; ++i) {
         pconfig_webformSave(event, i);
@@ -242,24 +240,6 @@ boolean Plugin_248(byte function, struct EventStruct *event, String& string) {
         const byte choice       = PCONFIG(pconfigIndex);
         sensorTypeHelper_saveOutputSelector(event, pconfigIndex, i, Plugin_248_valuename(choice, false));
       }
-      // Can't clear totals, maybe because of modbus library can't write DWORD?
-      // Disabled for now
-      /*P248_data_struct *P248_data =
-        static_cast<P248_data_struct *>(getPluginTaskData(event->TaskIndex));
-      if ((nullptr != P248_data) && P248_data->isInitialized()) {
-
-        if (isFormItemChecked(F("p248_clear_log")))
-        {
-          // Clear all logged values in the meter. 
-          P248_data->modbus.writeMultipleRegisters(0x0, 0x00); // Clear Total Energy
-          P248_data->modbus.writeMultipleRegisters(0x1, 0x00); // Clear Total Energy
-          P248_data->modbus.writeMultipleRegisters(0x8, 0x00); // Clear Import Energy      
-          P248_data->modbus.writeMultipleRegisters(0x9, 0x00); // Clear Import Energy
-          P248_data->modbus.writeMultipleRegisters(0xA, 0x00); // Clear Export Energy
-          P248_data->modbus.writeMultipleRegisters(0xB, 0x00); // Clear Export Energy            
-        }
-      }*/
-
 
       success = true;
       break;
@@ -289,7 +269,6 @@ boolean Plugin_248(byte function, struct EventStruct *event, String& string) {
     }
 
     case PLUGIN_EXIT: {
-//       clearPluginTaskData(event->TaskIndex); // DF - not present in P085
       success = true;
       break;
     }
@@ -308,18 +287,46 @@ boolean Plugin_248(byte function, struct EventStruct *event, String& string) {
       }
       break;
     }
+
+    case PLUGIN_WRITE: {
+      String command = parseString(string, 1);
+
+      if (command == F("setduct"))
+      {
+        addLog(LOG_LEVEL_INFO, F("P248: Set duct command received"));
+        int arg1 = parseString(string, 2).toInt();
+        p248_writeValue(P248_COMMAND_TEMP_SETPOINT, arg1, event);
+        success = true;
+      }
+      else if (command == F("sethumi"))
+      {
+        addLog(LOG_LEVEL_INFO, F("P248: Set humi command received"));
+        int arg1 = parseString(string, 2).toInt();
+        p248_writeValue(P248_COMMAND_HUMI_SETPOINT, arg1, event);
+        success = true;
+      }
+      else if (command == F("setmode"))
+      {
+        addLog(LOG_LEVEL_INFO, F("P248: Set mode command received"));
+        int arg1 = parseString(string, 2).toInt();
+        p248_writeValue(P248_COMMAND_MODE, arg1, event);
+        success = true;
+      }
+
+      break;
+    }
   }
   return success;
 }
 
 String Plugin_248_valuename(byte value_nr, bool displayString) {
   switch (value_nr) {
-    case P248_QUERY_AI3: return displayString ? F("Duct humidity (%RH)") : F("%RH");
-    case P248_QUERY_AI4: return displayString ? F("Duct temperature (C)") : F("C");
-    case P248_QUERY_AI5: return displayString ? F("T2 temp (C)") : F("C");
-    case P248_QUERY_SET_TEMP: return displayString ? F("Duct temperature setpoint (C)") : F("C");
-    case P248_QUERY_SET_HUMI: return displayString ? F("Duct humidity setpoint (%RH)") : F("%RH");
-    case P248_QUERY_SYS_MODE: return displayString ? F("Control system mode") : F("");
+    case P248_QUERY_AI3: return displayString ? F("Duct humidity (%RH)") : F("Duct %RH");
+    case P248_QUERY_AI4: return displayString ? F("Duct temperature (C)") : F("Duct C");
+    case P248_QUERY_AI5: return displayString ? F("T2 temp (C)") : F("T2 C");
+    case P248_QUERY_SET_TEMP: return displayString ? F("Duct temperature setpoint (C)") : F("Duct setpoint C");
+    case P248_QUERY_SET_HUMI: return displayString ? F("Duct humidity setpoint (%RH)") : F("Duct setpoint %RH");
+    case P248_QUERY_SYS_MODE: return displayString ? F("Control system mode") : F("Mode");
   }
   return "";
 }
@@ -339,15 +346,15 @@ int p248_storageValueToBaudrate(byte baudrate_setting) {
 }
 
 float p248_readValue(byte query, struct EventStruct *event) {
-  byte errorcode     = -1; // DF - not present in P085
-  float value = 0; // DF - not present in P085
+  byte errorcode = -1;
+  float value = 0;
   P248_data_struct *P248_data =
     static_cast<P248_data_struct *>(getPluginTaskData(event->TaskIndex));
 
   if ((nullptr != P248_data) && P248_data->isInitialized()) {
     switch (query) {
       case P248_QUERY_AI3:
-        value = P248_data->modbus.readHoldingRegister(0x0F ,errorcode) / 10.0; // 0.1 %RH => %RH
+        value = P248_data->modbus.readHoldingRegister(0x0F, errorcode) / 10.0; // 0.1 %RH => %RH
         break;
       case P248_QUERY_AI4:
         value = P248_data->modbus.readHoldingRegister(0x10, errorcode) / 10.0; // 0.1 C => C
@@ -366,8 +373,26 @@ float p248_readValue(byte query, struct EventStruct *event) {
         break;
     }
   }
-  if (errorcode == 0) return value; // DF - not present in P085
+  if (errorcode == 0) return value;
   return 0.0f;
+}
+
+void p248_writeValue(byte command, int registerValue, struct EventStruct *event) {
+  P248_data_struct *P248_data =
+         static_cast<P248_data_struct *>(getPluginTaskData(event->TaskIndex));
+  if (nullptr != P248_data && P248_data->isInitialized()) {
+    switch (command) {
+      case P248_COMMAND_TEMP_SETPOINT:
+        P248_data->modbus.writeMultipleRegisters(0x2D, registerValue);
+        break;
+      case P248_COMMAND_HUMI_SETPOINT:
+        P248_data->modbus.writeMultipleRegisters(0x37, registerValue);
+        break;
+      case P248_COMMAND_MODE:
+        P248_data->modbus.writeMultipleRegisters(0x58, registerValue);
+        break;
+    }
+  }
 }
 
 void p248_showValueLoadPage(byte query, struct EventStruct *event) {
