@@ -291,29 +291,33 @@ boolean Plugin_248(byte function, struct EventStruct *event, String& string) {
     case PLUGIN_WRITE: {
       String command = parseString(string, 1);
 
-      if (command == F("setduct"))
-      {
-        addLog(LOG_LEVEL_INFO, F("P248: Set duct command received"));
-        int arg1 = parseString(string, 2).toInt();
-        p248_writeValue(P248_COMMAND_TEMP_SETPOINT, arg1, event);
-        success = true;
-      }
-      else if (command == F("sethumi"))
-      {
-        addLog(LOG_LEVEL_INFO, F("P248: Set humi command received"));
-        int arg1 = parseString(string, 2).toInt();
-        p248_writeValue(P248_COMMAND_HUMI_SETPOINT, arg1, event);
-        success = true;
-      }
-      else if (command == F("setmode"))
-      {
-        addLog(LOG_LEVEL_INFO, F("P248: Set mode command received"));
-        int arg1 = parseString(string, 2).toInt();
-        p248_writeValue(P248_COMMAND_MODE, arg1, event);
-        success = true;
-      }
+      if (command == F("homevap"))
+        String subCommand = parseString(string, 2);
 
-      break;
+        if (subCommand == F("settemp"))
+        {
+          addLog(LOG_LEVEL_INFO, F("P248: Set duct command received"));
+          int arg1 = parseString(string, 3).toFloat() * 10;
+          p248_writeValue(P248_COMMAND_TEMP_SETPOINT, arg1, event);
+          success = true;
+        }
+        else if (subCommand == F("sethumi"))
+        {
+          addLog(LOG_LEVEL_INFO, F("P248: Set humi command received"));
+          int arg1 = parseString(string, 3).toFloat() * 10;
+          p248_writeValue(P248_COMMAND_HUMI_SETPOINT, arg1, event);
+          success = true;
+        }
+        else if (subCommand == F("setmode"))
+        {
+          addLog(LOG_LEVEL_INFO, F("P248: Set mode command received"));
+          int arg1 = parseString(string, 3).toInt();
+          p248_writeValue(P248_COMMAND_MODE, arg1, event);
+          success = true;
+        }
+
+        break;
+      }
     }
   }
   return success;
