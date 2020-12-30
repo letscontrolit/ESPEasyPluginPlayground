@@ -85,6 +85,9 @@ class IthoCC1101 : protected CC1101
 		//settings
 		uint8_t sendTries;														//number of times a command is send at one button press
 
+		//SYNC1 byte
+		uint8_t remoteSync1 = 170;													//SYNC1 byte for reconfiguring remote decoding, default 170
+
 	//functions
 	public:
 		IthoCC1101(uint8_t counter = 0, uint8_t sendTries = 3);		//set initial counter value
@@ -108,9 +111,11 @@ class IthoCC1101 : protected CC1101
 		String getLastIDstr(bool ashex=true);
 		String getLastMessage2str(bool ashex=true);
 
-
 		//send
 		void sendCommand(IthoCommand command);
+
+		//SYNC1 programming
+		void setSync1(uint8_t remoteSync1){ this->remoteSync1 = remoteSync1; }
 	protected:
 	private:
 		IthoCC1101( const IthoCC1101 &c);
