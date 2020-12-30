@@ -67,26 +67,24 @@ struct PLUGIN_145_ExtraSettingsStruct
 	char ID3[24];
 } PLUGIN_145_ExtraSettings;
 
-
 IthoCC1101 PLUGIN_145_rf;
 //void PLUGIN_145_ITHOinterrupt() ICACHE_RAM_ATTR;
 //void PLUGIN_145_ITHOcheck() ICACHE_RAM_ATTR; //as it is called by the ISR it is better to load this in RAM too?
 
 // extra for interrupt handling
 bool PLUGIN_145_ITHOhasPacket = false;
-//Ticker PLUGIN_145_ITHOticker;
 int PLUGIN_145_State=1; // after startup it is assumed that the fan is running low
 int PLUGIN_145_OldState=1;
 int PLUGIN_145_Timer=0;
 int PLUGIN_145_LastIDindex = 0;
 int PLUGIN_145_OldLastIDindex = 0;
-//long PLUGIN_145_LastPublish=0; SV - not used for anything?
 int8_t Plugin_145_IRQ_pin=-1;
 bool PLUGIN_145_InitRunned = false;
 bool PLUGIN_145_Log = false;
+
+// volatile for interrupt function
 volatile bool PLUGIN_145_Int = false;
 volatile unsigned long PLUGIN_145_Int_time = 0;
-
 
 #define PLUGIN_145
 #define PLUGIN_ID_145         145
@@ -111,7 +109,7 @@ boolean Plugin_145(byte function, struct EventStruct *event, String &string)
 		{
 			Device[++deviceCount].Number = PLUGIN_ID_145;
 			Device[deviceCount].Type = DEVICE_TYPE_SINGLE;
-			Device[deviceCount].VType = SENSOR_TYPE_TRIPLE;
+			Device[deviceCount].VType = Sensor_VType::SENSOR_TYPE_TRIPLE;
 			Device[deviceCount].Ports = 0;
 			Device[deviceCount].PullUpOption = false;
 			Device[deviceCount].InverseLogicOption = false;
@@ -137,6 +135,19 @@ boolean Plugin_145(byte function, struct EventStruct *event, String &string)
 			break;
 		}
 
+	case PLUGIN_GET_DEVICEGPIONAMES:
+	  {
+			event->String1 = formatGpioName_input(F("Interrupt pin (CC1101 GDO2)"));
+			break;
+    }
+
+	case PLUGIN_SET_DEFAULTS:
+		{
+    	PCONFIG(0) = 1;
+			PCONFIG(1) = 170;
+    	success = true;
+			break;
+		}
 
 	case PLUGIN_INIT:
 		{
@@ -148,6 +159,7 @@ boolean Plugin_145(byte function, struct EventStruct *event, String &string)
 			}
 			LoadCustomTaskSettings(event->TaskIndex, (byte*)&PLUGIN_145_ExtraSettings, sizeof(PLUGIN_145_ExtraSettings));
 			addLog(LOG_LEVEL_INFO, F("Extra Settings PLUGIN_145 loaded"));
+			PLUGIN_145_rf.setSync1(PCONFIG(1));
 			PLUGIN_145_rf.init();
 			Plugin_145_IRQ_pin = Settings.TaskDevicePin1[event->TaskIndex];
 			pinMode(Plugin_145_IRQ_pin, INPUT);
@@ -231,7 +243,6 @@ boolean Plugin_145(byte function, struct EventStruct *event, String &string)
 		String tmpString = string;
 		String cmd = parseString(tmpString, 1);
 		String param1 = parseString(tmpString, 2);
-		//noInterrupts();
 			if (cmd.equalsIgnoreCase(F("STATE")))
 			{
 
@@ -361,7 +372,6 @@ boolean Plugin_145(byte function, struct EventStruct *event, String &string)
 					success = true;
 				}
 			}
-			//interrupts();
 	  break;
 	}
 
@@ -372,6 +382,8 @@ boolean Plugin_145(byte function, struct EventStruct *event, String &string)
     addFormTextBox(F("Unit ID remote 2"), F("PLUGIN_145_ID2"), PLUGIN_145_ExtraSettings.ID2, 23);
     addFormTextBox(F("Unit ID remote 3"), F("PLUGIN_145_ID3"), PLUGIN_145_ExtraSettings.ID3, 23);
 		addFormCheckBox(F("Enable RF receive log"), F("p145_log"), PCONFIG(0));
+		addFormNumericBox(F("Remote SYNC1 byte"), F("p145_remote"), PCONFIG(1), 0, 255);
+		addFormNote(F("Sync byte for remote, known good values: 170 (default, remote with timer) and 172 (remote with not-at-home functionality)"));
     success = true;
     break;
   }
@@ -385,6 +397,7 @@ boolean Plugin_145(byte function, struct EventStruct *event, String &string)
 
 		PCONFIG(0) = isFormItemChecked(F("p145_log"));
 		PLUGIN_145_Log = PCONFIG(0);
+		PCONFIG(1) = getFormItemInt(F("p145_remote"), 170);
 	  success = true;
     break;
   }
@@ -394,7 +407,6 @@ return success;
 
 void ICACHE_RAM_ATTR PLUGIN_145_ITHOinterrupt()
 {
-	//PLUGIN_145_ITHOticker.once_ms(10, PLUGIN_145_ITHOcheck);
 	PLUGIN_145_Int = true; //flag
 	PLUGIN_145_Int_time = millis(); //used to register time since interrupt, to make sure we don't read within 10 ms as the RX buffer needs some time to get ready
 }

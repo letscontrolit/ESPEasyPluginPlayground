@@ -355,7 +355,8 @@ void  IthoCC1101::initReceiveMessage2(IthoMessageType expectedMessageType)
 
 	//set fifo mode with fixed packet length and sync bytes
 	writeRegister(CC1101_PKTCTRL0 ,0x00);
-	writeRegister(CC1101_SYNC1 ,170);			//message2 byte6 -- if not working change to 170, use 172 for remote with 'niet-thuis' function
+	writeRegister(CC1101_SYNC1 ,this->remoteSync1);
+//	writeRegister(CC1101_SYNC1 ,170);			//message2 byte6 -- if not working change to 170, use 172 for remote with 'niet-thuis' function
 //	writeRegister(CC1101_SYNC1 ,172);			//message2 byte6
 	writeRegister(CC1101_SYNC0 ,171);			//message2 byte7
 	writeRegister(CC1101_MDMCFG2 ,0x02);
