@@ -1,12 +1,12 @@
 //#######################################################################################################
-//################################## Plugin 208: NOKIA 5110 lcd ###############################################
+//################################## Plugin 208: NOKIA 5110 lcd #########################################
 //#######################################################################################################
 #include "_Plugin_Helper.h"
 #ifdef USES_P208
 
 // Working:
 // - support different digit-size's 
-// - Display Text via
+// - Display Text via:
 //   1.  ESPEasy-Webinterface (Line-1-Line-x)
 //   2.  http-request:
 //      - BackLight on  via httpcmd (http://ESP-IP/control?cmd=pcd8544cmd,blOn)
@@ -14,11 +14,28 @@
 //      - Clear Display via httpcmd (http://ESP-IP/control?cmd=pcd8544cmd,clear)
 //      - Send Text via httpcmd     (http://ESP-IP/control?cmd=pcd8544,1,Hello World!)  // 1 : line#
 //        Send Text via http-request only works for the empty lines in ESPEasy-Webinterface!
-//    3. See "PLUGIN_INIT:" for pin connections.
-//
+// - Pin connections:
+//       SPI interface:
+//       Example of tested configuration:
+//       RST  -      => LCD_pin_1 reset connected to Vcc with 10k resistor
+//       CE  GPIO-5  => LCD_pin_2 chip select
+//       DC  GPIO-32 => LCD_pin_3 Data/Command select
+//       DIN GPIO-23 => LCD_pin_4 Serial data 
+//       CLK GPIO-18 => LCD_pin_5 Serial clock out
+//       In hardware tab; 
+//       - enable SPI; 
+//       - Select VSPI:CLK=GPIO-18, MISO=GPIO-19, MOSI=GPIO-23 
+//         (miso not used)
+
 // ToDo:
 // - different digit-size within a line....
-// - Choice of usable fonts on web-interface.
+// - Choice of usable fonts on web-webform.
+// - Remove webform-line "1st GPIO"
+//
+// Hardware note:
+// It's often seen that pins are connected via (10k) risistors.
+// Sometimes a screen will not work with these risistors. In that case, connect the display without resistors. 
+// That works well. However, I have no long-term experience with this.
 
 #define PLUGIN_208
 #define PLUGIN_ID_208 208
@@ -26,20 +43,24 @@
 #define PLUGIN_VALUENAME1_208 "Backlight"
 #define PLUGIN_VALUENAME2_208 "Contrast"
 #define PLUGIN_VALUENAME3_208 "Rotation"
+
 #include <Adafruit_GFX.h>
 #include <Adafruit_PCD8544.h>
 #define lcd_lines 6
-const int digits_per_line = 48;
+#define digits_per_template_line 48
+#define digits_per_display_line 14
+int8_t aa = 2;
+int8_t ab = 3;
 
-Adafruit_PCD8544 *lcd3;
-char html_input [lcd_lines][digits_per_line];
+Adafruit_PCD8544 *lcd3 = nullptr;
+
+char html_input [lcd_lines][digits_per_display_line];
 
 boolean Plugin_208(byte function, struct EventStruct *event, String& string){
 boolean success = false;
 
   switch (function)
   {
-
     case PLUGIN_DEVICE_ADD:{
         Device[++deviceCount].Number = PLUGIN_ID_208 ;
         Device[deviceCount].Type = DEVICE_TYPE_SINGLE;
@@ -70,6 +91,10 @@ boolean success = false;
     case PLUGIN_WEBFORM_LOAD:{
         addFormNumericBox(F("Display Contrast(50-100):"), F("plugin_208_contrast"), Settings.TaskDevicePluginConfig[event->TaskIndex][1]);
 
+        byte choice8 = Settings.TaskDevicePluginConfig[event->TaskIndex][6];
+        byte choice9 = Settings.TaskDevicePluginConfig[event->TaskIndex][7];
+        addFormPinSelect(F("CE (LCD_pin_2)"), F("plugin_208_GPIO_CE"), choice8);
+        addFormPinSelect(F("DC (LCD_pin_3)"), F("plugin_208_GPIO_DC"), choice9);
         addFormPinSelect(F("Backlight PIN"), F("taskdevicepin3"), Settings.TaskDevicePin3[event->TaskIndex]);
 
         byte choice3 = Settings.TaskDevicePluginConfig[event->TaskIndex][2];
@@ -91,7 +116,7 @@ boolean success = false;
         addFormSelector(F("Char.size line-2"), F("plugin_208_charsize_line_2"), 3, options5, optionValues5, choice6);
         addFormSelector(F("Char.size line-3"), F("plugin_208_charsize_line_3"), 3, options5, optionValues5, choice7);
 
-        char deviceTemplate [lcd_lines][digits_per_line];
+        char deviceTemplate [lcd_lines][digits_per_template_line];
         LoadCustomTaskSettings(event->TaskIndex, (byte*)&deviceTemplate, sizeof(deviceTemplate));
         for (byte varNr = 0; varNr < lcd_lines; varNr++)
         {
@@ -108,8 +133,10 @@ boolean success = false;
         Settings.TaskDevicePluginConfig[event->TaskIndex][3] = getFormItemInt(F("plugin_208_charsize_line_1"));
         Settings.TaskDevicePluginConfig[event->TaskIndex][4] = getFormItemInt(F("plugin_208_charsize_line_2"));
         Settings.TaskDevicePluginConfig[event->TaskIndex][5] = getFormItemInt(F("plugin_208_charsize_line_3"));
+        Settings.TaskDevicePluginConfig[event->TaskIndex][6] = getFormItemInt(F("plugin_208_GPIO_CE"));
+        Settings.TaskDevicePluginConfig[event->TaskIndex][7] = getFormItemInt(F("plugin_208_GPIO_DC"));
 
-        char deviceTemplate[lcd_lines][digits_per_line];
+        char deviceTemplate[lcd_lines][digits_per_template_line];
         for (byte varNr = 0; varNr < lcd_lines; varNr++)
         {
           char argc[25];
@@ -128,32 +155,12 @@ boolean success = false;
       }
 
     case PLUGIN_INIT:{
+        //addLog(LOG_LEVEL_INFO, "freeHeap 1: "+ ESP.getFreeHeap());
         if (!lcd3)
         {
-         // #define RST  4 //LCD_pin_1 reset
-         // #define CE   5 //LCD_pin_2 chip select
-         // #define DC  12 //LCD_pin_3 Data/Command select
-         // #define DIN 13 //LCD_pin_4 Serial data 
-         // #define CLK 14 //LCD_pin_5 Serial clock out
-         //lcd3 = new Adafruit_PCD8544(CLK, DIN, DC, CE, RST);
-
-          #if defined(ESP8266)
-              // SPI interface
-              lcd3 = new Adafruit_PCD8544(15, 2, -1); // D/C (need to be connected) GPIO2 , CS(CEN) GPIO15 , RESET not connected
-          #endif
-          #if defined(ESP32)
-              // SPI interface:
-              //#define RST  - //LCD_pin_1 reset connected to Vcc with 10k resistor
-                #define CE   5 //LCD_pin_2 chip select
-                #define DC  12 //LCD_pin_3 Data/Command select
-              //#define DIN 23 //LCD_pin_4 Serial data 
-              //#define CLK 18 //LCD_pin_5 Serial clock out
-              // In hardware tab; 
-              // - enable SPI; 
-              // - Select VSPI:CLK=GPIO-18, MISO=GPIO-19, MOSI=GPIO-23 
-              //   miso not used 
-               lcd3 = new Adafruit_PCD8544(DC, CE, -1); 
-          #endif
+          byte CE = Settings.TaskDevicePluginConfig[event->TaskIndex][6];
+          byte DC = Settings.TaskDevicePluginConfig[event->TaskIndex][7];
+          lcd3 = new Adafruit_PCD8544(DC, CE, -1); 
         }
         // Setup lcd3 display
         byte plugin1 = Settings.TaskDevicePluginConfig[event->TaskIndex][2]; // rotation
@@ -166,9 +173,8 @@ boolean success = false;
         lcd3->setContrast(30);
         lcd3->setContrast(plugin2);
         lcd3->setRotation(plugin1);
- 
-        delay(1000);
-        char deviceTemplate[lcd_lines][digits_per_line];
+        //delay(1000);
+        char deviceTemplate[lcd_lines][digits_per_template_line];
         LoadCustomTaskSettings(event->TaskIndex, (byte*)&deviceTemplate, sizeof(deviceTemplate));
         displayText3(deviceTemplate, event);
         lcd3->display();
@@ -178,7 +184,7 @@ boolean success = false;
       }
 
     case PLUGIN_READ:{
-        char deviceTemplate[lcd_lines][digits_per_line];
+        char deviceTemplate[lcd_lines][digits_per_template_line];
         LoadCustomTaskSettings(event->TaskIndex, (byte*)&deviceTemplate, sizeof(deviceTemplate));
         displayText3(deviceTemplate, event);
         success = false;
@@ -198,7 +204,7 @@ boolean success = false;
             if (event->Par1 <= 6 ){ // event->Par1 = row. 
               success = true;
               argIndex = string.lastIndexOf(',');
-              char deviceTemplate [lcd_lines][digits_per_line];
+              char deviceTemplate [lcd_lines][digits_per_template_line];
               LoadCustomTaskSettings(event->TaskIndex, (byte*)&deviceTemplate, sizeof(deviceTemplate));
               String linedefinition  = deviceTemplate[event->Par1-1];
               if (!linedefinition.length()){  // only if value is not definde in plugin-webform
@@ -256,7 +262,7 @@ void setBacklight(struct EventStruct *event) {
   }
 }
 
-boolean displayText3(char deviceTemplate[][48], struct EventStruct *event ){ //48 = digits_per_line
+boolean displayText3(char deviceTemplate[][48], struct EventStruct *event ){ //14 must be digits_per_template_line
         String log = F("PCD8544: ");
         String string = F("");
         lcd3->clearDisplay();
@@ -271,12 +277,19 @@ boolean displayText3(char deviceTemplate[][48], struct EventStruct *event ){ //4
             lcd3->setTextSize(1);
           }
           String tmpString = deviceTemplate[x];
-          String newString = "";
+          String newString = " ";
+          String newString3 = " ";
           if (tmpString.length())
           {
             newString = parseTemplate(tmpString, false);
           }else{
             newString = html_input[x]; // if webformline is empty use html input
+            // Remove trailing spaces for the next time
+            std::string newString2 (newString.c_str()); 
+            int i = newString2.find_last_not_of(" ");
+            newString2 = newString2.substr(0,i+1);
+            newString3 = newString2.c_str();
+            strncpy(html_input[x], newString3.c_str()+'\0', newString3.length()+2);
           }
             lcd3->println(newString);
             string+=newString+"\\";         
