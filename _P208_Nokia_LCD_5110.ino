@@ -30,7 +30,6 @@
 // ToDo:
 // - different digit-size within a line....
 // - Choice of usable fonts on web-webform.
-// - Remove webform-line "1st GPIO"
 //
 // Hardware note:
 // It's often seen that pins are connected via (10k) risistors.
@@ -39,7 +38,7 @@
 
 #define PLUGIN_208
 #define PLUGIN_ID_208 208
-#define PLUGIN_NAME_208 "Display - LCD PCD8544 (Nokia 5110) [Test]"
+#define PLUGIN_NAME_208 "Display - LCD PCD8544 (Nokia 5110) [Testing]"
 #define PLUGIN_VALUENAME1_208 "Backlight"
 #define PLUGIN_VALUENAME2_208 "Contrast"
 #define PLUGIN_VALUENAME3_208 "Rotation"
@@ -47,23 +46,21 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_PCD8544.h>
 #define lcd_lines 6
-#define digits_per_template_line 48
+#define Digits_per_template_line 48
 #define digits_per_display_line 14
-int8_t aa = 2;
-int8_t ab = 3;
 
 Adafruit_PCD8544 *lcd3 = nullptr;
 
 char html_input [lcd_lines][digits_per_display_line];
 
 boolean Plugin_208(byte function, struct EventStruct *event, String& string){
-boolean success = false;
+  boolean success = false;
 
   switch (function)
   {
     case PLUGIN_DEVICE_ADD:{
         Device[++deviceCount].Number = PLUGIN_ID_208 ;
-        Device[deviceCount].Type = DEVICE_TYPE_SINGLE;
+        Device[deviceCount].Type = DEVICE_TYPE_SPI3;
         Device[deviceCount].VType = Sensor_VType::SENSOR_TYPE_SINGLE;
         Device[deviceCount].Ports = 0;
         Device[deviceCount].PullUpOption = false;
@@ -73,6 +70,13 @@ boolean success = false;
         Device[deviceCount].SendDataOption = false;
         Device[deviceCount].TimerOption = true;
         Device[deviceCount].TimerOptional = true;
+        break;
+      }
+
+    case PLUGIN_GET_DEVICEGPIONAMES:      {
+        event->String1 = formatGpioName_output(F("LCD CE pin 2"));
+        event->String2 = formatGpioName_output(F("LCD DC pin 3"));
+        event->String3 = formatGpioName_output(F("LCD BL pin 7"));
         break;
       }
 
@@ -89,34 +93,23 @@ boolean success = false;
       }
 
     case PLUGIN_WEBFORM_LOAD:{
-        addFormNumericBox(F("Display Contrast(50-100):"), F("plugin_208_contrast"), Settings.TaskDevicePluginConfig[event->TaskIndex][1]);
-
-        byte choice8 = Settings.TaskDevicePluginConfig[event->TaskIndex][6];
-        byte choice9 = Settings.TaskDevicePluginConfig[event->TaskIndex][7];
-        addFormPinSelect(F("CE (LCD_pin_2)"), F("plugin_208_GPIO_CE"), choice8);
-        addFormPinSelect(F("DC (LCD_pin_3)"), F("plugin_208_GPIO_DC"), choice9);
-        addFormPinSelect(F("Backlight PIN"), F("taskdevicepin3"), Settings.TaskDevicePin3[event->TaskIndex]);
-
-        byte choice3 = Settings.TaskDevicePluginConfig[event->TaskIndex][2];
+        addFormNumericBox(F("Display Contrast(50-100):"), F("plugin_208_contrast"), PCONFIG(1));
+        
         int optionValues3[4] = { 0, 1, 2, 3 };
         String options3[4] = { F("0"), F("90"), F("180"), F("270") };
-        addFormSelector(F("Display Rotation"), F("plugin_208_rotation"), 4, options3, optionValues3, choice3);
+        addFormSelector(F("Display Rotation"), F("plugin_208_rotation"), 4, options3, optionValues3, PCONFIG(2));
 
-        byte choice4 = Settings.TaskDevicePluginConfig[event->TaskIndex][0];
         String options4[2] = { F("OFF"), F("ON") };
         int optionValues4[2] = { 0, 1 };
-        addFormSelector(F("Backlight"), F("plugin_208_backlight"), 2, options4, optionValues4, choice4);
+        addFormSelector(F("Backlight"), F("plugin_208_backlight"), 2, options4, optionValues4, PCONFIG(0));
 
-        byte choice5 = Settings.TaskDevicePluginConfig[event->TaskIndex][3];
-        byte choice6 = Settings.TaskDevicePluginConfig[event->TaskIndex][4];
-        byte choice7 = Settings.TaskDevicePluginConfig[event->TaskIndex][5];
         int optionValues5[3] = { 1,2,3 };
         String options5[3] = { F("normal"), F("large"), F("x-large") };
-        addFormSelector(F("Char.size line-1"), F("plugin_208_charsize_line_1"), 3, options5, optionValues5, choice5);
-        addFormSelector(F("Char.size line-2"), F("plugin_208_charsize_line_2"), 3, options5, optionValues5, choice6);
-        addFormSelector(F("Char.size line-3"), F("plugin_208_charsize_line_3"), 3, options5, optionValues5, choice7);
+        addFormSelector(F("Char.size line-1"), F("plugin_208_charsize_line_1"), 3, options5, optionValues5, PCONFIG(3)); 
+        addFormSelector(F("Char.size line-2"), F("plugin_208_charsize_line_2"), 3, options5, optionValues5, PCONFIG(4)); 
+        addFormSelector(F("Char.size line-3"), F("plugin_208_charsize_line_3"), 3, options5, optionValues5, PCONFIG(5)); 
 
-        char deviceTemplate [lcd_lines][digits_per_template_line];
+        char deviceTemplate [lcd_lines][Digits_per_template_line];
         LoadCustomTaskSettings(event->TaskIndex, (byte*)&deviceTemplate, sizeof(deviceTemplate));
         for (byte varNr = 0; varNr < lcd_lines; varNr++)
         {
@@ -127,16 +120,16 @@ boolean success = false;
       }
 
     case PLUGIN_WEBFORM_SAVE:{
-        Settings.TaskDevicePluginConfig[event->TaskIndex][0] = getFormItemInt(F("plugin_208_backlight"));
-        Settings.TaskDevicePluginConfig[event->TaskIndex][1] = getFormItemInt(F("plugin_208_contrast"));
-        Settings.TaskDevicePluginConfig[event->TaskIndex][2] = getFormItemInt(F("plugin_208_rotation"));
-        Settings.TaskDevicePluginConfig[event->TaskIndex][3] = getFormItemInt(F("plugin_208_charsize_line_1"));
-        Settings.TaskDevicePluginConfig[event->TaskIndex][4] = getFormItemInt(F("plugin_208_charsize_line_2"));
-        Settings.TaskDevicePluginConfig[event->TaskIndex][5] = getFormItemInt(F("plugin_208_charsize_line_3"));
-        Settings.TaskDevicePluginConfig[event->TaskIndex][6] = getFormItemInt(F("plugin_208_GPIO_CE"));
-        Settings.TaskDevicePluginConfig[event->TaskIndex][7] = getFormItemInt(F("plugin_208_GPIO_DC"));
+        PCONFIG(0)= getFormItemInt(F("plugin_208_backlight"));
+        PCONFIG(1)= getFormItemInt(F("plugin_208_contrast"));
+        PCONFIG(2)= getFormItemInt(F("plugin_208_rotation"));
+        PCONFIG(3)= getFormItemInt(F("plugin_208_charsize_line_1"));
+        PCONFIG(4)= getFormItemInt(F("plugin_208_charsize_line_2"));
+        PCONFIG(5)= getFormItemInt(F("plugin_208_charsize_line_3"));
+        PCONFIG(6)= getFormItemInt(F("plugin_208_GPIO_CE"));
+        PCONFIG(7)= getFormItemInt(F("plugin_208_GPIO_DC"));
 
-        char deviceTemplate[lcd_lines][digits_per_template_line];
+        char deviceTemplate[lcd_lines][Digits_per_template_line];
         for (byte varNr = 0; varNr < lcd_lines; varNr++)
         {
           char argc[25];
@@ -146,35 +139,28 @@ boolean success = false;
           String tmpString = web_server.arg(argc);
           strncpy(deviceTemplate[varNr], tmpString.c_str(), sizeof(deviceTemplate[varNr]));
         }
-
-      //  Settings.TaskDeviceID[event->TaskIndex] = 1; // temp fix, needs a dummy value
-
         SaveCustomTaskSettings(event->TaskIndex, (byte*)&deviceTemplate, sizeof(deviceTemplate));
         success = true;
         break;
       }
 
     case PLUGIN_INIT:{
-        //addLog(LOG_LEVEL_INFO, "freeHeap 1: "+ ESP.getFreeHeap());
         if (!lcd3)
         {
-          byte CE = Settings.TaskDevicePluginConfig[event->TaskIndex][6];
-          byte DC = Settings.TaskDevicePluginConfig[event->TaskIndex][7];
-          lcd3 = new Adafruit_PCD8544(DC, CE, -1); 
+          lcd3 = new Adafruit_PCD8544(Settings.TaskDevicePin2[event->TaskIndex], Settings.TaskDevicePin1[event->TaskIndex], -1); // Adafruit_PCD8544 (DC, CE, -1)
         }
         // Setup lcd3 display
-        byte plugin1 = Settings.TaskDevicePluginConfig[event->TaskIndex][2]; // rotation
-        byte plugin2 = Settings.TaskDevicePluginConfig[event->TaskIndex][1]; // contrast
-        byte plugin4 = Settings.TaskDevicePluginConfig[event->TaskIndex][0]; // backlight_onoff
+        byte plugin1 = PCONFIG(2); // rotation
+        byte plugin2 = PCONFIG(1); // contrast
+        byte plugin4 = PCONFIG(0); // backlight_onoff
         UserVar[event->BaseVarIndex+2]=plugin1;
         UserVar[event->BaseVarIndex+1]=plugin2;
-        UserVar[event->BaseVarIndex]=!plugin4;
+        UserVar[event->BaseVarIndex]=! plugin4;
         lcd3->begin();
         lcd3->setContrast(30);
         lcd3->setContrast(plugin2);
         lcd3->setRotation(plugin1);
-        //delay(1000);
-        char deviceTemplate[lcd_lines][digits_per_template_line];
+        char deviceTemplate[lcd_lines][Digits_per_template_line];
         LoadCustomTaskSettings(event->TaskIndex, (byte*)&deviceTemplate, sizeof(deviceTemplate));
         displayText3(deviceTemplate, event);
         lcd3->display();
@@ -184,7 +170,7 @@ boolean success = false;
       }
 
     case PLUGIN_READ:{
-        char deviceTemplate[lcd_lines][digits_per_template_line];
+        char deviceTemplate[lcd_lines][Digits_per_template_line];
         LoadCustomTaskSettings(event->TaskIndex, (byte*)&deviceTemplate, sizeof(deviceTemplate));
         displayText3(deviceTemplate, event);
         success = false;
@@ -204,7 +190,7 @@ boolean success = false;
             if (event->Par1 <= 6 ){ // event->Par1 = row. 
               success = true;
               argIndex = string.lastIndexOf(',');
-              char deviceTemplate [lcd_lines][digits_per_template_line];
+              char deviceTemplate [lcd_lines][Digits_per_template_line];
               LoadCustomTaskSettings(event->TaskIndex, (byte*)&deviceTemplate, sizeof(deviceTemplate));
               String linedefinition  = deviceTemplate[event->Par1-1];
               if (!linedefinition.length()){  // only if value is not definde in plugin-webform
@@ -225,18 +211,18 @@ boolean success = false;
             argIndex = string.lastIndexOf(',');
             tmpString = string.substring(argIndex + 1);
             if (tmpString.equalsIgnoreCase(F("Clear"))){
-              // addLog(LOG_LEVEL_INFO, F("Clear Display"));
+              addLog(LOG_LEVEL_INFO, F("Clear Display"));
               lcd3->clearDisplay();
               lcd3->display();
             }
             if (tmpString.equalsIgnoreCase(F("blOn"))){
               success = true;
-              Settings.TaskDevicePluginConfig[event->TaskIndex][0] = 1;
+              PCONFIG(0) = 1;
               setBacklight(event); 
             }
             if (tmpString.equalsIgnoreCase(F("blOff"))){
               success = true;
-              Settings.TaskDevicePluginConfig[event->TaskIndex][0] = 0;
+              PCONFIG(0) = 0;
               setBacklight(event); 
             }
           break;
@@ -250,21 +236,21 @@ boolean success = false;
 void setBacklight(struct EventStruct *event) {
   if (Settings.TaskDevicePin3[event->TaskIndex] != -1){
     pinMode(Settings.TaskDevicePin3[event->TaskIndex], OUTPUT);
-    digitalWrite(Settings.TaskDevicePin3[event->TaskIndex],Settings.TaskDevicePluginConfig[event->TaskIndex][0]);
+    digitalWrite(Settings.TaskDevicePin3[event->TaskIndex], PCONFIG(0)); 
     portStatusStruct newStatus;
     const uint32_t   key = createKey(1, Settings.TaskDevicePin3[event->TaskIndex]);
     // WARNING: operator [] creates an entry in the map if key does not exist
     newStatus         = globalMapPortStatus[key];
     newStatus.command = 1;
     newStatus.mode    = PIN_MODE_OUTPUT;
-    newStatus.state   = Settings.TaskDevicePluginConfig[event->TaskIndex][3];
+    newStatus.state   = PCONFIG(3);
     savePortStatus(key, newStatus);
   }
 }
 
-boolean displayText3(char deviceTemplate[][48], struct EventStruct *event ){ //14 must be digits_per_template_line
+boolean displayText3(char deviceTemplate[][48], struct EventStruct *event ){ // 48 must be equal to "#define Digits_per_template_line"
         String log = F("PCD8544: ");
-        String string = F("");
+        String string =F("");
         lcd3->clearDisplay();
         lcd3->setTextColor(BLACK);
         lcd3->setCursor(0,0);
@@ -272,27 +258,30 @@ boolean displayText3(char deviceTemplate[][48], struct EventStruct *event ){ //1
         for (byte x = 0; x < lcd_lines; x++)
         {
           if (x <= 3){
-            lcd3->setTextSize(Settings.TaskDevicePluginConfig[event->TaskIndex][3+x]);
+            lcd3->setTextSize(PCONFIG(3+x)); 
           }else{
             lcd3->setTextSize(1);
           }
-          String tmpString = deviceTemplate[x];
-          String newString = " ";
-          String newString3 = " ";
-          if (tmpString.length())
-          {
+          String tmpString = F(deviceTemplate[x]);
+          String newString = F("");
+          //String newString3 = F("");
+          if (tmpString.length()){
             newString = parseTemplate(tmpString, false);
           }else{
-            newString = html_input[x]; // if webformline is empty use html input
-            // Remove trailing spaces for the next time
-            std::string newString2 (newString.c_str()); 
-            int i = newString2.find_last_not_of(" ");
-            newString2 = newString2.substr(0,i+1);
-            newString3 = newString2.c_str();
-            strncpy(html_input[x], newString3.c_str()+'\0', newString3.length()+2);
+            // webformline is empty use html input
+            newString = html_input[x]; 
+            // 1e time html_input[x] has trailing spaces to delete old digits from the previous html_input[x] displayed on de LCD
+            // Remove trailing spaces in html_input[x] for the next time
+            while (newString.endsWith(" ")) {
+              newString = newString.substring(0, newString.length() - 1);
+            }
+            int len = newString.length();
+            if (len > digits_per_display_line) {len = digits_per_display_line;};  // max len is len html_input[x]
+            newString = newString.substring(0,len);
+            strncpy(html_input[x], newString.c_str(), len);
           }
-            lcd3->println(newString);
-            string+=newString+"\\";         
+          lcd3->println(newString);
+          string+=newString+"\\";         
         }
         log += String(F("displayed text: \"")) + String(string) + String(F("\""));
         addLog(LOG_LEVEL_INFO, log);
