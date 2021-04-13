@@ -44,7 +44,7 @@
 #define P248_QUERY6         PCONFIG(8)
 #define P248_DEPIN          CONFIG_PIN3
 
-#define P248_NR_OUTPUT_VALUES   6 // VARS_PER_TASK
+#define P248_NR_OUTPUT_VALUES   VARS_PER_TASK
 #define P248_QUERY1_CONFIG_POS  3
 
 #define P248_QUERY_AI3       0 // Duct Humidity
