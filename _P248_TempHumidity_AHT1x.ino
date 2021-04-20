@@ -1,6 +1,21 @@
 //#######################################################################################################
 //################ Plugin 248: AHT10            Temperature and Humidity Sensor (I2C) ###################
 //#######################################################################################################
+/* AHT10/15/20 - Temperature and Humidity
+ *
+ * AHT1x I2C Address: 0x38, 0x39
+ * the driver supports two I2c adresses but only one Sensor allowed.
+ *
+ * ATTENTION: The AHT10/15 Sensor is incompatible with other I2C devices on I2C bus.
+ *
+ * The Datasheet write:
+ * "Only a single AHT10 can be connected to the I2C bus and no other I2C
+ *  devices can be connected".
+ *
+ * after lot of search and tests, now is confirmed that works only reliable with one sensor
+ * on I2C Bus
+ */
+//#######################################################################################################
 
 #ifdef USES_P248
 
@@ -86,8 +101,10 @@ bool AHT1XReadMesurement(uint8_t address) {
   Wire.requestFrom(address, (uint8_t) 6);
 
   for(uint8_t i = 0; Wire.available() > 0; i++) {
-     AHT10_rawDataBuffer[i] = Wire.read();
+    if (i==6) break;
+    AHT10_rawDataBuffer[i] = Wire.read();
   }
+  
   if (AHT10_rawDataBuffer[0] & 0x80)
     return false; //device is busy
 
@@ -247,10 +264,8 @@ boolean Plugin_248(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_WEBFORM_SHOW_I2C_PARAMS:
     {
-      byte choice = PCONFIG(0);
-
       int optionValues[2] = { 0x38, 0x39 };
-      addFormSelectorI2C(F("i2c_addr"), 2, optionValues, choice);
+      addFormSelectorI2C(F("i2c_addr"), 2, optionValues, PCONFIG(0));
       addFormNote(F("AO Low=0x38, High=0x39"));
       break;
     }
