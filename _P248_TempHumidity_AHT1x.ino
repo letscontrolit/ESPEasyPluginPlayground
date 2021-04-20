@@ -100,11 +100,10 @@ bool AHT1XReadMesurement(uint8_t address) {
   
   Wire.requestFrom(address, (uint8_t) 6);
 
-  for(uint8_t i = 0; Wire.available() > 0; i++) {
-    if (i==6) break;
+  for(uint8_t i = 0; Wire.available() > 0 && i < 6; i++) {
     AHT10_rawDataBuffer[i] = Wire.read();
   }
-  
+
   if (AHT10_rawDataBuffer[0] & 0x80)
     return false; //device is busy
 
@@ -132,7 +131,7 @@ float AHT10_getTemperature()
 
 
 
-  uint32_t temperature = ((uint32_t)(AHT10_rawDataBuffer[3] & 0x0F) << 16) | ((uint16_t)AHT10_rawDataBuffer[4] << 8) | AHT10_rawDataBuffer[5]; //20-bit raw temperature data
+  uint32_t temperature = ((uint32_t)(AHT10_rawDataBuffer[3] & 0x0F) << 16) | ((uint32_t)AHT10_rawDataBuffer[4] << 8) | AHT10_rawDataBuffer[5]; //20-bit raw temperature data
 
   return (float)temperature * 0.000191 - 50;
 }
@@ -155,7 +154,7 @@ float AHT10_getHumidity()
 {
   if (AHT10_rawDataBuffer[0] == AHT10_ERROR) return AHT10_ERROR; //error handler, collision on I2C bus
 
-  uint32_t rawData = (((uint32_t)AHT10_rawDataBuffer[1] << 16) | ((uint16_t)AHT10_rawDataBuffer[2] << 8) | (AHT10_rawDataBuffer[3])) >> 4; //20-bit raw humidity data
+  uint32_t rawData = (((uint32_t)AHT10_rawDataBuffer[1] << 16) | ((uint32_t)AHT10_rawDataBuffer[2] << 8) | (AHT10_rawDataBuffer[3])) >> 4; //20-bit raw humidity data
 
   float humidity = (float)rawData * 0.000095;
 
