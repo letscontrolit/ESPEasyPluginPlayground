@@ -21,10 +21,6 @@ bool P248_data_struct::initialized() const {
   return state != Uninitialized;
 }
 
-void P248_data_struct::setUninitialized() {
-  state = Uninitialized;
-}
-
 // Only perform the measurements with big interval to prevent the sensor from warming up.
 bool P248_data_struct::update(unsigned long task_index) {
   const unsigned long current_time = millis();
@@ -38,12 +34,7 @@ bool P248_data_struct::update(unsigned long task_index) {
   }
 
   if (state != Wait_for_samples) {
-    //if ((last_measurement != 0) &&
-    //    !timeOutReached(last_measurement + (Settings.TaskDeviceTimer[task_index] * 1000))) {
-    //  // Timeout has not yet been reached.
-    //  return false;
-    //}
-
+    
     last_measurement = current_time;
 
     startMeasurement();
@@ -153,16 +144,6 @@ bool P248_data_struct::begin() {
     return true;
 
   return false;
-  
-  //while (AHT10_getStatus() & AHTX0_STATUS_BUSY) {
-  //  delay(10);
-  //}
-  //if (!(AHT10_getStatus() & AHTX0_STATUS_CALIBRATED)) {
-  //  return false;
-  //}
-
-  //if (Wire.endTransmission(true) != 0) return AHT10_ERROR;             //safety check, make sure transmission complete
-
 }
 
 /**************************************************************************/
@@ -217,7 +198,6 @@ float P248_data_struct::readTemperature()
     - relative humidity accuracy   ±2%
 */
 /**************************************************************************/
-
 float P248_data_struct::readHumidity()
 {
   if (AHT10_rawDataBuffer[0] == AHT10_ERROR) return AHT10_ERROR; //error handler, collision on I2C bus
@@ -242,7 +222,6 @@ bool P248_data_struct::startMeasurement() {
 }
 
 bool P248_data_struct::readMeasurement() {
-  
   Wire.requestFrom(i2cAddress, (uint8_t) 6);
 
   for(uint8_t i = 0; Wire.available() > 0 && i < 6; i++) {
@@ -252,11 +231,7 @@ bool P248_data_struct::readMeasurement() {
   if (AHT10_rawDataBuffer[0] & 0x80)
     return false; //device is busy
 
-  //humidity    = (((data[1] << 12)| (data[2] << 4) | data[3] >> 4) * AHT_HUMIDITY_CONST / KILOBYTE_CONST);
-  //temperature = ((AHT_TEMPERATURE_CONST * (((data[3] & 0x0F) << 16) | (data[4] << 8) | data[5]) / KILOBYTE_CONST) - AHT_TEMPERATURE_OFFSET);
-
   return true;
-  //return (!isnan(aht1x_sensors[aht1x_idx].temperature) && !isnan(aht1x_sensors[aht1x_idx].humidity) && (aht1x_sensors[aht1x_idx].humidity != 0));
 }
 
 #endif // ifdef USES_P248

@@ -31,8 +31,7 @@
 #define PLUGIN_NAME_248       "Environment - AHT10 [TESTING]"
 #define PLUGIN_VALUENAME1_248 "Temperature"
 #define PLUGIN_VALUENAME2_248 "Humidity"
-#define PLUGIN_VALUENAME3_248 "AbsoluteHumidity"
-#define PLUGIN_VALUENAME4_248 "DewPoint" // max 4 variables allowed
+
 
 
 //==============================================
@@ -71,8 +70,6 @@ boolean Plugin_248(byte function, struct EventStruct *event, String& string)
     {
       strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_VALUENAME1_248));
       strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[1], PSTR(PLUGIN_VALUENAME2_248));
-      //strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[2], PSTR(PLUGIN_VALUENAME3_248));
-      //strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[3], PSTR(PLUGIN_VALUENAME4_248));
       break;
     }
 
@@ -110,22 +107,6 @@ boolean Plugin_248(byte function, struct EventStruct *event, String& string)
       success = true;
       break;
     }
- 
-    /*
-    case PLUGIN_ONCE_A_SECOND:
-    {
-      P248_data_struct *P248_data =
-        static_cast<P248_data_struct *>(getPluginTaskData(event->TaskIndex));
-
-      if (nullptr != P248_data) {
-          if (P248_data->update(event->TaskIndex)) {
-          // Update was succesfull, schedule a read.
-          Scheduler.schedule_task_device_timer(event->TaskIndex, millis() + 10);
-        }
-      }
-      break;
-    }
-    */
     case PLUGIN_READ:
     {
       P248_data_struct *P248_data = static_cast<P248_data_struct *>(getPluginTaskData(event->TaskIndex));
@@ -142,8 +123,6 @@ boolean Plugin_248(byte function, struct EventStruct *event, String& string)
       
         UserVar[event->BaseVarIndex]     = P248_data->last_temp_val;
         UserVar[event->BaseVarIndex + 1] = P248_data->last_hum_val;
-        //UserVar[event->BaseVarIndex + 2] = Plugin_248_SHT2x->abshum;
-        //UserVar[event->BaseVarIndex + 3] = Plugin_248_SHT2x->doVent;
         
         if (loglevelActiveFor(LOG_LEVEL_INFO)) {
           String log = F("AHT1x: Temperature: ");
@@ -153,15 +132,7 @@ boolean Plugin_248(byte function, struct EventStruct *event, String& string)
           log += UserVar[event->BaseVarIndex + 1];
           addLog(LOG_LEVEL_INFO, log);
         }
-        /*
-        log = F("AHT1x: AbsoluteHumidity: ");
-        log += UserVar[event->BaseVarIndex + 2];
-        addLog(LOG_LEVEL_INFO, log);
-
-        log = F("AHT1x: doVent: ");
-        log += UserVar[event->BaseVarIndex + 3];
-        addLog(LOG_LEVEL_INFO, log);
-        */
+        
         success = true;
         break;
       }
