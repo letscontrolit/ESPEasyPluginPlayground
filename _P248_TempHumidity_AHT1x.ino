@@ -111,6 +111,7 @@ boolean Plugin_248(byte function, struct EventStruct *event, String& string)
       break;
     }
  
+    /*
     case PLUGIN_ONCE_A_SECOND:
     {
       P248_data_struct *P248_data =
@@ -124,14 +125,15 @@ boolean Plugin_248(byte function, struct EventStruct *event, String& string)
       }
       break;
     }
+    */
     case PLUGIN_READ:
     {
       P248_data_struct *P248_data = static_cast<P248_data_struct *>(getPluginTaskData(event->TaskIndex));
 
       if (nullptr != P248_data) {
         if (P248_data->state != New_values) {
-          //P248_data->update(event->TaskIndex); //run the state machine
-          //Scheduler.schedule_task_device_timer(event->TaskIndex, millis() + AHT10_MEASURMENT_DELAY);
+          P248_data->update(event->TaskIndex); //run the state machine
+          Scheduler.schedule_task_device_timer(event->TaskIndex, millis() + AHT10_MEASURMENT_DELAY);
           success = false;
           break;
         }

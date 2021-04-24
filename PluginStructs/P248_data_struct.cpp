@@ -38,11 +38,11 @@ bool P248_data_struct::update(unsigned long task_index) {
   }
 
   if (state != Wait_for_samples) {
-    if ((last_measurement != 0) &&
-        !timeOutReached(last_measurement + (Settings.TaskDeviceTimer[task_index] * 1000))) {
-      // Timeout has not yet been reached.
-      return false;
-    }
+    //if ((last_measurement != 0) &&
+    //    !timeOutReached(last_measurement + (Settings.TaskDeviceTimer[task_index] * 1000))) {
+    //  // Timeout has not yet been reached.
+    //  return false;
+    //}
 
     last_measurement = current_time;
 
