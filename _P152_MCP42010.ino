@@ -18,8 +18,6 @@ static float Plugin_152_PotDest[2] = {0,0};
 #define PLUGIN_VALUENAME1_152 "DigiPot0"
 #define PLUGIN_VALUENAME2_152 "DigiPot1"
 
-int Plugin_152_pin[3] = {-1,-1,-1};
-
 
 
 boolean Plugin_152(byte function, struct EventStruct *event, String& string)
@@ -33,7 +31,7 @@ boolean Plugin_152(byte function, struct EventStruct *event, String& string)
         Device[++deviceCount].Number = PLUGIN_ID_152;
         Device[deviceCount].Type = DEVICE_TYPE_DUMMY;           // SPI pins for ESP8266 are CS=15, CLK=14, MOSI=13
         Device[deviceCount].Ports = 0;
-        Device[deviceCount].VType = SENSOR_TYPE_DUAL;
+        Device[deviceCount].VType = Sensor_VType::SENSOR_TYPE_DUAL;
         Device[deviceCount].PullUpOption = false;
         Device[deviceCount].InverseLogicOption = false;
         Device[deviceCount].FormulaOption = true;
@@ -58,47 +56,28 @@ boolean Plugin_152(byte function, struct EventStruct *event, String& string)
         break;
       }
 
+    case PLUGIN_GET_DEVICEGPIONAMES:
+      {
+        event->String1 = formatGpioName_bidirectional(F("CS"));
+        event->String2 = formatGpioName_bidirectional(F("CLK"));
+        event->String3 = formatGpioName_bidirectional(F("MOSI"));
+        break;
+      }
+
     case PLUGIN_WEBFORM_LOAD:
       {
-      //  char tmpString[128];
-
-        addHtml(F("<TR><TD>GPIO:<TD>"));
-
-        addHtml(F("<TR><TD>1st GPIO (CS):<TD>"));
-        addPinSelect(false, "taskdevicepin1", Plugin_152_pin[0] = Settings.TaskDevicePluginConfig[event->TaskIndex][0]);
-        addHtml(F("<TR><TD>2nd GPIO (CLK):<TD>"));
-        addPinSelect(false, "taskdevicepin2", Plugin_152_pin[1] = Settings.TaskDevicePluginConfig[event->TaskIndex][1]);
-        addHtml(F("<TR><TD>3rd GPIO (MOSI):<TD>"));
-        addPinSelect(false, "taskdevicepin3", Plugin_152_pin[2] = Settings.TaskDevicePluginConfig[event->TaskIndex][2]);
-
         success = true;
         break;
       }
 
     case PLUGIN_WEBFORM_SAVE:
       {
-
-
-        String plugin2 = WebServer.arg("taskdevicepin1");
-        Settings.TaskDevicePluginConfig[event->TaskIndex][0] = plugin2.toInt();
-        String plugin3 = WebServer.arg("taskdevicepin2");
-        Settings.TaskDevicePluginConfig[event->TaskIndex][1] = plugin3.toInt();
-        String plugin4 = WebServer.arg("taskdevicepin3");
-        Settings.TaskDevicePluginConfig[event->TaskIndex][2] = plugin4.toInt();
-
         success = true;
         break;
       }
 
     case PLUGIN_INIT:
       {
-        int pCS = Settings.TaskDevicePluginConfig[event->TaskIndex][0];
-        int pCLK = Settings.TaskDevicePluginConfig[event->TaskIndex][1];
-        int pMOSI = Settings.TaskDevicePluginConfig[event->TaskIndex][2];
-        Plugin_152_pin[0] = pCS;
-        Plugin_152_pin[1] = pCLK;
-        Plugin_152_pin[2] = pMOSI;
-
         success = true;
         break;
       }
@@ -118,7 +97,9 @@ boolean Plugin_152(byte function, struct EventStruct *event, String& string)
           pot = event->Par1;
           value = event->Par2;
 
-          MCP42010 digipot(Plugin_152_pin[0], Plugin_152_pin[1], Plugin_152_pin[2]);
+          MCP42010 digipot(Settings.TaskDevicePin1[event->TaskIndex], 
+                           Settings.TaskDevicePin2[event->TaskIndex], 
+                           Settings.TaskDevicePin3[event->TaskIndex]);
           Plugin_152_PotDest[pot] = value;
           digipot.setPot(pot,value);
           success = true;
