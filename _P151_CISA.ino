@@ -9,6 +9,7 @@
 //red:   door will stay locked as soon as person touches it.
 //orange: you just closed the door, unlocking delay is active (otherwise it would keep unlocking)
 //blinking: mechanical lock is unlocked: please close (or open+close) the door, or dont touch the door.
+#include "src/Helpers/_CPlugin_Helper.h"
 
 
 #ifdef PLUGIN_BUILD_TESTING
@@ -24,6 +25,7 @@
 
 bool Plugin_151_want_unlock=false;
 unsigned long Plugin_151_last_unlock_time=0;
+unsigned long Plugin_151_last_heartbeat_time=0;
 unsigned long Plugin_151_invert_time=0; //timestamp after which to automatcily invert unlock status.
 byte unlock_coil_pin=0;
 
@@ -89,14 +91,20 @@ void Plugin_151_unlock(byte pin)
 void Plugin_151_blink(byte pin, unsigned long on_time, unsigned long total_time, bool on)
 {
   pinMode(pin, OUTPUT);
+
+  bool set;
+
   if (on)
   {
-    digitalWrite(pin, (millis()%total_time)<on_time);
+    set=(millis()%total_time)<on_time;
   }
   else
   {
-    digitalWrite(pin, (millis()%total_time)< (total_time-on_time));
+    set=(millis()%total_time)< (total_time-on_time);
   }
+  digitalWrite(pin, set);
+
+
 }
 
 
@@ -110,7 +118,7 @@ boolean Plugin_151(byte function, struct EventStruct *event, String& string)
     {
       Device[++deviceCount].Number = PLUGIN_ID_151;
       Device[deviceCount].Type = DEVICE_TYPE_TRIPLE;
-      Device[deviceCount].VType = SENSOR_TYPE_SINGLE;
+      Device[deviceCount].VType = Sensor_VType::SENSOR_TYPE_SINGLE;
       Device[deviceCount].Ports = 0;
       Device[deviceCount].PullUpOption = false;
       Device[deviceCount].InverseLogicOption = false;
@@ -212,19 +220,19 @@ boolean Plugin_151(byte function, struct EventStruct *event, String& string)
         log=log+F("lock : ");
 
         //activate the correct led (usually lock-led is red and unlocked led is green)
-        byte active_led;
-        if (Plugin_151_want_unlock)
-        {
-          log=log+F("UNLOCKED");
-          active_led=unlocked_led_pin;
-          digitalWrite(locked_led_pin,!led_on);
-        }
-        else
-        {
-          log=log+F("LOCKED");
-          active_led=locked_led_pin;
-          digitalWrite(unlocked_led_pin,!led_on);
-        }
+        // byte active_led;
+        // if (Plugin_151_want_unlock)
+        // {
+        //   log=log+F("UNLOCKED");
+        //   active_led=unlocked_led_pin;
+        //   digitalWrite(locked_led_pin,!led_on);
+        // }
+        // else
+        // {
+        //   log=log+F("LOCKED");
+        //   active_led=locked_led_pin;
+        //   digitalWrite(unlocked_led_pin,!led_on);
+        // }
 
         //automaticly invert locking status after this time (usefull to temporary unlock a door)
         if (Plugin_151_invert_time)
@@ -272,6 +280,7 @@ boolean Plugin_151(byte function, struct EventStruct *event, String& string)
                 Plugin_151_last_unlock_time=millis(); //reset time until the person releases the door knob
                }
             }
+            //not allowed to open door
             else
             {
               //last time we unlocked long enough?
@@ -279,28 +288,41 @@ boolean Plugin_151(byte function, struct EventStruct *event, String& string)
               {
                 //warn user the door is locked and cant be openend
                 log=log+F(", person detected, denied access!");
-                Plugin_151_blink(active_led, 500,1000, led_on);
               }
               else
               {
                 log=log+F(", person detected, delaying denied access.");
-                digitalWrite(active_led, led_on);
               }
+              Plugin_151_blink(locked_led_pin, 500,1000, led_on);
+              digitalWrite(unlocked_led_pin, !led_on);
             }
           }
-          //no person detected
+          //mechanism locked, but no person detected
           else
           {
-            if (millis()-Plugin_151_last_unlock_time>CONFIG(5) || !Plugin_151_want_unlock)
+            if (Plugin_151_want_unlock)
             {
-              //locking mechanism is locked, just activate the led.
-              digitalWrite(active_led, led_on);
+              //inform user the door is unlocked
+              Plugin_151_blink(unlocked_led_pin, 500,1000, led_on);
+              digitalWrite(locked_led_pin, !led_on);
             }
-            else
+            else if (millis()-Plugin_151_last_unlock_time<=CONFIG(5)) 
             {
               //delay is still active, inform user by making it orange.
               digitalWrite(locked_led_pin, led_on);
               digitalWrite(unlocked_led_pin, led_on);
+            }
+            else
+            {
+              //idle, show heartbeat (needs to be very short so cant use the blink routine)
+              digitalWrite(unlocked_led_pin, !led_on);
+              if (millis()-Plugin_151_last_heartbeat_time>3000)
+              {
+                Plugin_151_last_heartbeat_time=millis();
+                digitalWrite(locked_led_pin, led_on);
+                delay(100);
+              }
+              digitalWrite(locked_led_pin, !led_on);
 
             }
           }
@@ -309,19 +331,16 @@ boolean Plugin_151(byte function, struct EventStruct *event, String& string)
         //STATE: mechanism unlocked
         else
         {
-          //locking mechanism is unlocked
           if (Plugin_151_want_unlock)
           {
-            //good but inform user so they know its unlocked
             log=log+F("unlocked");
-            Plugin_151_blink(active_led, 500,1000, led_on);
           }
           else
           {
-            //mechanism is unlocked but we want it to be locked again, warn user (they should close door or open+close it, depending on the state of the mechanism)
             log=log+F("unlocked, please close door!");
-            Plugin_151_blink(active_led, 500,1000, led_on);
           }
+          Plugin_151_blink(unlocked_led_pin, 500,1000, led_on);
+          digitalWrite(locked_led_pin, !led_on);
 
           Plugin_151_last_unlock_time=millis();
         }
