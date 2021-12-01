@@ -33,6 +33,13 @@ byte unlock_coil_pin=0;
 float Plugin_151_long_average_sense=0;
 
 
+//sensor feedback:
+// 0=mechanism is unlocked
+// 1=mechanism is locked
+// 2=locked, and sensing hand
+int Plugin_151_last_status=-1;
+
+
 //measure capicitance by pulsing out_pin and measuring response delay of in_pin
 //if capicitance is too high it aborts (1000 cycles for now)
 int Plugin_151_sense(byte out_pin, byte in_pin)
@@ -138,6 +145,7 @@ boolean Plugin_151(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_GET_DEVICEVALUENAMES:
     {
+      strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], "LockStatus");
       break;
     }
 
@@ -254,13 +262,28 @@ boolean Plugin_151(byte function, struct EventStruct *event, String& string)
         log=log+F(" mechanism: sense=")+sense+F(" ")+F(" avg=")+avg_sense+F(" perc=")+sense_delta+F(" ");
 
 
+        int status=-1;
+        if (sense_delta<-CONFIG(2))
+        {
+          status=0; //unlocked
+        }
+        else if (sense_delta<CONFIG(2))
+        {
+          status=1; //locked
+        }
+        else
+        {
+          status=2; //locked, hand detected
+        }
+
+
         //STATE: mechanism locked and/or person detected
-        if (sense_delta>-CONFIG(2))
+        if (status==1 || status==2 )
         {
           log=log+F("locked");
 
           //person detected
-          if (sense_delta>CONFIG(2))
+          if (status==2)
           {
             //allowed to unlock the door?
             if (Plugin_151_want_unlock)
@@ -347,7 +370,13 @@ boolean Plugin_151(byte function, struct EventStruct *event, String& string)
 
         addLog(LOG_LEVEL_DEBUG, log);
 
-
+        //send status?
+        if (status!=Plugin_151_last_status)
+        {
+          Plugin_151_last_status=status;
+          UserVar.setSensorTypeLong(event->TaskIndex, status);
+          sendData(event);
+        }
 
     }
 
