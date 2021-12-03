@@ -8,9 +8,7 @@
 // (1): Set value to potentiometer (http://xx.xx.xx.xx/control?cmd=digipot,0,255)
 // (2): Set value to potentiometer (http://xx.xx.xx.xx/control?cmd=digipot,1,0)
 
-#include <MCP42010.h>
-// https://github.com/mensink/arduino-lib-MCP42010
-static float Plugin_152_PotDest[2] = {0,0};
+static int16_t Plugin_152_PotDest[2] = {0,0};
 
 #define PLUGIN_152
 #define PLUGIN_ID_152         152
@@ -29,7 +27,7 @@ boolean Plugin_152(byte function, struct EventStruct *event, String& string)
     case PLUGIN_DEVICE_ADD:
       {
         Device[++deviceCount].Number = PLUGIN_ID_152;
-        Device[deviceCount].Type = DEVICE_TYPE_DUMMY;           // SPI pins for ESP8266 are CS=15, CLK=14, MOSI=13
+        Device[deviceCount].Type = DEVICE_TYPE_SPI;
         Device[deviceCount].Ports = 0;
         Device[deviceCount].VType = Sensor_VType::SENSOR_TYPE_DUAL;
         Device[deviceCount].PullUpOption = false;
@@ -58,14 +56,22 @@ boolean Plugin_152(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_GET_DEVICEGPIONAMES:
       {
-        event->String1 = formatGpioName_bidirectional(F("CS"));
-        event->String2 = formatGpioName_bidirectional(F("CLK"));
-        event->String3 = formatGpioName_bidirectional(F("MOSI"));
+        event->String1 = formatGpioName_output(F("CS"));
         break;
       }
 
     case PLUGIN_WEBFORM_LOAD:
       {
+        # ifdef ESP8266
+          {
+            addFormNote(F("<b>1st GPIO</b> = CS (Usable GPIOs : 0, 2, 4, 5, 15)"));
+          }
+        # endif // ifdef ESP8266
+        # ifdef ESP32
+          {
+            addFormNote(F("<b>1st GPIO</b> = CS (Usable GPIOs : 0, 2, 4, 5, 15..19, 21..23, 25..27, 32, 33)"));
+          }
+        # endif // ifdef ESP32
         success = true;
         break;
       }
@@ -78,13 +84,21 @@ boolean Plugin_152(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_INIT:
       {
+      uint8_t CS_pin_no = get_SPI_CS_Pin(event);
+   
+      // set the slaveSelectPin as an output:
+      init_SPI_CS_Pin(CS_pin_no);
+
+      // initialize SPI:
+      SPI.setHwCs(false);
+      SPI.begin();
         success = true;
         break;
       }
 
     case PLUGIN_WRITE:
       {
-
+        uint8_t CS_pin_no = get_SPI_CS_Pin(event);
         String tmpString  = string;
         int argIndex = tmpString.indexOf(',');
         if (argIndex)
@@ -97,11 +111,15 @@ boolean Plugin_152(byte function, struct EventStruct *event, String& string)
           pot = event->Par1;
           value = event->Par2;
 
-          MCP42010 digipot(Settings.TaskDevicePin1[event->TaskIndex], 
-                           Settings.TaskDevicePin2[event->TaskIndex], 
-                           Settings.TaskDevicePin3[event->TaskIndex]);
+          
+          handle_SPI_CS_Pin(CS_pin_no, LOW);
+          SPI.transfer(((pot +1) & B11) | B00010000);
+          SPI.transfer(value);
+          handle_SPI_CS_Pin(CS_pin_no, HIGH);
           Plugin_152_PotDest[pot] = value;
-          digipot.setPot(pot,value);
+          UserVar[event->BaseVarIndex + pot] = Plugin_152_PotDest[pot] ;
+          UserVar[event->BaseVarIndex + pot] = Plugin_152_PotDest[pot] ;
+
           success = true;
         }
 
@@ -112,7 +130,7 @@ boolean Plugin_152(byte function, struct EventStruct *event, String& string)
     case PLUGIN_READ:
       {
 
-        UserVar[event->BaseVarIndex + 0]= Plugin_152_PotDest[0] ;
+        UserVar[event->BaseVarIndex + 0] = Plugin_152_PotDest[0] ;
         UserVar[event->BaseVarIndex + 1] = Plugin_152_PotDest[1] ;
         success = true;
         break;
@@ -121,4 +139,40 @@ boolean Plugin_152(byte function, struct EventStruct *event, String& string)
 
   }
   return success;
+}
+/**************************************************************************/
+int get_SPI_CS_Pin(struct EventStruct *event) {  // If no Pin is in Config we use 15 as default -> Hardware Chip Select on ESP8266
+  if (CONFIG_PIN1 != 0) {
+    return CONFIG_PIN1;
+  }
+  return 15; 
+}
+
+/**************************************************************************/
+/*!
+    @brief Initializing GPIO as OUTPUT for CS for SPI communication
+    @param CS_pin_no the GPIO pin number used as CS
+    @returns
+    
+    Initial Revision - chri.kai.in 2021 
+/**************************************************************************/
+void init_SPI_CS_Pin (uint8_t CS_pin_no) {
+  
+      // set the slaveSelectPin as an output:
+      pinMode(CS_pin_no, OUTPUT);
+
+}
+
+/**************************************************************************/
+/*!
+    @brief Handling GPIO as CS for SPI communication
+    @param CS_pin_no the GPIO pin number used as CS
+    @param l_state the state of the CS pin: "HIGH/LOW" reflecting the physical level
+    @returns
+    
+    Initial Revision - chri.kai.in 2021 
+/**************************************************************************/
+void handle_SPI_CS_Pin (uint8_t CS_pin_no, bool l_state) {
+  
+  digitalWrite(CS_pin_no, l_state);
 }
