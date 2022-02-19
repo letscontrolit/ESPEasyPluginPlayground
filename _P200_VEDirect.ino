@@ -23,10 +23,6 @@
 
 #define P200_BAUDRATE           19200
 
-#define P200_OUTPUT_JSON        0
-#define P200_OUTPUT_CSV         1
-#define P200_OUTPUT_RAW         2
-
 boolean Plugin_200(uint8_t function, struct EventStruct *event, String& string) {
   boolean success = false;
 

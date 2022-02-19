@@ -81,8 +81,8 @@ bool P200_data_struct::loop() {
     if (valid) {
     // message or full buffer
       
-      // RAW
-      if (output_type == 2) {
+      
+      if (output_type == P200_OUTPUT_RAW) {
         length_last_received = sentence_part.length();
         last_sentence = base64::encode(sentence_part);
         fullSentenceReceived = true;
@@ -102,7 +102,7 @@ bool P200_data_struct::loop() {
           uint16_t field_start = 2;
           uint16_t field_end = sentence_part.indexOf('\r', field_start);
           uint16_t field_separator = 0;
-          if (output_type == 0) { last_sentence = '{'; }
+          if (output_type == P200_OUTPUT_JSON) { last_sentence = '{'; }
 
           while (field_end <= length) {
             // this will drop last field (checksum) 
@@ -110,20 +110,18 @@ bool P200_data_struct::loop() {
             field = sentence_part.substring(field_start, field_end); // <Field-Labe><Tab><Field-Value>
 
             field_separator = field.indexOf('\t');
-            if (output_type == 0) { last_sentence += '\"'; }
+            if (output_type == P200_OUTPUT_JSON) { last_sentence += '\"'; }
             last_sentence += field.substring(0, field_separator); // <Field-Label>
-            if (output_type == 0) { last_sentence += '\"'; }
+            if (output_type == P200_OUTPUT_JSON) { last_sentence += '\"'; }
             last_sentence += ':';
 
             field = field.substring(field_separator + 1); // <Field-Value>
         
             // Do we have <Field-Value>s incorrecly detected as numbers???
-            if (isNumber(field)) {
+            if (isNumber(field) || (output_type == P200_OUTPUT_CSV)) {
               last_sentence += field; 
             } else {
-              if (output_type == 0) { last_sentence += '\"'; }
-              last_sentence += field;
-              if (output_type == 0) { last_sentence += '\"'; }
+              last_sentence += '\"' + field + '\"';
             }
         
             field_start = field_end + 2;
@@ -131,7 +129,7 @@ bool P200_data_struct::loop() {
             delay(0);
           }
           
-          if (output_type == 0) { last_sentence += '}'; }
+          if (output_type == P200_OUTPUT_JSON) { last_sentence += '}'; }
           length_last_received = sentence_part.length();
           fullSentenceReceived = true;
           sentence_part = "";

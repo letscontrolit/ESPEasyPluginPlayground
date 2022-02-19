@@ -9,6 +9,10 @@
 
 # define P200_SERIAL_TIMEOUT     2
 
+#define P200_OUTPUT_JSON        0
+#define P200_OUTPUT_CSV         1
+#define P200_OUTPUT_RAW         2
+
 struct P200_data_struct : public PluginTaskData_base {
 public:
 
