@@ -2,6 +2,8 @@
 #define PLUGINSTRUCTS_P200_DATA_STRUCT_H
 
 #include "../../_Plugin_Helper.h"
+#include "src/Helpers/StringConverter.h"
+
 #ifdef USES_P200
 
 #include <ESPeasySerial.h>

@@ -124,17 +124,15 @@ boolean Plugin_200(uint8_t function, struct EventStruct *event, String& string) 
     }
 
     case PLUGIN_FIFTY_PER_SECOND: {
-      if (Settings.TaskDeviceEnabled[event->TaskIndex]) {
-        P200_data_struct *P200_data =
-          static_cast<P200_data_struct *>(getPluginTaskData(event->TaskIndex));
+      P200_data_struct *P200_data =
+        static_cast<P200_data_struct *>(getPluginTaskData(event->TaskIndex));
 
-        if ((nullptr != P200_data) && P200_data->loop()) {
-          Scheduler.schedule_task_device_timer(event->TaskIndex, millis() + 10);
-          delay(0); // Processing a full sentence may take a while, run some
-                    // background tasks.
-        }
-        success = true;
+      if ((nullptr != P200_data) && P200_data->loop()) {
+        Scheduler.schedule_task_device_timer(event->TaskIndex, millis() + 10);
+        delay(0); // Processing a full sentence may take a while, run some
+                  // background tasks.
       }
+      success = true;
       break;
     }
 

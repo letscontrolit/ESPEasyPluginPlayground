@@ -98,38 +98,49 @@ bool P200_data_struct::loop() {
           ++sentences_received_error;
         } else {
           // JSON & CSV
-          String field = "";
+          String field;
           uint16_t field_start = 2;
           uint16_t field_end = sentence_part.indexOf('\r', field_start);
           uint16_t field_separator = 0;
-          if (output_type == P200_OUTPUT_JSON) { last_sentence = '{'; }
+          if (output_type == P200_OUTPUT_JSON) { last_sentence = F("{"); }
 
           while (field_end <= length) {
             // this will drop last field (checksum) 
-            if (last_sentence.length() >= 2) { last_sentence += ','; }
+            if (last_sentence.length() >= 2) { last_sentence += F(","); }
             field = sentence_part.substring(field_start, field_end); // <Field-Labe><Tab><Field-Value>
-
+            
             field_separator = field.indexOf('\t');
-            if (output_type == P200_OUTPUT_JSON) { last_sentence += '\"'; }
-            last_sentence += field.substring(0, field_separator); // <Field-Label>
-            if (output_type == P200_OUTPUT_JSON) { last_sentence += '\"'; }
-            last_sentence += ':';
 
-            field = field.substring(field_separator + 1); // <Field-Value>
-        
-            // Do we have <Field-Value>s incorrecly detected as numbers???
-            if (isNumber(field) || (output_type == P200_OUTPUT_CSV)) {
-              last_sentence += field; 
-            } else {
-              last_sentence += '\"' + field + '\"';
+            switch (output_type) {
+              case P200_OUTPUT_JSON:
+                 last_sentence += to_json_object_value(field.substring(0, field_separator), field.substring(field_separator + 1), false);
+                break;
+              case P200_OUTPUT_CSV:
+                 last_sentence += field.substring(0, field_separator) + F(":") + field.substring(field_separator + 1);
+                break;
+              default:
+                break;
             }
+            // if (output_type == P200_OUTPUT_JSON) { last_sentence += '\"'; }
+            // last_sentence += field.substring(0, field_separator); // <Field-Label>
+            // if (output_type == P200_OUTPUT_JSON) { last_sentence += '\"'; }
+            // last_sentence += ':';
+
+            // field = field.substring(field_separator + 1); // <Field-Value>
+        
+            // // Do we have <Field-Value>s incorrecly detected as numbers???
+            // if (isNumber(field) || (output_type == P200_OUTPUT_CSV)) {
+            //   last_sentence += field; 
+            // } else {
+            //   last_sentence += '\"' + field + '\"';
+            // }
         
             field_start = field_end + 2;
             field_end = sentence_part.indexOf('\r', field_start);
             delay(0);
           }
           
-          if (output_type == P200_OUTPUT_JSON) { last_sentence += '}'; }
+          if (output_type == P200_OUTPUT_JSON) { last_sentence += F("}"); }
           length_last_received = sentence_part.length();
           fullSentenceReceived = true;
           sentence_part = "";
