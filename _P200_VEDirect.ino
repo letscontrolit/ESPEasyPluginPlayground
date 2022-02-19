@@ -131,8 +131,8 @@ boolean Plugin_200(uint8_t function, struct EventStruct *event, String& string) 
         Scheduler.schedule_task_device_timer(event->TaskIndex, millis() + 10);
         delay(0); // Processing a full sentence may take a while, run some
                   // background tasks.
+        success = true;
       }
-      success = true;
       break;
     }
 
