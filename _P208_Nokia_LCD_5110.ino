@@ -5,7 +5,7 @@
 #ifdef USES_P208
 
 // Working:
-// - support different digit-size's.
+// - support different digit-size's
 // - Display Text via:
 //   1.  ESPEasy-Webinterface (Line-1-Line-x)
 //   2.  http-request:
@@ -13,18 +13,18 @@
 //      - BackLight off via httpcmd (http://ESP-IP/control?cmd=pcd8544cmd,blOff)
 //      - Clear Display via httpcmd (http://ESP-IP/control?cmd=pcd8544cmd,clear)
 //      - Send Text via httpcmd     (http://ESP-IP/control?cmd=pcd8544,1,Hello World!)  // 1 : line#
-//        Send Text via http-request only works for the empty lines in ESPEasy-Webinterface!
+//        Send Text via http-request only works for the empty lines in ESPEasy-Tasksettings-Webinterface!
 // - Pin connections:
 //       SPI interface:
 //       Example of tested configuration:
 //       RST  -      => LCD_pin_1 reset connected to Vcc with 10k resistor
 //       CE  GPIO-5  => LCD_pin_2 chip select
 //       DC  GPIO-32 => LCD_pin_3 Data/Command select
-//       DIN GPIO-23 => LCD_pin_4 Serial data 
-//       CLK GPIO-18 => LCD_pin_5 Serial clock out
-//       In hardware tab; 
-//       - enable SPI; 
-//       - Select VSPI:CLK=GPIO-18, MISO=GPIO-19, MOSI=GPIO-23 
+//       DIN GPIO-23 => LCD_pin_4 Serial data      (Hardware-tab: SPI interface, VSPI-MOSI)
+//       CLK GPIO-18 => LCD_pin_5 Serial clock out (Hardware-tab: SPI interface, VSPI-VLK)
+//       In hardware tab;
+//       - enable SPI;
+//       - Select VSPI:CLK=GPIO-18, MISO=GPIO-19, MOSI=GPIO-23
 //         (MISO not used)
 //
 // - Tested on
@@ -37,7 +37,7 @@
 //
 // Hardware note:
 // It's often seen that pins are connected via (10k) risistors.
-// Sometimes a screen will not work with these risistors. In that case, connect the display without resistors. 
+// Sometimes a screen will not work with these risistors. In that case, connect the display without resistors.
 // That works well. However, I have no long-term experience with this.
 
 #define PLUGIN_208
@@ -98,7 +98,7 @@ boolean Plugin_208(byte function, struct EventStruct *event, String& string){
 
     case PLUGIN_WEBFORM_LOAD:{
         addFormNumericBox(F("Display Contrast(50-100):"), F("plugin_208_contrast"), PCONFIG(1));
-        
+
         int optionValues3[4] = { 0, 1, 2, 3 };
         String options3[4] = { F("0"), F("90"), F("180"), F("270") };
         addFormSelector(F("Display Rotation"), F("plugin_208_rotation"), 4, options3, optionValues3, PCONFIG(2));
@@ -109,9 +109,9 @@ boolean Plugin_208(byte function, struct EventStruct *event, String& string){
 
         int optionValues5[3] = { 1,2,3 };
         String options5[3] = { F("normal"), F("large"), F("x-large") };
-        addFormSelector(F("Char.size line-1"), F("plugin_208_charsize_line_1"), 3, options5, optionValues5, PCONFIG(3)); 
-        addFormSelector(F("Char.size line-2"), F("plugin_208_charsize_line_2"), 3, options5, optionValues5, PCONFIG(4)); 
-        addFormSelector(F("Char.size line-3"), F("plugin_208_charsize_line_3"), 3, options5, optionValues5, PCONFIG(5)); 
+        addFormSelector(F("Char.size line-1"), F("plugin_208_charsize_line_1"), 3, options5, optionValues5, PCONFIG(3));
+        addFormSelector(F("Char.size line-2"), F("plugin_208_charsize_line_2"), 3, options5, optionValues5, PCONFIG(4));
+        addFormSelector(F("Char.size line-3"), F("plugin_208_charsize_line_3"), 3, options5, optionValues5, PCONFIG(5));
 
         char deviceTemplate [lcd_lines][Digits_per_template_line];
         LoadCustomTaskSettings(event->TaskIndex, (byte*)&deviceTemplate, sizeof(deviceTemplate));
@@ -169,7 +169,7 @@ boolean Plugin_208(byte function, struct EventStruct *event, String& string){
         displayText(deviceTemplate, event);
         //displayText((byte**)&deviceTemplate, event);
         lcd3->display();
-        setBacklight(event); 
+        setBacklight(event);
         success = true;
         break;
       }
@@ -193,21 +193,23 @@ boolean Plugin_208(byte function, struct EventStruct *event, String& string){
         if (argIndex){
           tmpString = tmpString.substring(0, argIndex);
           if (tmpString.equalsIgnoreCase(F("PCD8544"))){
-            if (event->Par1 <= 6 ){ // event->Par1 = row. 
-              success = true;
+            success = true;
+            if (event->Par1 <= 6 ){ // event->Par1 = row.
               argIndex = string.lastIndexOf(',');
               char deviceTemplate [lcd_lines][Digits_per_template_line];
               LoadCustomTaskSettings(event->TaskIndex, (byte*)&deviceTemplate, sizeof(deviceTemplate));
               String linedefinition  = deviceTemplate[event->Par1-1];
-              if (!linedefinition.length()){  // only if value is not definde in plugin-webform
+              if (linedefinition.length()){  // only if value is not defined in plugin-webform
+                  myLog ("Unable to display text. Line in use by form-definition!");
+              }else{
                 line_content_ist = html_input[event->Par1-1];
                 line_content_soll = string.substring(argIndex + 1);
                 if (line_content_soll.length() < line_content_ist.length() ) {
                   for(int i=line_content_soll.length(); i < line_content_ist.length(); i++){
                     line_content_soll += " ";
                   }
-                }
-                //addLog(LOG_LEVEL_INFO, "5:"+ line_content_soll);
+				        }
+                //myLog(line_content_soll);
                 strncpy(html_input[event->Par1-1], line_content_soll.c_str(), sizeof(deviceTemplate[event->Par1-1]));
               }
             }
@@ -217,32 +219,37 @@ boolean Plugin_208(byte function, struct EventStruct *event, String& string){
             argIndex = string.lastIndexOf(',');
             tmpString = string.substring(argIndex + 1);
             if (tmpString.equalsIgnoreCase(F("Clear"))){
-              addLog(LOG_LEVEL_INFO, F("Clear Display"));
+              myLog("Clear Display");
               lcd3->clearDisplay();
               lcd3->display();
             }
             if (tmpString.equalsIgnoreCase(F("blOn"))){
               success = true;
               PCONFIG(0) = 1;
-              setBacklight(event); 
+              setBacklight(event);
             }
             if (tmpString.equalsIgnoreCase(F("blOff"))){
               success = true;
               PCONFIG(0) = 0;
-              setBacklight(event); 
+              setBacklight(event);
             }
-          break;
-        }
+            break;
+          }
         }
       }
   }  // switch (function)
   return success;
 }
 
+void myLog (String message) {
+  addLog(LOG_LEVEL_INFO, "P208: " + message);
+}
+
+
 void setBacklight(struct EventStruct *event) {
   if (Settings.TaskDevicePin3[event->TaskIndex] != -1){
     pinMode(Settings.TaskDevicePin3[event->TaskIndex], OUTPUT);
-    digitalWrite(Settings.TaskDevicePin3[event->TaskIndex], PCONFIG(0)); 
+    digitalWrite(Settings.TaskDevicePin3[event->TaskIndex], PCONFIG(0));
     portStatusStruct newStatus;
     const uint32_t   key = createKey(1, Settings.TaskDevicePin3[event->TaskIndex]);
     // WARNING: operator [] creates an entry in the map if key does not exist
@@ -257,7 +264,7 @@ void setBacklight(struct EventStruct *event) {
 boolean displayText(char deviceTemplate[][48], struct EventStruct *event ){ // 48 must be equal to "#define Digits_per_template_line"
 //boolean displayText( char &deviceTemplate, struct EventStruct *event ){ // 48 must be equal to "#define Digits_per_template_line"
         String log = F("PCD8544: ");
-        String string ;
+        String logstring ;
         lcd3->clearDisplay();
         lcd3->setTextColor(BLACK);
         lcd3->setCursor(0,0);
@@ -265,7 +272,7 @@ boolean displayText(char deviceTemplate[][48], struct EventStruct *event ){ // 4
         for (byte x = 0; x < lcd_lines; x++)
         {
           if (x <= 3){
-            lcd3->setTextSize(PCONFIG(3+x)); 
+            lcd3->setTextSize(PCONFIG(3+x));
           }else{
             lcd3->setTextSize(1);
           }
@@ -275,7 +282,7 @@ boolean displayText(char deviceTemplate[][48], struct EventStruct *event ){ // 4
             newString = parseTemplate(tmpString, false);
           }else{
             // webformline is empty use html input
-            newString = html_input[x]; 
+            newString = html_input[x];
             // 1e time html_input[x] has trailing spaces to delete old digits from the previous html_input[x] displayed on de LCD
             // Remove trailing spaces in html_input[x] for the next time
             while (newString.endsWith(" ")) {
@@ -287,10 +294,12 @@ boolean displayText(char deviceTemplate[][48], struct EventStruct *event ){ // 4
             strncpy(html_input[x], newString.c_str(), len);
           }
           lcd3->println(newString);
-          string+=newString+"\\";         
+          logstring+=newString+" ; ";
         }
-        log += String(F("displayed text: \"")) + String(string) + String(F("\""));
-        addLog(LOG_LEVEL_INFO, log);
+        log += F("displayed text: ");
+        log += logstring ;
+        //log += F("\");
+        myLog(log);
         lcd3->display();
         return true;
   }
