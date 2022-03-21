@@ -1,307 +1,149 @@
-//#######################################################################################################
-//################################## Plugin 208: NOKIA 5110 lcd #########################################
-//#######################################################################################################
+
+#include <Arduino.h>
+
+#ifdef CONTINUOUS_INTEGRATION
+# pragma GCC diagnostic error "-Wall"
+#else // ifdef CONTINUOUS_INTEGRATION
+# pragma GCC diagnostic warning "-Wall"
+#endif // ifdef CONTINUOUS_INTEGRATION
+
+// Include this as first, to make sure all defines are active during the entire compile..
+// See: https://www.letscontrolit.com/forum/viewtopic.php?f=4&t=7980
+// If Custom.h build from Arduino IDE is needed, uncomment #define USE_CUSTOM_H in ESPEasy_common.h
+#include "ESPEasy_common.h"
+
+#ifdef USE_CUSTOM_H
+
+// make the compiler show a warning to confirm that this file is inlcuded
+  # warning "**** Using Settings from Custom.h File ***"
+#endif // ifdef USE_CUSTOM_H
+
+
+// Needed due to preprocessor issues.
+#ifdef PLUGIN_SET_GENERIC_ESP32
+  # ifndef ESP32
+    #  define ESP32
+  # endif // ifndef ESP32
+#endif // ifdef PLUGIN_SET_GENERIC_ESP32
+
+
+/****************************************************************************************************************************\
+ * Arduino project "ESP Easy" © Copyright www.letscontrolit.com
+ *
+ * This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
+ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+ * You received a copy of the GNU General Public License along with this program in file 'License.txt'.
+ *
+ * IDE download    : https://www.arduino.cc/en/Main/Software
+ * ESP8266 Package : https://github.com/esp8266/Arduino
+ *
+ * Source Code     : https://github.com/ESP8266nu/ESPEasy
+ * Support         : http://www.letscontrolit.com
+ * Discussion      : http://www.letscontrolit.com/forum/
+ *
+ * Additional information about licensing can be found at : http://www.gnu.org/licenses
+ \*************************************************************************************************************************/
+
+// This file incorporates work covered by the following copyright and permission notice:
+
+/****************************************************************************************************************************\
+ * Arduino project "Nodo" © Copyright 2010..2015 Paul Tonkes
+ *
+ * This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
+ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+ * You received a copy of the GNU General Public License along with this program in file 'License.txt'.
+ *
+ * Voor toelichting op de licentievoorwaarden zie    : http://www.gnu.org/licenses
+ * Uitgebreide documentatie is te vinden op          : http://www.nodo-domotica.nl
+ * Compiler voor deze programmacode te downloaden op : http://arduino.cc
+ \*************************************************************************************************************************/
+
+//   Simple Arduino sketch for ESP module, supporting:
+//   =================================================================================
+//   Simple switch inputs and direct GPIO output control to drive relays, mosfets, etc
+//   Analog input (ESP-7/12 only)
+//   Pulse counters
+//   Dallas OneWire DS18b20 temperature sensors
+//   DHT11/22/12 humidity sensors
+//   BMP085 I2C Barometric Pressure sensor
+//   PCF8591 4 port Analog to Digital converter (I2C)
+//   RFID Wiegand-26 reader
+//   MCP23017 I2C IO Expanders
+//   BH1750 I2C Luminosity sensor
+//   Arduino Pro Mini with IO extender sketch, connected through I2C
+//   LCD I2C display 4x20 chars
+//   HC-SR04 Ultrasonic distance sensor
+//   SI7021 I2C temperature/humidity sensors
+//   TSL2561 I2C Luminosity sensor
+//   TSOP4838 IR receiver
+//   PN532 RFID reader
+//   Sharp GP2Y10 dust sensor
+//   PCF8574 I2C IO Expanders
+//   PCA9685 I2C 16 channel PWM driver
+//   OLED I2C display with SSD1306 driver
+//   MLX90614 I2C IR temperature sensor
+//   ADS1115 I2C ADC
+//   INA219 I2C voltage/current sensor
+//   BME280 I2C temp/hum/baro sensor
+//   MSP5611 I2C temp/baro sensor
+//   BMP280 I2C Barometric Pressure sensor
+//   SHT1X temperature/humidity sensors
+//   Ser2Net server
+//   DL-Bus (Technische Alternative)
+
+// Define globals before plugin sets to allow a personal override of the selected plugins
+#include "ESPEasy-Globals.h"
+
+// Must be included after all the defines, since it is using TASKS_MAX
 #include "_Plugin_Helper.h"
-#ifdef USES_P208
 
-// Working:
-// - support different digit-size's
-// - Display Text via:
-//   1.  ESPEasy-Webinterface (Line-1-Line-x)
-//   2.  http-request:
-//      - BackLight on  via httpcmd (http://ESP-IP/control?cmd=pcd8544cmd,blOn)
-//      - BackLight off via httpcmd (http://ESP-IP/control?cmd=pcd8544cmd,blOff)
-//      - Clear Display via httpcmd (http://ESP-IP/control?cmd=pcd8544cmd,clear)
-//      - Send Text via httpcmd     (http://ESP-IP/control?cmd=pcd8544,1,Hello World!)  // 1 : line#
-//        Send Text via http-request only works for the empty lines in ESPEasy-Tasksettings-Webinterface!
-// - Pin connections:
-//       SPI interface:
-//       Example of tested configuration:
-//       RST  -      => LCD_pin_1 reset connected to Vcc with 10k resistor
-//       CE  GPIO-5  => LCD_pin_2 chip select
-//       DC  GPIO-32 => LCD_pin_3 Data/Command select
-//       DIN GPIO-23 => LCD_pin_4 Serial data      (Hardware-tab: SPI interface, VSPI-MOSI)
-//       CLK GPIO-18 => LCD_pin_5 Serial clock out (Hardware-tab: SPI interface, VSPI-VLK)
-//       In hardware tab;
-//       - enable SPI;
-//       - Select VSPI:CLK=GPIO-18, MISO=GPIO-19, MOSI=GPIO-23
-//         (MISO not used)
-//
-// - Tested on
-//    - Hardware ESP32
-//    - ESPEasy-mega-20210223
+// Plugin helper needs the defined controller sets, thus include after 'define_plugin_sets.h'
+#include "src/Helpers/_CPlugin_Helper.h"
 
-// ToDo:
-// - different digit-size within a line....
-// - Choice of usable fonts on web-webform.
-//
-// Hardware note:
-// It's often seen that pins are connected via (10k) risistors.
-// Sometimes a screen will not work with these risistors. In that case, connect the display without resistors.
-// That works well. However, I have no long-term experience with this.
 
-#define PLUGIN_208
-#define PLUGIN_ID_208 208
-#define PLUGIN_NAME_208 "Display - LCD PCD8544 (Nokia 5110) [Testing]"
-#define PLUGIN_VALUENAME1_208 "Backlight"
-#define PLUGIN_VALUENAME2_208 "Contrast"
-#define PLUGIN_VALUENAME3_208 "Rotation"
+#include "src/ESPEasyCore/ESPEasy_setup.h"
+#include "src/ESPEasyCore/ESPEasy_loop.h"
 
-#include <Adafruit_GFX.h>
-#include <Adafruit_PCD8544.h>
-#define lcd_lines 6
-#define Digits_per_template_line 48  // This value must be used at the function "displayText" declaration!
-#define digits_per_display_line 14
 
-Adafruit_PCD8544 *lcd3 = nullptr;
+#ifdef PHASE_LOCKED_WAVEFORM
+# include <core_esp8266_waveform.h>
+#endif // ifdef PHASE_LOCKED_WAVEFORM
 
-char html_input [lcd_lines][digits_per_display_line];
+#if FEATURE_ADC_VCC
+ADC_MODE(ADC_VCC);
+#endif // if FEATURE_ADC_VCC
 
-boolean Plugin_208(byte function, struct EventStruct *event, String& string){
-  boolean success = false;
 
-  switch (function)
-  {
-    case PLUGIN_DEVICE_ADD:{
-        Device[++deviceCount].Number = PLUGIN_ID_208 ;
-        Device[deviceCount].Type = DEVICE_TYPE_SPI3;
-        Device[deviceCount].VType = Sensor_VType::SENSOR_TYPE_SINGLE;
-        Device[deviceCount].Ports = 0;
-        Device[deviceCount].PullUpOption = false;
-        Device[deviceCount].InverseLogicOption = false;
-        Device[deviceCount].FormulaOption = false;
-        Device[deviceCount].ValueCount = 3;
-        Device[deviceCount].SendDataOption = false;
-        Device[deviceCount].TimerOption = true;
-        Device[deviceCount].TimerOptional = true;
-        break;
-      }
+#ifdef CORE_POST_2_5_0
 
-    case PLUGIN_GET_DEVICEGPIONAMES:      {
-        event->String1 = formatGpioName_output(F("LCD CE pin 2"));
-        event->String2 = formatGpioName_output(F("LCD DC pin 3"));
-        event->String3 = formatGpioName_output(F("LCD BL pin 7"));
-        break;
-      }
+/*********************************************************************************************\
+* Pre-init
+\*********************************************************************************************/
+void preinit();
+void preinit() {
+  // Global WiFi constructors are not called yet
+  // (global class instances like WiFi, Serial... are not yet initialized)..
+  // No global object methods or C++ exceptions can be called in here!
+  // The below is a static class method, which is similar to a function, so it's ok.
+  ESP8266WiFiClass::preinitWiFiOff();
 
-    case PLUGIN_GET_DEVICENAME:{
-        string = F(PLUGIN_NAME_208);
-        break;
-      }
-
-    case PLUGIN_GET_DEVICEVALUENAMES:{
-        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_VALUENAME1_208));
-        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[1], PSTR(PLUGIN_VALUENAME2_208));
-        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[2], PSTR(PLUGIN_VALUENAME3_208));
-        break;
-      }
-
-    case PLUGIN_WEBFORM_LOAD:{
-        addFormNumericBox(F("Display Contrast(50-100):"), F("plugin_208_contrast"), PCONFIG(1));
-
-        int optionValues3[4] = { 0, 1, 2, 3 };
-        String options3[4] = { F("0"), F("90"), F("180"), F("270") };
-        addFormSelector(F("Display Rotation"), F("plugin_208_rotation"), 4, options3, optionValues3, PCONFIG(2));
-
-        String options4[2] = { F("OFF"), F("ON") };
-        int optionValues4[2] = { 0, 1 };
-        addFormSelector(F("Backlight"), F("plugin_208_backlight"), 2, options4, optionValues4, PCONFIG(0));
-
-        int optionValues5[3] = { 1,2,3 };
-        String options5[3] = { F("normal"), F("large"), F("x-large") };
-        addFormSelector(F("Char.size line-1"), F("plugin_208_charsize_line_1"), 3, options5, optionValues5, PCONFIG(3));
-        addFormSelector(F("Char.size line-2"), F("plugin_208_charsize_line_2"), 3, options5, optionValues5, PCONFIG(4));
-        addFormSelector(F("Char.size line-3"), F("plugin_208_charsize_line_3"), 3, options5, optionValues5, PCONFIG(5));
-
-        char deviceTemplate [lcd_lines][Digits_per_template_line];
-        LoadCustomTaskSettings(event->TaskIndex, (byte*)&deviceTemplate, sizeof(deviceTemplate));
-        for (byte varNr = 0; varNr < lcd_lines; varNr++)
-        {
-          addFormTextBox(String(F("Line ")) + (varNr + 1), String(F("Plugin_208_template")) + (varNr + 1), deviceTemplate[varNr], 80);
-        }
-        success = true;
-        break;
-      }
-
-    case PLUGIN_WEBFORM_SAVE:{
-        PCONFIG(0)= getFormItemInt(F("plugin_208_backlight"));
-        PCONFIG(1)= getFormItemInt(F("plugin_208_contrast"));
-        PCONFIG(2)= getFormItemInt(F("plugin_208_rotation"));
-        PCONFIG(3)= getFormItemInt(F("plugin_208_charsize_line_1"));
-        PCONFIG(4)= getFormItemInt(F("plugin_208_charsize_line_2"));
-        PCONFIG(5)= getFormItemInt(F("plugin_208_charsize_line_3"));
-        PCONFIG(6)= getFormItemInt(F("plugin_208_GPIO_CE"));
-        PCONFIG(7)= getFormItemInt(F("plugin_208_GPIO_DC"));
-
-        char deviceTemplate[lcd_lines][Digits_per_template_line];
-        for (byte varNr = 0; varNr < lcd_lines; varNr++)
-        {
-          char argc[25];
-          String arg = F("Plugin_208_template");
-          arg += varNr + 1;
-          arg.toCharArray(argc, 25);
-          String tmpString = web_server.arg(argc);
-          strncpy(deviceTemplate[varNr], tmpString.c_str(), sizeof(deviceTemplate[varNr]));
-        }
-        SaveCustomTaskSettings(event->TaskIndex, (byte*)&deviceTemplate, sizeof(deviceTemplate));
-        success = true;
-        break;
-      }
-
-    case PLUGIN_INIT:{
-        if (!lcd3)
-        {
-          lcd3 = new Adafruit_PCD8544(Settings.TaskDevicePin2[event->TaskIndex], Settings.TaskDevicePin1[event->TaskIndex], -1); // Adafruit_PCD8544 (DC, CE, -1)
-        }
-        // Setup lcd3 display
-        byte plugin1 = PCONFIG(2); // rotation
-        byte plugin2 = PCONFIG(1); // contrast
-        byte plugin4 = PCONFIG(0); // backlight_onoff
-        UserVar[event->BaseVarIndex+2]=plugin1;
-        UserVar[event->BaseVarIndex+1]=plugin2;
-        UserVar[event->BaseVarIndex]=! plugin4;
-        lcd3->begin();
-        lcd3->setContrast(30);
-        lcd3->setContrast(plugin2);
-        lcd3->setRotation(plugin1);
-        char deviceTemplate[lcd_lines][Digits_per_template_line];
-        LoadCustomTaskSettings(event->TaskIndex, (byte*)&deviceTemplate, sizeof(deviceTemplate));
-        displayText(deviceTemplate, event);
-        //displayText((byte**)&deviceTemplate, event);
-        lcd3->display();
-        setBacklight(event);
-        success = true;
-        break;
-      }
-
-    case PLUGIN_READ:{
-        char deviceTemplate[lcd_lines][Digits_per_template_line];
-        LoadCustomTaskSettings(event->TaskIndex, (byte*)&deviceTemplate, sizeof(deviceTemplate));
-        displayText(deviceTemplate, event);
-        //displayText((byte**)&deviceTemplate, event);
-        success = false;
-        break;
-      }
-
-    case PLUGIN_WRITE:{
-        String tmpString  = string;
-        String StringToDisplay;
-        String line_content_ist;
-        String line_content_soll;
-        int argIndex = tmpString.indexOf(',');
-
-        if (argIndex){
-          tmpString = tmpString.substring(0, argIndex);
-          if (tmpString.equalsIgnoreCase(F("PCD8544"))){
-            success = true;
-            if (event->Par1 <= 6 ){ // event->Par1 = row.
-              argIndex = string.lastIndexOf(',');
-              char deviceTemplate [lcd_lines][Digits_per_template_line];
-              LoadCustomTaskSettings(event->TaskIndex, (byte*)&deviceTemplate, sizeof(deviceTemplate));
-              String linedefinition  = deviceTemplate[event->Par1-1];
-              if (linedefinition.length()){  // only if value is not defined in plugin-webform
-                  myLog ("Unable to display text. Line in use by form-definition!");
-              }else{
-                line_content_ist = html_input[event->Par1-1];
-                line_content_soll = string.substring(argIndex + 1);
-                if (line_content_soll.length() < line_content_ist.length() ) {
-                  for(int i=line_content_soll.length(); i < line_content_ist.length(); i++){
-                    line_content_soll += " ";
-                  }
-				        }
-                //myLog(line_content_soll);
-                strncpy(html_input[event->Par1-1], line_content_soll.c_str(), sizeof(deviceTemplate[event->Par1-1]));
-              }
-            }
-          }
-          if (tmpString.equalsIgnoreCase(F("PCD8544CMD"))){
-            success = true;
-            argIndex = string.lastIndexOf(',');
-            tmpString = string.substring(argIndex + 1);
-            if (tmpString.equalsIgnoreCase(F("Clear"))){
-              myLog("Clear Display");
-              lcd3->clearDisplay();
-              lcd3->display();
-            }
-            if (tmpString.equalsIgnoreCase(F("blOn"))){
-              success = true;
-              PCONFIG(0) = 1;
-              setBacklight(event);
-            }
-            if (tmpString.equalsIgnoreCase(F("blOff"))){
-              success = true;
-              PCONFIG(0) = 0;
-              setBacklight(event);
-            }
-            break;
-          }
-        }
-      }
-  }  // switch (function)
-  return success;
+  // Prevent RF calibration on power up.
+  // TD-er: disabled on 2021-06-07 as it may cause several issues with some boards.
+  // It cannot be made a setting as we can't read anything of our own settings.
+//  system_phy_set_powerup_option(RF_NO_CAL);
 }
 
-void myLog (String message) {
-  addLog(LOG_LEVEL_INFO, "P208: " + message);
+#endif // ifdef CORE_POST_2_5_0
+
+
+void setup() {
+  ESPEasy_setup();
 }
 
-
-void setBacklight(struct EventStruct *event) {
-  if (Settings.TaskDevicePin3[event->TaskIndex] != -1){
-    pinMode(Settings.TaskDevicePin3[event->TaskIndex], OUTPUT);
-    digitalWrite(Settings.TaskDevicePin3[event->TaskIndex], PCONFIG(0));
-    portStatusStruct newStatus;
-    const uint32_t   key = createKey(1, Settings.TaskDevicePin3[event->TaskIndex]);
-    // WARNING: operator [] creates an entry in the map if key does not exist
-    newStatus         = globalMapPortStatus[key];
-    newStatus.command = 1;
-    newStatus.mode    = PIN_MODE_OUTPUT;
-    newStatus.state   = PCONFIG(3);
-    savePortStatus(key, newStatus);
-  }
+void loop() {
+  ESPEasy_loop();
 }
-
-boolean displayText(char deviceTemplate[][48], struct EventStruct *event ){ // 48 must be equal to "#define Digits_per_template_line"
-//boolean displayText( char &deviceTemplate, struct EventStruct *event ){ // 48 must be equal to "#define Digits_per_template_line"
-        String log = F("PCD8544: ");
-        String logstring ;
-        lcd3->clearDisplay();
-        lcd3->setTextColor(BLACK);
-        lcd3->setCursor(0,0);
-
-        for (byte x = 0; x < lcd_lines; x++)
-        {
-          if (x <= 3){
-            lcd3->setTextSize(PCONFIG(3+x));
-          }else{
-            lcd3->setTextSize(1);
-          }
-          String tmpString = deviceTemplate[x];
-          String newString;
-          if (tmpString.length()){
-            newString = parseTemplate(tmpString, false);
-          }else{
-            // webformline is empty use html input
-            newString = html_input[x];
-            // 1e time html_input[x] has trailing spaces to delete old digits from the previous html_input[x] displayed on de LCD
-            // Remove trailing spaces in html_input[x] for the next time
-            while (newString.endsWith(" ")) {
-              newString = newString.substring(0, newString.length() - 1);
-            }
-            int len = newString.length();
-            if (len > digits_per_display_line) {len = digits_per_display_line;};  // max len is len html_input[x]
-            newString = newString.substring(0,len);
-            strncpy(html_input[x], newString.c_str(), len);
-          }
-          lcd3->println(newString);
-          logstring+=newString+" ; ";
-        }
-        log += F("displayed text: ");
-        log += logstring ;
-        //log += F("\");
-        myLog(log);
-        lcd3->display();
-        return true;
-  }
-
-#endif // USES_P208
