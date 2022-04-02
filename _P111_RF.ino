@@ -28,7 +28,7 @@ RCSwitch *rfReceiver;
 
 #ifndef USES_P016
  int irReceiver = 0; // make sure it has value even if plugin not found
-#endif                
+#endif
 
 boolean Plugin_111(byte function, struct EventStruct *event, String& string)
 {
