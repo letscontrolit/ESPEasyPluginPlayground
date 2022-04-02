@@ -55,6 +55,7 @@
 
 Adafruit_PCD8544 *lcd3 = nullptr;
 
+bool sentlog ;  // yes/no send info to espeasylog
 char html_input [lcd_lines][digits_per_display_line];
 
 boolean Plugin_208(byte function, struct EventStruct *event, String& string){
@@ -120,6 +121,8 @@ boolean Plugin_208(byte function, struct EventStruct *event, String& string){
           addFormTextBox(String(F("Line ")) + (varNr + 1), String(F("Plugin_208_template")) + (varNr + 1), deviceTemplate[varNr], 80);
         }
         success = true;
+        addFormCheckBox(F("debuginfo to log"), F("plugin_208_debuglog"), PCONFIG(8));
+
         break;
       }
 
@@ -132,7 +135,8 @@ boolean Plugin_208(byte function, struct EventStruct *event, String& string){
         PCONFIG(5)= getFormItemInt(F("plugin_208_charsize_line_3"));
         PCONFIG(6)= getFormItemInt(F("plugin_208_GPIO_CE"));
         PCONFIG(7)= getFormItemInt(F("plugin_208_GPIO_DC"));
-
+        PCONFIG(8)= isFormItemChecked(F("plugin_208_debuglog")) ? 1 : 0;
+        sentlog = PCONFIG(8) == 1;
         char deviceTemplate[lcd_lines][Digits_per_template_line];
         for (byte varNr = 0; varNr < lcd_lines; varNr++)
         {
@@ -157,6 +161,7 @@ boolean Plugin_208(byte function, struct EventStruct *event, String& string){
         byte plugin1 = PCONFIG(2); // rotation
         byte plugin2 = PCONFIG(1); // contrast
         byte plugin4 = PCONFIG(0); // backlight_onoff
+        sentlog = PCONFIG(8) == 1;
         UserVar[event->BaseVarIndex+2]=plugin1;
         UserVar[event->BaseVarIndex+1]=plugin2;
         UserVar[event->BaseVarIndex]=! plugin4;
@@ -246,10 +251,12 @@ boolean Plugin_208(byte function, struct EventStruct *event, String& string){
 //}
 void myLog(const String & message) {
   String log;
-  log.reserve(message.length() + 6);
-  log += F("P208: ");
-  log += message;
-  addLog(LOG_LEVEL_INFO, log);
+  if (sentlog){
+    log.reserve(message.length() + 6);
+    log += F("P208: ");
+    log += message;
+    addLog(LOG_LEVEL_INFO, log);
+  }
 }
 
 void setBacklight(struct EventStruct *event) {
