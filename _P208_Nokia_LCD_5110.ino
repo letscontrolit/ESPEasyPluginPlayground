@@ -50,7 +50,7 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_PCD8544.h>
 #define lcd_lines 6
-#define Digits_per_template_line 48  // This value must be used at the function "displayText" declaration!
+#define Digits_per_template_line 48  // This value must be used at the function "P208_displayText" declaration!
 #define digits_per_display_line 14
 
 Adafruit_PCD8544 *lcd3 = nullptr;
@@ -121,7 +121,7 @@ boolean Plugin_208(byte function, struct EventStruct *event, String& string){
           addFormTextBox(String(F("Line ")) + (varNr + 1), String(F("Plugin_208_template")) + (varNr + 1), deviceTemplate[varNr], 80);
         }
         success = true;
-        addFormCheckBox(F("debuginfo to log"), F("plugin_208_debuglog"), PCONFIG(8));
+        addFormCheckBox(F("debuginfo to log"), F("plugin_208_debuglog"), PCONFIG_LONG(0));
 
         break;
       }
@@ -135,8 +135,8 @@ boolean Plugin_208(byte function, struct EventStruct *event, String& string){
         PCONFIG(5)= getFormItemInt(F("plugin_208_charsize_line_3"));
         PCONFIG(6)= getFormItemInt(F("plugin_208_GPIO_CE"));
         PCONFIG(7)= getFormItemInt(F("plugin_208_GPIO_DC"));
-        PCONFIG(8)= isFormItemChecked(F("plugin_208_debuglog")) ? 1 : 0;
-        sentlog = PCONFIG(8) == 1;
+        PCONFIG_LONG(0)= isFormItemChecked(F("plugin_208_debuglog")) ? 1 : 0;
+        sentlog = PCONFIG_LONG(0) == 1;
         char deviceTemplate[lcd_lines][Digits_per_template_line];
         for (byte varNr = 0; varNr < lcd_lines; varNr++)
         {
@@ -161,7 +161,7 @@ boolean Plugin_208(byte function, struct EventStruct *event, String& string){
         byte plugin1 = PCONFIG(2); // rotation
         byte plugin2 = PCONFIG(1); // contrast
         byte plugin4 = PCONFIG(0); // backlight_onoff
-        sentlog = PCONFIG(8) == 1;
+        sentlog = PCONFIG_LONG(0) == 1;
         UserVar[event->BaseVarIndex+2]=plugin1;
         UserVar[event->BaseVarIndex+1]=plugin2;
         UserVar[event->BaseVarIndex]=! plugin4;
@@ -171,8 +171,8 @@ boolean Plugin_208(byte function, struct EventStruct *event, String& string){
         lcd3->setRotation(plugin1);
         char deviceTemplate[lcd_lines][Digits_per_template_line];
         LoadCustomTaskSettings(event->TaskIndex, (byte*)&deviceTemplate, sizeof(deviceTemplate));
-        displayText(deviceTemplate, event);
-        //displayText((byte**)&deviceTemplate, event);
+        P208_displayText(deviceTemplate, event);
+        //P208_displayText((byte**)&deviceTemplate, event);
         lcd3->display();
         setBacklight(event);
         success = true;
@@ -182,8 +182,8 @@ boolean Plugin_208(byte function, struct EventStruct *event, String& string){
     case PLUGIN_READ:{
         char deviceTemplate[lcd_lines][Digits_per_template_line];
         LoadCustomTaskSettings(event->TaskIndex, (byte*)&deviceTemplate, sizeof(deviceTemplate));
-        displayText(deviceTemplate, event);
-        //displayText((byte**)&deviceTemplate, event);
+        P208_displayText(deviceTemplate, event);
+        //P208_displayText((byte**)&deviceTemplate, event);
         success = false;
         break;
       }
@@ -205,7 +205,7 @@ boolean Plugin_208(byte function, struct EventStruct *event, String& string){
               LoadCustomTaskSettings(event->TaskIndex, (byte*)&deviceTemplate, sizeof(deviceTemplate));
               String linedefinition  = deviceTemplate[event->Par1-1];
               if (linedefinition.length()){  // only if value is not defined in plugin-webform
-                  myLog ("Unable to display text. Line in use by form-definition!");
+                  P208_log ("Unable to display text. Line in use by form-definition!");
               }else{
                 line_content_ist = html_input[event->Par1-1];
                 line_content_soll = string.substring(argIndex + 1);
@@ -214,7 +214,7 @@ boolean Plugin_208(byte function, struct EventStruct *event, String& string){
                     line_content_soll += " ";
                   }
 				        }
-                //myLog(line_content_soll);
+                //P208_log(line_content_soll);
                 strncpy(html_input[event->Par1-1], line_content_soll.c_str(), sizeof(deviceTemplate[event->Par1-1]));
               }
             }
@@ -224,7 +224,7 @@ boolean Plugin_208(byte function, struct EventStruct *event, String& string){
             argIndex = string.lastIndexOf(',');
             tmpString = string.substring(argIndex + 1);
             if (tmpString.equalsIgnoreCase(F("Clear"))){
-              myLog("Clear Display");
+              P208_log("Clear Display");
               lcd3->clearDisplay();
               lcd3->display();
             }
@@ -246,12 +246,12 @@ boolean Plugin_208(byte function, struct EventStruct *event, String& string){
   return success;
 }
 
-//void myLog (String message) {
+//void P208_log (String message) {
 //  addLog(LOG_LEVEL_INFO, "P208: " + message);
 //}
-void myLog(const String & message) {
+void P208_log(const String & message) {
   String log;
-  if (sentlog){
+  if (sentlog ){
     log.reserve(message.length() + 6);
     log += F("P208: ");
     log += message;
@@ -274,8 +274,8 @@ void setBacklight(struct EventStruct *event) {
   }
 }
 
-boolean displayText(char deviceTemplate[][48], struct EventStruct *event ){ // 48 must be equal to "#define Digits_per_template_line"
-//boolean displayText( char &deviceTemplate, struct EventStruct *event ){ // 48 must be equal to "#define Digits_per_template_line"
+boolean P208_displayText(char deviceTemplate[][48], struct EventStruct *event ){ // 48 must be equal to "#define Digits_per_template_line"
+//boolean P208_displayText( char &deviceTemplate, struct EventStruct *event ){ // 48 must be equal to "#define Digits_per_template_line"
         String log = F("PCD8544: ");
         String logstring ;
         lcd3->clearDisplay();
@@ -312,7 +312,7 @@ boolean displayText(char deviceTemplate[][48], struct EventStruct *event ){ // 4
         }
         log += F("displayed text: ");
         log += logstring ;
-        myLog(log);
+        P208_log(log);
         lcd3->display();
         return true;
   }
