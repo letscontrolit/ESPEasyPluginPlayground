@@ -2,6 +2,7 @@
 //################################## Plugin 208: NOKIA 5110 lcd #########################################
 //#######################################################################################################
 #include "_Plugin_Helper.h"
+#include<string> 
 #ifdef USES_P208
 
 // Working:
@@ -12,7 +13,7 @@
 //      - BackLight on  via httpcmd (http://ESP-IP/control?cmd=pcd8544cmd,blOn)
 //      - BackLight off via httpcmd (http://ESP-IP/control?cmd=pcd8544cmd,blOff)
 //      - Clear Display via httpcmd (http://ESP-IP/control?cmd=pcd8544cmd,clear)
-//      - Send Text via httpcmd     (http://ESP-IP/control?cmd=pcd8544,1,Hello World!)  // 1 : line#
+//      - Send Text via httpcmd     (http://ESP-IP/control?cmd=pcd8544,1,Hello World!;2,this is line two;3, this is line three)  // 1,2,3 are the linenumbers. Maximum linnumber is: "lcd_lines_max"
 //        Send Text via http-request only works for the empty lines in ESPEasy-Webinterface!
 // - Pin connections:
 //       SPI interface:
@@ -49,14 +50,14 @@
 
 #include <Adafruit_GFX.h>
 #include <Adafruit_PCD8544.h>
-#define lcd_lines 6
-#define Digits_per_template_line 48  // This value must be used at the function "P208_displayText" declaration!
+#define Digits_per_template_line 48  // This value must be also used at the function "P208_displayText" declaration!
 #define digits_per_display_line 14
+#define lcd_lines_max 6
 
 Adafruit_PCD8544 *lcd3 = nullptr;
 
 bool sentlog ;  // yes/no send info to espeasylog
-char html_input [lcd_lines][digits_per_display_line];
+char html_input [lcd_lines_max][digits_per_display_line];
 
 boolean Plugin_208(byte function, struct EventStruct *event, String& string){
   boolean success = false;
@@ -114,9 +115,9 @@ boolean Plugin_208(byte function, struct EventStruct *event, String& string){
         addFormSelector(F("Char.size line-2"), F("plugin_208_charsize_line_2"), 3, options5, optionValues5, PCONFIG(4));
         addFormSelector(F("Char.size line-3"), F("plugin_208_charsize_line_3"), 3, options5, optionValues5, PCONFIG(5));
 
-        char deviceTemplate [lcd_lines][Digits_per_template_line];
+        char deviceTemplate [lcd_lines_max][Digits_per_template_line];
         LoadCustomTaskSettings(event->TaskIndex, (byte*)&deviceTemplate, sizeof(deviceTemplate));
-        for (byte varNr = 0; varNr < lcd_lines; varNr++)
+        for (byte varNr = 0; varNr < lcd_lines_max; varNr++)
         {
           addFormTextBox(String(F("Line ")) + (varNr + 1), String(F("Plugin_208_template")) + (varNr + 1), deviceTemplate[varNr], 80);
         }
@@ -137,8 +138,8 @@ boolean Plugin_208(byte function, struct EventStruct *event, String& string){
         PCONFIG(7)= getFormItemInt(F("plugin_208_GPIO_DC"));
         PCONFIG_LONG(0)= isFormItemChecked(F("plugin_208_debuglog")) ? 1 : 0;
         sentlog = PCONFIG_LONG(0) == 1;
-        char deviceTemplate[lcd_lines][Digits_per_template_line];
-        for (byte varNr = 0; varNr < lcd_lines; varNr++)
+        char deviceTemplate[lcd_lines_max][Digits_per_template_line];
+        for (byte varNr = 0; varNr < lcd_lines_max; varNr++)
         {
           char argc[25];
           String arg = F("Plugin_208_template");
@@ -169,10 +170,7 @@ boolean Plugin_208(byte function, struct EventStruct *event, String& string){
         lcd3->setContrast(30);
         lcd3->setContrast(plugin2);
         lcd3->setRotation(plugin1);
-        char deviceTemplate[lcd_lines][Digits_per_template_line];
-        LoadCustomTaskSettings(event->TaskIndex, (byte*)&deviceTemplate, sizeof(deviceTemplate));
-        P208_displayText(deviceTemplate, event);
-        //P208_displayText((byte**)&deviceTemplate, event);
+        P208_displayText(event);
         lcd3->display();
         setBacklight(event);
         success = true;
@@ -180,49 +178,81 @@ boolean Plugin_208(byte function, struct EventStruct *event, String& string){
       }
 
     case PLUGIN_READ:{
-        char deviceTemplate[lcd_lines][Digits_per_template_line];
-        LoadCustomTaskSettings(event->TaskIndex, (byte*)&deviceTemplate, sizeof(deviceTemplate));
-        P208_displayText(deviceTemplate, event);
-        //P208_displayText((byte**)&deviceTemplate, event);
+        P208_displayText(event);
         success = false;
         break;
       }
 
     case PLUGIN_WRITE:{
-        String tmpString  = string;
+        String tmpString = string;
+        String tmpstringAll = string;
         String StringToDisplay;
         String line_content_ist;
         String line_content_soll;
+        String log;
+        int semicolonpositionnext;
+        int semicolonposition =-1;
+        bool semicolonfound = true;
+        int commaposition;
+        int line_number_int;
+        String line_number_string;
         int argIndex = tmpString.indexOf(',');
+		    //char htmlinput [lcd_lines_max] [1] [digits_per_display_line]; // max Aantal displayregels, rownumber, rowcontent soll
+
+        P208_log("Html input1: "+tmpstringAll);
 
         if (argIndex){
-          tmpString = tmpString.substring(0, argIndex);
+          //tmpstringAll = string;
+          tmpString = string.substring(0, argIndex);
           if (tmpString.equalsIgnoreCase(F("PCD8544"))){
             success = true;
-            if (event->Par1 <= 6 ){ // event->Par1 = row.
-              argIndex = string.lastIndexOf(',');
-              char deviceTemplate [lcd_lines][Digits_per_template_line];
-              LoadCustomTaskSettings(event->TaskIndex, (byte*)&deviceTemplate, sizeof(deviceTemplate));
-              String linedefinition  = deviceTemplate[event->Par1-1];
-              if (linedefinition.length()){  // only if value is not defined in plugin-webform
-                  P208_log ("Unable to display text. Line in use by form-definition!");
-              }else{
-                line_content_ist = html_input[event->Par1-1];
-                line_content_soll = string.substring(argIndex + 1);
-                if (line_content_soll.length() < line_content_ist.length() ) {
-                  for(int i=line_content_soll.length(); i < line_content_ist.length(); i++){
-                    line_content_soll += " ";
-                  }
-				        }
-                //P208_log(line_content_soll);
-                strncpy(html_input[event->Par1-1], line_content_soll.c_str(), sizeof(deviceTemplate[event->Par1-1]));
+            P208_log("Html input2: "+string);
+            do{
+              tmpString = string.substring(argIndex+1,string.length());
+              P208_log ("tmpString: "+ tmpString);
+              semicolonpositionnext = tmpString.indexOf(';',semicolonposition+1); // 
+              P208_log ("Parameter: "+tmpString);
+              log = "semicolonpositionnext: ";
+              log += semicolonpositionnext;
+              P208_log (log);
+              if (semicolonpositionnext < 0){  // not found
+                semicolonpositionnext = tmpString.length();
+                semicolonfound = false;
+                P208_log ("semicolonpositionnext < 0");
               }
+              line_number_string = tmpString.charAt(semicolonposition+1);
+              line_number_int = line_number_string.toInt();  // row
+              line_content_soll = tmpString.substring(semicolonposition+3,semicolonpositionnext);  // contentsoll
+              
+              P208_log ("row/content: " +  line_number_string + "/"+ line_content_soll);
+              
+              if (line_number_int <= lcd_lines_max ){
+                char deviceTemplate [lcd_lines_max][Digits_per_template_line];
+                LoadCustomTaskSettings(event->TaskIndex, (byte*)&deviceTemplate, sizeof(deviceTemplate));
+                String linedefinition  = deviceTemplate[line_number_int-1];
+                if (linedefinition.length()>0){  // only if value is not defined in plugin-webform
+                  P208_log ("Unable to display text from html. Line in use by form-definition!");
+                }else{
+                  // clear Old content thats not overwritten bij istcontent
+                  line_content_ist = html_input[line_number_int-1];  
+                  if (line_content_soll.length() < line_content_ist.length() ) {
+                    for(int i=line_content_soll.length(); i < line_content_ist.length(); i++){
+                    line_content_soll += " ";
+                    }
+                  }
+                  P208_log("Display: " + line_content_soll);
+                  strncpy(html_input[line_number_int-1], line_content_soll.c_str(), sizeof(deviceTemplate[line_number_int-1]));
+                }
+              }
+              semicolonposition = semicolonpositionnext;
             }
+            while (semicolonfound);
           }
+		  
           if (tmpString.equalsIgnoreCase(F("PCD8544CMD"))){
             success = true;
-            argIndex = string.lastIndexOf(',');
-            tmpString = string.substring(argIndex + 1);
+            commaposition = string.lastIndexOf(',');
+            tmpString = string.substring(commaposition + 1);
             if (tmpString.equalsIgnoreCase(F("Clear"))){
               P208_log("Clear Display");
               lcd3->clearDisplay();
@@ -274,15 +304,18 @@ void setBacklight(struct EventStruct *event) {
   }
 }
 
-boolean P208_displayText(char deviceTemplate[][48], struct EventStruct *event ){ // 48 must be equal to "#define Digits_per_template_line"
-//boolean P208_displayText( char &deviceTemplate, struct EventStruct *event ){ // 48 must be equal to "#define Digits_per_template_line"
+
+boolean P208_displayText(struct EventStruct *event ){ // 48 must be equal to "#define Digits_per_template_line"
         String log = F("PCD8544: ");
         String logstring ;
         lcd3->clearDisplay();
         lcd3->setTextColor(BLACK);
         lcd3->setCursor(0,0);
 
-        for (byte x = 0; x < lcd_lines; x++)
+        char deviceTemplate[lcd_lines_max][Digits_per_template_line];
+        LoadCustomTaskSettings(event->TaskIndex, (byte*)&deviceTemplate, sizeof(deviceTemplate));
+
+        for (byte x = 0; x < lcd_lines_max; x++)
         {
           if (x <= 3){
             lcd3->setTextSize(PCONFIG(3+x));
