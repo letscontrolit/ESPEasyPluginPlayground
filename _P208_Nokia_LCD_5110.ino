@@ -2,13 +2,13 @@
 //################################## Plugin 208: NOKIA 5110 lcd #########################################
 //#######################################################################################################
 #include "_Plugin_Helper.h"
-#include<string> 
+
 #ifdef USES_P208
 
 // Working:
 // - support different digit-size's
 // - Display Text via:
-//   1.  ESPEasy-Webinterface (Line-1-Line-x)
+//   1.  ESPEasy-Webinterface (Line-1...Line-x)
 //   2.  http-request:
 //      - BackLight on  via httpcmd (http://ESP-IP/control?cmd=pcd8544cmd,blOn)
 //      - BackLight off via httpcmd (http://ESP-IP/control?cmd=pcd8544cmd,blOff)
