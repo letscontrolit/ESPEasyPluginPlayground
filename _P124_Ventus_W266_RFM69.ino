@@ -1,4 +1,6 @@
-#ifdef PLUGIN_BUILD_TESTING
+#include "_Plugin_Helper.h"
+
+#ifdef USES_P124
 
 // #######################################################################################################
 // ##################################### Plugin 124: Ventus W266 RFM69 ###################################
@@ -67,7 +69,7 @@
 
 #define PLUGIN_124
 #define PLUGIN_ID_124               124
-#define PLUGIN_NAME_124             "Ventus W266 RFM69 [TESTING]"
+#define PLUGIN_NAME_124             "Ventus W266 RFM69"
 #define PLUGIN_VALUENAME1_124       ""
 #define PLUGIN_VALUENAME2_124       ""
 #define PLUGIN_VALUENAME3_124       ""
@@ -1178,7 +1180,7 @@ boolean Plugin_124(uint8_t function, struct EventStruct *event, String& string)
       {
         Device[++deviceCount].Number = PLUGIN_ID_124;
         Device[deviceCount].Type = DEVICE_TYPE_DUMMY;
-        Device[deviceCount].VType = SENSOR_TYPE_TRIPLE;
+        Device[deviceCount].VType = Sensor_VType::SENSOR_TYPE_TRIPLE;
         Device[deviceCount].Ports = 0;
         Device[deviceCount].PullUpOption = false;
         Device[deviceCount].InverseLogicOption = false;
@@ -1358,7 +1360,7 @@ boolean Plugin_124(uint8_t function, struct EventStruct *event, String& string)
                 addLog(LOG_LEVEL_INFO, log);
               }
 #endif  // PLUGIN_124_DEBUG
-      
+
               // CRC correct and IDs match?
               if ((buffer[21] == calcCRC((uint8_t*)buffer, (PAYLOAD_SIZE - 1))) && (buffer[0] == Settings.TaskDevicePluginConfig[event->TaskIndex][1]))
               {
@@ -1375,21 +1377,10 @@ boolean Plugin_124(uint8_t function, struct EventStruct *event, String& string)
                 else
                   strikesDistance = buffer[17];                                             // km
                 strikesTotal = (buffer[20] << 8) + buffer[19];                              // count
-      
-                // Data plausibility check
-                if ((humidity <= 100) &&
-                    (temperature >= -20) && (temperature <= 60) &&
-                    (windDIR <= 360) &&
-                    (windAVG <= 30) &&
-                    (windGUST <= 30) &&
-                    (uv <= 15) &&
-                    (strikesDistance <= 30)
-                   )
-                {
-                  dataValid = true;
-                  dataPending = true;
-                  timeSlot = 0;
-                }
+
+                dataValid = true;
+                dataPending = true;
+                timeSlot = 0;
               }
             }
       
@@ -1443,7 +1434,7 @@ boolean Plugin_124(uint8_t function, struct EventStruct *event, String& string)
                   UserVar[event->BaseVarIndex] = temperature;
                   UserVar[event->BaseVarIndex + 1] = humidity;
                   UserVar[event->BaseVarIndex + 2] = 0;
-                  event->sensorType = SENSOR_TYPE_TRIPLE;
+                  event->sensorType = Sensor_VType::SENSOR_TYPE_TRIPLE;
                   sendData(event);
                 }
                 break;
@@ -1456,7 +1447,7 @@ boolean Plugin_124(uint8_t function, struct EventStruct *event, String& string)
                   UserVar[event->BaseVarIndex] = windDIR;
                   UserVar[event->BaseVarIndex + 1] = windAVG;
                   UserVar[event->BaseVarIndex + 2] = windGUST;
-                  event->sensorType = SENSOR_TYPE_TRIPLE;
+                  event->sensorType = Sensor_VType::SENSOR_TYPE_TRIPLE;
                   sendData(event);
                 }
                 break;
@@ -1469,7 +1460,7 @@ boolean Plugin_124(uint8_t function, struct EventStruct *event, String& string)
                   UserVar[event->BaseVarIndex] = rainTotal;
                   UserVar[event->BaseVarIndex + 1] = rainLevelPastHour;
                   UserVar[event->BaseVarIndex + 2] = 0;
-                  event->sensorType = SENSOR_TYPE_TRIPLE;
+                  event->sensorType = Sensor_VType::SENSOR_TYPE_TRIPLE;
                   sendData(event);
                 }
                 break;
@@ -1482,7 +1473,7 @@ boolean Plugin_124(uint8_t function, struct EventStruct *event, String& string)
                   UserVar[event->BaseVarIndex] = uv;
                   UserVar[event->BaseVarIndex + 1] = 0;
                   UserVar[event->BaseVarIndex + 2] = 0;
-                  event->sensorType = SENSOR_TYPE_TRIPLE;
+                  event->sensorType = Sensor_VType::SENSOR_TYPE_TRIPLE;
                   sendData(event);
                 }
                 break;
@@ -1495,7 +1486,7 @@ boolean Plugin_124(uint8_t function, struct EventStruct *event, String& string)
                   UserVar[event->BaseVarIndex] = strikesTotal;
                   UserVar[event->BaseVarIndex + 1] = strikesPast5minutes;
                   UserVar[event->BaseVarIndex + 2] = strikesDistance;
-                  event->sensorType = SENSOR_TYPE_TRIPLE;
+                  event->sensorType = Sensor_VType::SENSOR_TYPE_TRIPLE;
                   sendData(event);
                 }
                 break;
@@ -1508,7 +1499,7 @@ boolean Plugin_124(uint8_t function, struct EventStruct *event, String& string)
                   UserVar[event->BaseVarIndex] = batteryLow;
                   UserVar[event->BaseVarIndex + 1] = 0;
                   UserVar[event->BaseVarIndex + 2] = 0;
-                  event->sensorType = SENSOR_TYPE_TRIPLE;
+                  event->sensorType = Sensor_VType::SENSOR_TYPE_TRIPLE;
                   sendData(event);
                 }
                 break;
