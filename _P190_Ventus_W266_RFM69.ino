@@ -1189,7 +1189,7 @@ boolean Plugin_190(uint8_t function, struct EventStruct *event, String& string)
         Device[deviceCount].ValueCount = 3;
         Device[deviceCount].TimerOption = false;
         Device[deviceCount].TimerOptional = false;
-        Device[deviceCount].PluginStats = true;
+        Device[deviceCount].PluginStats = false;
         break;
       }
 
