@@ -2,6 +2,7 @@
 //#######################################################################################################
 //#################################### Plugin 127: Teleinfo #############################################
 //#######################################################################################################
+// 11/2023 : update code for working with last ESPeasy releases
 // march 2020 : gmella rewrite macgyver67 
 //                - replace its own teleinfo code using LibTeleinfo
 //                - enable use of any controllers instead of hardcoded jeedom using two values
@@ -29,6 +30,8 @@
 #define PLUGIN_VALUENAME2_HISTO_127 "BASE"
 
 #include <SoftwareSerial.h>
+#include <ESPeasySerial.h>
+#include <ESPEasySerialPort.h>
 #include <LibTeleinfo.h> // find modified copy info in P127_LibTeleinfo_Library/Readme.md
 
 TInfo          tinfo;                     // Teleinfo object 
@@ -46,7 +49,7 @@ boolean Plugin_127(byte function, struct EventStruct *event, String& string)
       {
         Device[++deviceCount].Number = PLUGIN_ID_127;
         Device[deviceCount].Type = DEVICE_TYPE_SINGLE;
-        Device[deviceCount].VType = SENSOR_TYPE_SINGLE;
+        Device[deviceCount].VType = Sensor_VType::SENSOR_TYPE_SINGLE;
         Device[deviceCount].Ports = 0;
         Device[deviceCount].PullUpOption = false;
         Device[deviceCount].InverseLogicOption = false;
@@ -55,6 +58,7 @@ boolean Plugin_127(byte function, struct EventStruct *event, String& string)
         Device[deviceCount].SendDataOption = true;
         Device[deviceCount].TimerOption = true;
         Device[deviceCount].GlobalSyncOption = true;
+        Device[deviceCount].PluginStats = true;
         break;
       }
 
@@ -82,7 +86,7 @@ boolean Plugin_127(byte function, struct EventStruct *event, String& string)
         // Init Serial
         const int16_t serial_rx = CONFIG_PIN1;
         const int16_t serial_tx = CONFIG_PIN2;        
-        P127_easySerial = new ESPeasySerial(serial_rx, serial_tx);
+        P127_easySerial = new ESPeasySerial(ESPEasySerialPort::not_set, serial_rx, serial_tx);
 
         String log = F("P127 : Init ");
         if (PCONFIG(0)){
@@ -113,7 +117,7 @@ boolean Plugin_127(byte function, struct EventStruct *event, String& string)
       {
         if ( ! Plugin_127_init ) break ;
 
-        event->sensorType = SENSOR_TYPE_DUAL;
+        event->sensorType = Sensor_VType::SENSOR_TYPE_DUAL;
         success = true;
         int value;
         char cvalue[TAILLE_MAX_VALUE]; 
