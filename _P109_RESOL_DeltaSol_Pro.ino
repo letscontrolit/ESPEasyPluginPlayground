@@ -1,15 +1,17 @@
-#ifdef PLUGIN_BUILD_TESTING
+#include "_Plugin_Helper.h"
+#ifdef USES_P109
 
 //#######################################################################################################
 //################################## Plugin 109 RESOL DeltaSol Pro ######################################
 //#######################################################################################################
 
-
-#include <ESPeasySoftwareSerial.h>
+//#include <ESPeasySoftwareSerial.h>
+#define ESP8266
+#include <Driver_ESPEasySoftwareSerial.h>
 
 #define PLUGIN_109
 #define PLUGIN_ID_109         109
-#define PLUGIN_NAME_109       "RESOL DeltaSol Pro [TESTING]"
+#define PLUGIN_NAME_109       "RESOL DeltaSol Pro"
 #define PLUGIN_VALUENAME1_109 "register"
 
 // uart rx-buffer size
@@ -30,11 +32,10 @@ boolean Plugin_109_init = false;
 boolean valuesValid = false;
 uint8_t RXbuf[RXBUF_SIZE];
 uint8_t RXbuf_IDX;
-int16_t T1, T2 ,T3;
+int16_t Temp1, Temp2 ,Temp3;
 uint8_t R1, R2;
 
-ESPeasySoftwareSerial *Plugin_109_UART;
-
+Driver_ESPEasySoftwareSerial_t *Plugin_109_UART;
 
 // RESOL CRC check
 uint8_t VBus_CalcCrc(uint8_t *buf, uint8_t len)
@@ -50,7 +51,7 @@ uint8_t VBus_CalcCrc(uint8_t *buf, uint8_t len)
 }
 
 
-boolean Plugin_109(byte function, struct EventStruct *event, String& string)
+boolean Plugin_109(uint8_t function, struct EventStruct *event, String& string)
 {
   boolean success = false;
   
@@ -60,7 +61,7 @@ boolean Plugin_109(byte function, struct EventStruct *event, String& string)
       {
         Device[++deviceCount].Number = PLUGIN_ID_109;
         Device[deviceCount].Type = DEVICE_TYPE_DUAL;
-        Device[deviceCount].VType = SENSOR_TYPE_SINGLE;
+        Device[deviceCount].VType = Sensor_VType::SENSOR_TYPE_SINGLE;
         Device[deviceCount].Ports = 0;
         Device[deviceCount].PullUpOption = false;
         Device[deviceCount].InverseLogicOption = false;
@@ -116,8 +117,7 @@ boolean Plugin_109(byte function, struct EventStruct *event, String& string)
       {
         addLog(LOG_LEVEL_INFO, (char*)"INIT : RESOL DeltaSol Pro");
         
-        Plugin_109_UART = new ESPeasySoftwareSerial(Settings.TaskDevicePin1[event->TaskIndex], Settings.TaskDevicePin2[event->TaskIndex], false, (2 * RXBUF_SIZE));    // set RX und Tx Pin number, no invert, buffer
-
+        Plugin_109_UART = new Driver_ESPEasySoftwareSerial_t(Settings.TaskDevicePin1[event->TaskIndex], Settings.TaskDevicePin2[event->TaskIndex], false, (2 * RXBUF_SIZE));    // set RX und Tx Pin number, no invert, buffer
         Plugin_109_init = true;
         
         success = true;
@@ -148,17 +148,17 @@ boolean Plugin_109(byte function, struct EventStruct *event, String& string)
               if ( (VBus_CalcCrc(&RXbuf[10], 5) == RXbuf[15]) && (VBus_CalcCrc(&RXbuf[16], 5) == RXbuf[21]) )
               {
                 // Temperature sensor 1
-                T1 = RXbuf[10] + ((RXbuf[14] & (1 << 0)) << 7);
-                T1 += (RXbuf[11] + ((RXbuf[14] & (1 << 1)) << 6)) << 8;
+                Temp1 = RXbuf[10] + ((RXbuf[14] & (1 << 0)) << 7);
+                Temp1 += (RXbuf[11] + ((RXbuf[14] & (1 << 1)) << 6)) << 8;
 
                 // Temperature sensor 2
-                T2 = RXbuf[12] + ((RXbuf[14] & (1 << 2)) << 5);
-                T2 += (RXbuf[13] + ((RXbuf[14] & (1 << 3)) << 4)) << 8;
+                Temp2 = RXbuf[12] + ((RXbuf[14] & (1 << 2)) << 5);
+                Temp2 += (RXbuf[13] + ((RXbuf[14] & (1 << 3)) << 4)) << 8;
 
                 
                 // Temperature sensor 3
-                T3 = RXbuf[16] + ((RXbuf[20] & (1 << 0)) << 7);
-                T3 += (RXbuf[17] + ((RXbuf[20] & (1 << 1)) << 6)) << 8;
+                Temp3 = RXbuf[16] + ((RXbuf[20] & (1 << 0)) << 7);
+                Temp3 += (RXbuf[17] + ((RXbuf[20] & (1 << 1)) << 6)) << 8;
                 
                 // Relais/speed
                 R1 = RXbuf[18] + ((RXbuf[20] & (1 << 2)) << 5);
@@ -189,21 +189,21 @@ boolean Plugin_109(byte function, struct EventStruct *event, String& string)
               case REG_TEMP_SENSOR_1:
                 {
                   log += F("T1");
-                  regValue = (float)T1 / 10;
+                  regValue = (float)Temp1 / 10;
                   break;
                 }
               
               case REG_TEMP_SENSOR_2:
                 {
                   log += F("T2");
-                  regValue = (float)T2 / 10;
+                  regValue = (float)Temp2 / 10;
                   break;
                 }
   
               case REG_TEMP_SENSOR_3:
                 {
                   log += F("T3");
-                  regValue = (float)T3 / 10;
+                  regValue = (float)Temp3 / 10;
                   break;
                 }
   
@@ -232,7 +232,7 @@ boolean Plugin_109(byte function, struct EventStruct *event, String& string)
           log += regValue;
           addLog(LOG_LEVEL_INFO, log);
           
-          UserVar[event->BaseVarIndex] = regValue;
+          UserVar.setFloat(event->TaskIndex, 0,  regValue);
           success = true;
           break;
         }
